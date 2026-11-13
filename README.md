@@ -37,6 +37,30 @@ You can run them from the Command Palette, or by right-clicking a file or folder
 
 The PDFs have syntax colours, line numbers, a header with the file name and a footer with the date and "Page X of Y". Long lines wrap onto the next row instead of being cut off. Combined PDFs get a bookmark for each file.
 
+### Export a file
+
+![Right-clicking shapes.cpp, choosing Export as PDF, then opening shapes.pdf](images/export-file.gif)
+
+### Asks before replacing a PDF
+
+![Exporting shapes.cpp again and choosing Replace when asked](images/overwrite.gif)
+
+### Export just the lines you select
+
+![Selecting lines 12 to 18 and exporting them as shapes-lines-12-18.pdf](images/export-selection.gif)
+
+### Long lines wrap, nothing gets cut off
+
+![Exporting long_lines.cpp, where long lines wrap onto the next row and symbols like π and → print as typed](images/long-lines.gif)
+
+### Combine several files into one PDF
+
+![Selecting four files, confirming the list and opening the combined PDF](images/export-multiple.gif)
+
+### Export a whole folder (skips build folders and hidden files)
+
+![Exporting the demo folder, where the file list shows build and the hidden file were skipped](images/export-folder.gif)
+
 Some details worth knowing:
 
 - Your source files are never changed.
@@ -49,6 +73,8 @@ Some details worth knowing:
 ## Settings
 
 Search for "CodePDF" in VS Code's Settings.
+
+![The 10 CodePDF settings in VS Code's Settings page](images/settings.gif)
 
 | Setting | Default | Options |
 |---|---|---|
