@@ -1,0 +1,168 @@
+/* CodePDF viewer: a slim toolbar in VS Code's theme colours above pdf.js pages. */
+
+:root {
+  --toolbar-height: 34px;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--vscode-editor-background);
+  color: var(--vscode-foreground);
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+}
+
+.toolbar {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: var(--toolbar-height);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 10px;
+  box-sizing: border-box;
+  background: var(--vscode-editor-background);
+  border-bottom: 1px solid var(--vscode-panel-border, transparent);
+  z-index: 10;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.search {
+  margin-left: auto;
+}
+
+.muted {
+  color: var(--vscode-descriptionForeground);
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: var(--vscode-input-foreground);
+}
+
+button.icon {
+  min-width: 24px;
+  height: 24px;
+  padding: 0 4px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--vscode-foreground);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+}
+
+button.icon:hover:not(:disabled) {
+  background: var(--vscode-toolbar-hoverBackground);
+}
+
+button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+input,
+select {
+  height: 24px;
+  box-sizing: border-box;
+  border: 1px solid var(--vscode-input-border, var(--vscode-dropdown-border, transparent));
+  border-radius: 2px;
+  background: var(--vscode-input-background);
+  padding: 0 6px;
+}
+
+select {
+  background: var(--vscode-dropdown-background);
+  color: var(--vscode-dropdown-foreground);
+}
+
+#pageNumber {
+  width: 52px;
+  text-align: right;
+}
+
+#findInput {
+  width: 180px;
+}
+
+button:focus-visible,
+input:focus,
+select:focus,
+#viewerContainer:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+}
+
+#viewerContainer {
+  position: absolute;
+  inset: var(--toolbar-height) 0 0 0;
+  overflow: auto;
+  outline: none;
+}
+
+/* Pages: white paper with a subtle edge, centred, like pdf.js's own viewer. */
+.pdfViewer .page {
+  border: none;
+  margin: 12px auto;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+.message {
+  position: absolute;
+  top: calc(var(--toolbar-height) + 24px);
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: min(520px, 90%);
+  padding: 14px 18px;
+  border-radius: 4px;
+  background: var(--vscode-editorWidget-background);
+  border: 1px solid var(--vscode-editorWidget-border, var(--vscode-panel-border, transparent));
+  box-shadow: 0 2px 8px var(--vscode-widget-shadow, rgba(0, 0, 0, 0.3));
+  z-index: 20;
+  line-height: 1.5;
+}
+
+.message.error {
+  border-left: 3px solid var(--vscode-errorForeground);
+}
+
+.message p {
+  margin: 0 0 8px 0;
+}
+
+#passwordInput {
+  width: 220px;
+  margin-right: 6px;
+}
+
+#passwordSubmit {
+  height: 24px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 2px;
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  cursor: pointer;
+}
+
+#passwordSubmit:hover {
+  background: var(--vscode-button-hoverBackground);
+}
+
+[hidden] {
+  display: none !important;
+}

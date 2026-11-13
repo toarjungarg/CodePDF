@@ -3,11 +3,179 @@
   "displayName": "CodePDF",
   "description": "View PDFs inside VS Code and export C++ files as clean, printable PDFs. Everything runs locally.",
   "version": "0.0.1",
+  "publisher": "toarjungarg",
   "private": true,
   "engines": {
     "vscode": "^1.140.0"
   },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "pdf",
+    "c++",
+    "cpp",
+    "print",
+    "export"
+  ],
+  "main": "./out/src/extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "commands": [
+      {
+        "command": "codepdf.exportFile",
+        "title": "Export as PDF",
+        "category": "CodePDF"
+      },
+      {
+        "command": "codepdf.exportSelection",
+        "title": "Export Selection as PDF",
+        "category": "CodePDF"
+      },
+      {
+        "command": "codepdf.exportMultiple",
+        "title": "Export Multiple Files",
+        "category": "CodePDF"
+      },
+      {
+        "command": "codepdf.exportFolder",
+        "title": "Export Folder as PDF",
+        "category": "CodePDF"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "codepdf.exportFile",
+          "when": "!explorerResourceIsFolder && resourceExtname =~ /^\\.(cpp|cc|cxx|h|hpp|hh|hxx)$/i",
+          "group": "7_codepdf@1"
+        },
+        {
+          "command": "codepdf.exportMultiple",
+          "when": "listMultiSelection && !explorerResourceIsFolder && resourceExtname =~ /^\\.(cpp|cc|cxx|h|hpp|hh|hxx)$/i",
+          "group": "7_codepdf@2"
+        },
+        {
+          "command": "codepdf.exportFolder",
+          "when": "explorerResourceIsFolder",
+          "group": "7_codepdf@3"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "codepdf.exportSelection",
+          "when": "editorHasSelection && resourceExtname =~ /^\\.(cpp|cc|cxx|h|hpp|hh|hxx)$/i",
+          "group": "7_codepdf@1"
+        },
+        {
+          "command": "codepdf.exportFile",
+          "when": "resourceExtname =~ /^\\.(cpp|cc|cxx|h|hpp|hh|hxx)$/i",
+          "group": "7_codepdf@2"
+        }
+      ],
+      "editor/title/context": [
+        {
+          "command": "codepdf.exportFile",
+          "when": "resourceExtname =~ /^\\.(cpp|cc|cxx|h|hpp|hh|hxx)$/i",
+          "group": "7_codepdf@1"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "codepdf.exportSelection",
+          "when": "editorHasSelection"
+        }
+      ]
+    },
+    "customEditors": [
+      {
+        "viewType": "codepdf.pdfViewer",
+        "displayName": "CodePDF Viewer",
+        "selector": [
+          {
+            "filenamePattern": "*.pdf"
+          }
+        ],
+        "priority": "default"
+      }
+    ],
+    "configuration": {
+      "title": "CodePDF",
+      "properties": {
+        "codepdf.paperSize": {
+          "type": "string",
+          "enum": [
+            "Letter",
+            "A4"
+          ],
+          "default": "Letter",
+          "description": "Paper size for exported PDFs."
+        },
+        "codepdf.orientation": {
+          "type": "string",
+          "enum": [
+            "portrait",
+            "landscape"
+          ],
+          "default": "portrait",
+          "description": "Page orientation for exported PDFs."
+        },
+        "codepdf.fontSize": {
+          "type": "number",
+          "default": 10,
+          "minimum": 6,
+          "maximum": 16,
+          "description": "Code font size in points."
+        },
+        "codepdf.margins": {
+          "type": "number",
+          "default": 0.75,
+          "minimum": 0.25,
+          "maximum": 2,
+          "description": "Page margins in inches (the same on all four sides)."
+        },
+        "codepdf.lineNumbers": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show line numbers."
+        },
+        "codepdf.syntaxHighlighting": {
+          "type": "boolean",
+          "default": true,
+          "description": "Colour keywords, strings, comments and numbers."
+        },
+        "codepdf.header": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the file name at the top of each page."
+        },
+        "codepdf.footer": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a footer line at the bottom of each page."
+        },
+        "codepdf.pageNumbers": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show \"Page X of Y\" in the footer."
+        },
+        "codepdf.lineWrapping": {
+          "type": "boolean",
+          "default": true,
+          "description": "Wrap long lines onto the next row. When off, long lines are cut at the margin and marked with an arrow."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "node scripts/copy-pdfjs.mjs && tsc -p ./tsconfig.json && tsc -p ./tsconfig.webview.json",
+    "test": "npm run compile && node --test out/test/*.test.js",
+    "test:vscode": "npm run compile && node scripts/test-vscode.mjs",
+    "vscode:prepublish": "npm run compile",
+    "package": "vsce package"
+  },
   "dependencies": {
+    "fontkit": "2.0.4",
     "pdfjs-dist": "6.4.299",
     "pdfkit": "0.20.2"
   },
