@@ -1,9 +1,9 @@
 // Runs test/vscode/suite.ts inside the VS Code app already installed on this
 // Mac, using a separate throwaway profile in workspace/vscode-test/ so your
 // normal settings and extensions are never touched. Nothing is downloaded.
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { createRequire } from "node:module";
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -12,7 +12,10 @@ const require = createRequire(import.meta.url);
 const base = join(root, "workspace", "vscode-test");
 const project = join(base, "project");
 const userData = join(base, "user-data");
-const extensionsDir = join(base, "extensions");
+// With --packaged, the built .vsix is installed into the test profile and
+// checked, instead of running the development copy.
+const packaged = process.argv.includes("--packaged");
+const extensionsDir = join(base, packaged ? "extensions-packaged" : "extensions");
 const fixtures = join(root, "test", "fixtures");
 // VS Code's main program. (Its `code` helper script returns straight away, so
 // the tests couldn't be waited for; the main program stays attached.)
@@ -108,13 +111,40 @@ writeFileSync(
 );
 
 // 4. Launch VS Code with CodePDF in development mode and run the suite.
+let developmentPath = root;
+let testsPath = join(root, "out", "test", "vscode", "suite.js");
+if (packaged) {
+  const vsix = readdirSync(root).filter((name) => name.endsWith(".vsix")).sort().pop();
+  if (!vsix) {
+    console.error("No .vsix file found. Run `npm run package` first.");
+    process.exit(1);
+  }
+  // Install the .vsix into the throwaway profile only (never your real VS Code).
+  rmSync(extensionsDir, { recursive: true, force: true });
+  mkdirSync(extensionsDir, { recursive: true });
+  const cli = join(dirname(dirname(codeCli)), "Resources", "app", "bin", "code");
+  execFileSync(cli, [
+    "--install-extension", join(root, vsix), "--force",
+    `--extensions-dir=${extensionsDir}`, `--user-data-dir=${userData}`,
+  ], { stdio: "inherit" });
+  // VS Code only runs a test script alongside a development extension, so give
+  // it an empty one; CodePDF itself comes from the installed .vsix.
+  developmentPath = join(base, "empty-extension");
+  mkdirSync(developmentPath, { recursive: true });
+  writeFileSync(
+    join(developmentPath, "package.json"),
+    JSON.stringify({ name: "empty", publisher: "test", version: "0.0.1", engines: { vscode: "*" } }),
+  );
+  testsPath = join(root, "out", "test", "vscode", "smoke.js");
+}
+
 const args = [
   project,
-  `--extensionDevelopmentPath=${root}`,
-  `--extensionTestsPath=${join(root, "out", "test", "vscode", "suite.js")}`,
+  `--extensionDevelopmentPath=${developmentPath}`,
+  `--extensionTestsPath=${testsPath}`,
   `--user-data-dir=${userData}`,
   `--extensions-dir=${extensionsDir}`,
-  "--disable-extensions",
+  ...(packaged ? [] : ["--disable-extensions"]),
   "--disable-workspace-trust",
   "--disable-telemetry",
   "--disable-updates",

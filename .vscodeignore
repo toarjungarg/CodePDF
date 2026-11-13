@@ -1,0 +1,13 @@
+# Ignore everything, then allow only what the extension needs at runtime.
+**
+
+!package.json
+!README.md
+!LICENSE
+!out/src/**/*.js
+!out/webview/**/*.js
+!media/**
+!node_modules/**
+
+# pdf.js ships as the trimmed copy in media/pdfjs, not from node_modules.
+node_modules/pdfjs-dist/**

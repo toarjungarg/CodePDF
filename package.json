@@ -4,7 +4,13 @@
   "description": "View PDFs inside VS Code and export C++ files as clean, printable PDFs. Everything runs locally.",
   "version": "0.0.1",
   "publisher": "toarjungarg",
+  "icon": "media/icon.png",
   "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/toarjungarg/CodePDF.git"
+  },
   "engines": {
     "vscode": "^1.140.0"
   },
@@ -186,12 +192,12 @@
   },
   "dependencies": {
     "fontkit": "2.0.4",
-    "pdfjs-dist": "6.4.299",
     "pdfkit": "0.20.2"
   },
   "devDependencies": {
     "@types/vscode": "1.140.0",
     "@vscode/vsce": "4.1.0",
+    "pdfjs-dist": "6.4.299",
     "typescript": "6.0.3"
   }
 }
