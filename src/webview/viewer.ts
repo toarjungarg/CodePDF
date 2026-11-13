@@ -19,7 +19,7 @@ type Action =
   | { action: "find"; query: string; previous?: boolean };
 
 type ToViewer =
-  | { type: "load"; data: Uint8Array; reload: boolean }
+  | { type: "load"; data: unknown; reload: boolean }
   | { type: "error"; message: string }
   | ({ type: "action" } & Action);
 
@@ -124,21 +124,75 @@ function describeLoadError(error: unknown): string {
   }
 }
 
+/** Sends a diagnostic line to the extension's "CodePDF" log (Output panel). */
+function log(level: "info" | "warn" | "error", message: string): void {
+  vscode.postMessage({ type: "log", level, message });
+}
+
+/**
+ * Starts pdf.js's background worker. Webviews can't start workers from
+ * extension files directly, so the worker's code is loaded and started from an
+ * in-memory copy. The worker says "ready" when it's up; if that doesn't happen
+ * (or it errors), pdf.js runs inside this page instead: slower, but it works.
+ */
 async function setUpWorker(pdfjsLib: typeof PdfJsLib): Promise<void> {
+  let worker: Worker | undefined;
   try {
-    // Webviews can't start workers from extension files directly, so load the
-    // worker's code and start it from an in-memory copy instead.
     const response = await fetch(config.worker);
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+      throw new Error(`HTTP ${response.status} loading the worker code`);
     }
     const code = await response.text();
     const url = URL.createObjectURL(new Blob([code], { type: "text/javascript" }));
-    pdfjsLib.GlobalWorkerOptions.workerPort = new Worker(url, { type: "module" });
-  } catch {
-    // Fall back to pdf.js running in this page (slower, but works).
+    const started = new Worker(url, { type: "module" });
+    worker = started;
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("the worker didn't answer within 4 seconds")), 4000);
+      started.addEventListener(
+        "message",
+        () => {
+          clearTimeout(timer);
+          resolve();
+        },
+        { once: true },
+      );
+      started.addEventListener(
+        "error",
+        (event) => {
+          clearTimeout(timer);
+          reject(new Error(event.message || "the worker failed to start"));
+        },
+        { once: true },
+      );
+    });
+    pdfjsLib.GlobalWorkerOptions.workerPort = started;
+    log("info", "pdf.js worker started.");
+  } catch (error) {
+    worker?.terminate();
     pdfjsLib.GlobalWorkerOptions.workerSrc = config.worker;
+    log("warn", `Background worker unavailable (${error instanceof Error ? error.message : String(error)}); running pdf.js in the page instead.`);
   }
+}
+
+/** The PDF's bytes as a Uint8Array, whatever shape the message delivered them in. */
+function toBytes(data: unknown): Uint8Array {
+  if (data instanceof Uint8Array) {
+    return data;
+  }
+  if (data instanceof ArrayBuffer) {
+    return new Uint8Array(data);
+  }
+  if (ArrayBuffer.isView(data)) {
+    return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+  }
+  if (data && typeof data === "object") {
+    const inner = (data as { data?: unknown }).data;
+    if (Array.isArray(inner)) {
+      return Uint8Array.from(inner as number[]);
+    }
+    return Uint8Array.from(Object.values(data as Record<string, number>));
+  }
+  throw new Error("The PDF's contents didn't arrive in a readable form.");
 }
 
 async function main(): Promise<void> {
@@ -261,7 +315,7 @@ async function main(): Promise<void> {
     }
   };
 
-  async function load(data: Uint8Array, reload: boolean): Promise<void> {
+  async function load(data: unknown, reload: boolean): Promise<void> {
     hideMessages();
     const remembered = saved();
     pendingPage = reload && pdfViewer.pagesCount ? pdfViewer.currentPageNumber : remembered.page;
@@ -271,19 +325,34 @@ async function main(): Promise<void> {
     }
     report({ status: "loading" });
 
-    const params: Record<string, unknown> = {
-      data,
-      cMapUrl: config.cmaps,
-      cMapPacked: true,
-      standardFontDataUrl: config.standardFonts,
-      wasmUrl: config.wasm,
-      iccUrl: config.iccs,
-      useWasm: false,
-      isEvalSupported: false,
-      enableXfa: false,
-      verbosity: 0,
+    const fail = (error: unknown): void => {
+      const detail = describeLoadError(error);
+      pdfViewer.setDocument(null as unknown as PdfJsLib.PDFDocumentProxy);
+      pageCount.textContent = "/ 0";
+      showMessage("CodePDF can't open this PDF.", detail);
+      report({ status: "error", pagesCount: 0, error: detail });
+      log("error", `Couldn't open the PDF: ${error instanceof Error ? `${error.name}: ${error.message}` : String(error)}`);
     };
-    const task = pdfjsLib.getDocument(params as Parameters<typeof pdfjsLib.getDocument>[0]);
+
+    let task: PdfJsLib.PDFDocumentLoadingTask;
+    try {
+      const params: Record<string, unknown> = {
+        data: toBytes(data),
+        cMapUrl: config.cmaps,
+        cMapPacked: true,
+        standardFontDataUrl: config.standardFonts,
+        wasmUrl: config.wasm,
+        iccUrl: config.iccs,
+        useWasm: false,
+        isEvalSupported: false,
+        enableXfa: false,
+        verbosity: 0,
+      };
+      task = pdfjsLib.getDocument(params as Parameters<typeof pdfjsLib.getDocument>[0]);
+    } catch (error) {
+      fail(error);
+      return;
+    }
     loadingTask = task;
     task.onPassword = (supply: (password: string) => void, reason: number) => {
       const wrong = reason === pdfjsLib.PasswordResponses.INCORRECT_PASSWORD;
@@ -323,11 +392,7 @@ async function main(): Promise<void> {
       if (task !== loadingTask) {
         return;
       }
-      const detail = describeLoadError(error);
-      pdfViewer.setDocument(null as unknown as PdfJsLib.PDFDocumentProxy);
-      pageCount.textContent = "/ 0";
-      showMessage("CodePDF can't open this PDF.", detail);
-      report({ status: "error", pagesCount: 0, error: detail });
+      fail(error);
     }
   }
 
@@ -443,6 +508,18 @@ async function main(): Promise<void> {
 
   vscode.postMessage({ type: "ready" });
 }
+
+// Report anything that goes wrong in the page to the extension's log.
+window.addEventListener("error", (event) => {
+  log("error", `Script error: ${event.message} (${event.filename?.split("/").pop() ?? "?"}:${event.lineno})`);
+});
+window.addEventListener("unhandledrejection", (event) => {
+  const reason: unknown = event.reason;
+  log("error", `Unhandled error: ${reason instanceof Error ? `${reason.name}: ${reason.message}` : String(reason)}`);
+});
+document.addEventListener("securitypolicyviolation", (event) => {
+  log("warn", `Blocked by the security policy: ${event.violatedDirective} for ${event.blockedURI || "inline content"}`);
+});
 
 main().catch((error: unknown) => {
   const detail = error instanceof Error ? error.message : String(error);

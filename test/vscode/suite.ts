@@ -76,9 +76,16 @@ export async function run(): Promise<void> {
     sourcesBefore.set(name, await bytesOf(file(...name.split("/"))));
   }
 
+  const saveResults = async (): Promise<void> => {
+    await vscode.workspace.fs.writeFile(resultsFile, new TextEncoder().encode(JSON.stringify(results, null, 2)));
+  };
+
   const test = async (name: string, body: () => Promise<string | void>): Promise<void> => {
     try {
-      const detail = (await body()) ?? "";
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("the test took longer than 60 seconds")), 60000),
+      );
+      const detail = (await Promise.race([body(), timeout])) ?? "";
       results.push({ name, ok: true, detail });
       console.log(`PASS  ${name}${detail ? ` (${detail})` : ""}`);
     } catch (error) {
@@ -86,6 +93,7 @@ export async function run(): Promise<void> {
       results.push({ name, ok: false, detail });
       console.log(`FAIL  ${name}: ${detail}`);
     }
+    await saveResults();
   };
 
   // --- Viewer ------------------------------------------------------------------
@@ -204,18 +212,21 @@ export async function run(): Promise<void> {
   });
 
   await test("export: comments/strings, Unicode and long-line files", async () => {
-    for (const name of ["comments_strings", "unicode", "long_lines"]) {
+    // Search each PDF right after opening it: VS Code shuts down a viewer tab once it's hidden.
+    const searches: Record<string, string> = {
+      comments_strings: "not a comment",
+      unicode: "中文注释",
+      long_lines: "MARKER_STRING_END",
+    };
+    for (const [name, query] of Object.entries(searches)) {
       await vscode.commands.executeCommand("codepdf.exportFile", file(`${name}.cpp`));
-      const state = await openPdf(file(`${name}.pdf`));
+      const pdf = file(`${name}.pdf`);
+      const state = await openPdf(pdf);
       check(state.status === "loaded", `${name}.pdf didn't open`);
+      await viewer.sendAction(pdf, { action: "find", query });
+      await viewer.waitForState(pdf, (s) => (s.findMatches?.total ?? 0) > 0);
     }
-    const unicode = file("unicode.pdf");
-    await viewer.sendAction(unicode, { action: "find", query: "中文注释" });
-    await viewer.waitForState(unicode, (s) => (s.findMatches?.total ?? 0) > 0);
-    const longLines = file("long_lines.pdf");
-    await viewer.sendAction(longLines, { action: "find", query: "MARKER_STRING_END" });
-    await viewer.waitForState(longLines, (s) => (s.findMatches?.total ?? 0) > 0);
-    return "all three open; Chinese text and the end of the long line are searchable";
+    return "all three open; string text, Chinese text and the end of the long line are searchable";
   });
 
   await closeAll();
@@ -292,7 +303,7 @@ export async function run(): Promise<void> {
   });
 
   await closeAll();
-  await vscode.workspace.fs.writeFile(resultsFile, new TextEncoder().encode(JSON.stringify(results, null, 2)));
+  await saveResults();
   const failed = results.filter((r) => !r.ok).length;
   console.log(`\n${results.length - failed} passed, ${failed} failed`);
   if (failed > 0) {

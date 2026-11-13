@@ -29,7 +29,8 @@ export type ViewerAction =
 type FromWebview =
   | { type: "ready" }
   | { type: "state"; state: ViewerState }
-  | { type: "openLink"; url: string };
+  | { type: "openLink"; url: string }
+  | { type: "log"; level: "info" | "warn" | "error"; message: string };
 
 class PdfDocument implements vscode.CustomDocument {
   constructor(readonly uri: vscode.Uri) {}
@@ -50,11 +51,16 @@ export class PdfEditorProvider implements vscode.CustomReadonlyEditorProvider<Pd
   private readonly panels = new Map<string, Set<vscode.WebviewPanel>>();
   private readonly stateListeners = new Set<() => void>();
 
-  constructor(private readonly extensionUri: vscode.Uri) {}
+  constructor(
+    private readonly extensionUri: vscode.Uri,
+    private readonly log: vscode.LogOutputChannel,
+  ) {}
 
   static register(context: vscode.ExtensionContext): PdfEditorProvider {
-    const provider = new PdfEditorProvider(context.extensionUri);
+    const log = vscode.window.createOutputChannel("CodePDF", { log: true });
+    const provider = new PdfEditorProvider(context.extensionUri, log);
     context.subscriptions.push(
+      log,
       vscode.window.registerCustomEditorProvider(PdfEditorProvider.viewType, provider, {
         supportsMultipleEditorsPerDocument: true,
         webviewOptions: { retainContextWhenHidden: false },
@@ -134,6 +140,17 @@ export class PdfEditorProvider implements vscode.CustomReadonlyEditorProvider<Pd
           case "openLink":
             void this.openLink(message.url);
             break;
+          case "log": {
+            const line = `[viewer] ${String(message.message).slice(0, 2000)}`;
+            if (message.level === "error") {
+              this.log.error(line);
+            } else if (message.level === "warn") {
+              this.log.warn(line);
+            } else {
+              this.log.info(line);
+            }
+            break;
+          }
         }
       }),
     ];

@@ -14,17 +14,19 @@ const project = join(base, "project");
 const userData = join(base, "user-data");
 const extensionsDir = join(base, "extensions");
 const fixtures = join(root, "test", "fixtures");
-const codeCli =
-  process.env.VSCODE_CLI ?? "/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code";
+// VS Code's main program. (Its `code` helper script returns straight away, so
+// the tests couldn't be waited for; the main program stays attached.)
+const codeCli = process.env.VSCODE_BINARY ?? "/Applications/Visual Studio Code.app/Contents/MacOS/Code";
 
 if (!existsSync(codeCli)) {
-  console.error(`VS Code's command-line launcher wasn't found at:\n  ${codeCli}\nSet VSCODE_CLI to its path.`);
+  console.error(`VS Code wasn't found at:\n  ${codeCli}\nSet VSCODE_BINARY to the path of its main program.`);
   process.exit(1);
 }
 
 // 1. A fresh test project.
 rmSync(project, { recursive: true, force: true });
 rmSync(join(base, "results.json"), { force: true });
+rmSync(join(userData, "logs"), { recursive: true, force: true });
 const put = (path, data) => {
   const full = join(project, path);
   mkdirSync(dirname(full), { recursive: true });

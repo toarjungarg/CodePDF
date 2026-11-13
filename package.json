@@ -104,6 +104,7 @@
       "properties": {
         "codepdf.paperSize": {
           "type": "string",
+          "scope": "resource",
           "enum": [
             "Letter",
             "A4"
@@ -113,6 +114,7 @@
         },
         "codepdf.orientation": {
           "type": "string",
+          "scope": "resource",
           "enum": [
             "portrait",
             "landscape"
@@ -122,6 +124,7 @@
         },
         "codepdf.fontSize": {
           "type": "number",
+          "scope": "resource",
           "default": 10,
           "minimum": 6,
           "maximum": 16,
@@ -129,6 +132,7 @@
         },
         "codepdf.margins": {
           "type": "number",
+          "scope": "resource",
           "default": 0.75,
           "minimum": 0.25,
           "maximum": 2,
@@ -136,31 +140,37 @@
         },
         "codepdf.lineNumbers": {
           "type": "boolean",
+          "scope": "resource",
           "default": true,
           "description": "Show line numbers."
         },
         "codepdf.syntaxHighlighting": {
           "type": "boolean",
+          "scope": "resource",
           "default": true,
           "description": "Colour keywords, strings, comments and numbers."
         },
         "codepdf.header": {
           "type": "boolean",
+          "scope": "resource",
           "default": true,
           "description": "Show the file name at the top of each page."
         },
         "codepdf.footer": {
           "type": "boolean",
+          "scope": "resource",
           "default": true,
           "description": "Show a footer line at the bottom of each page."
         },
         "codepdf.pageNumbers": {
           "type": "boolean",
+          "scope": "resource",
           "default": true,
           "description": "Show \"Page X of Y\" in the footer."
         },
         "codepdf.lineWrapping": {
           "type": "boolean",
+          "scope": "resource",
           "default": true,
           "description": "Wrap long lines onto the next row. When off, long lines are cut at the margin and marked with an arrow."
         }
