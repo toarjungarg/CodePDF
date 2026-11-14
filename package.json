@@ -2,7 +2,7 @@
   "name": "codepdf",
   "displayName": "CodePDF",
   "description": "View PDFs inside VS Code and export C++ files as clean, printable PDFs. Everything runs locally.",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "publisher": "toarjungarg",
   "icon": "media/icon.png",
   "private": true,
