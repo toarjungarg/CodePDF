@@ -3,7 +3,7 @@
 A VS Code extension that does two things:
 
 1. Opens PDF files in a VS Code tab.
-2. Exports C++ files as clean, printable PDFs.
+2. Exports C and C++ files as clean, printable PDFs.
 
 I built it for my own assignments. I wanted to read the assignment PDF next to my code, and then turn my `.cpp` files into PDFs I could upload, without leaving VS Code.
 
@@ -22,16 +22,21 @@ Open any `.pdf` file in VS Code and it shows up in a tab.
 
 Links inside a PDF never open by themselves. CodePDF asks first, and only opens web and email links.
 
-## Exporting C++ to PDF
+## Exporting C and C++ to PDF
 
-Supported files: `.cpp`, `.cc`, `.cxx`, `.h`, `.hpp`, `.hh`, `.hxx`
+Supported files:
+
+- C: `.c`
+- C++: `.cpp`, `.cc`, `.cxx`, `.h`, `.hpp`, `.hh`, `.hxx`
+
+`.h` files are coloured as C++, which also works for C headers.
 
 | Command | What it does |
 |---|---|
 | CodePDF: Export as PDF | Exports one file. `main.cpp` becomes `main.pdf` in the same folder. |
 | CodePDF: Export Selection as PDF | Exports only the lines you highlighted, with their real line numbers. |
 | CodePDF: Export Multiple Files | Combines the files you pick into one PDF. Each file starts on a new page. |
-| CodePDF: Export Folder as PDF | Combines every C++ file in a folder into one PDF. |
+| CodePDF: Export Folder as PDF | Combines every C and C++ file in a folder into one PDF. |
 
 You can run them from the Command Palette, or by right-clicking a file or folder in the Explorer, or by right-clicking in the editor.
 
@@ -60,6 +65,8 @@ The PDFs have syntax colours, line numbers, a header with the file name and a fo
 ### Export a whole folder (skips build folders and hidden files)
 
 ![Exporting the demo folder, where the file list shows build and the hidden file were skipped](images/export-folder.gif)
+
+The demos show C++ files, but everything works the same way for C.
 
 Some details worth knowing:
 
@@ -121,7 +128,7 @@ Used only for building and testing, never shipped:
 | [@types/vscode](https://www.npmjs.com/package/@types/vscode) | 1.140.0 | Type descriptions for the VS Code API. |
 | [@vscode/vsce](https://www.npmjs.com/package/@vscode/vsce) | 4.1.0 | Packages the extension into a `.vsix` file. |
 
-The C++ syntax colouring is written from scratch in `src/export/cppTokenizer.ts`, so there is no highlighting library.
+The C and C++ syntax colouring is written from scratch in `src/export/cFamilyTokenizer.ts`, so there is no highlighting library.
 
 Install scripts are turned off for this project (`.npmrc`), and optional binary packages are not installed.
 
@@ -129,7 +136,8 @@ Known issue: `npm audit` reports one moderate issue in `minimatch` 10.2.6, which
 
 ## Limitations
 
-- Syntax colouring is for C++ only, and it is pattern-based rather than a full parser, so unusual macros can be coloured slightly wrong. The text itself is always exact.
+- Syntax colouring is for C and C++ only, and it is pattern-based rather than a full parser, so unusual macros can be coloured slightly wrong. The text itself is always exact.
+- Since `.h` files are coloured as C++, a C header that uses a C++ word like `new` or `class` as a name shows that word coloured as a keyword.
 - Emoji are not supported in exported PDFs.
 - Characters your editor font does not have (for example Chinese, Japanese or Korean) are filled in from a system font. This is tested on macOS. On Windows and Linux the font lookup is written but not tested yet.
 - The viewer is read-only. It cannot edit, annotate, fill in forms or print.

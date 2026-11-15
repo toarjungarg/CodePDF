@@ -3,7 +3,9 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { tokenizeCpp, type TokenKind, type TokenLine } from "../src/export/cppTokenizer";
+import { tokenizeCFamily } from "../src/export/cFamilyTokenizer";
+import type { TokenKind, TokenLine } from "../src/export/tokens";
+import { languageForFile, languageForVscodeId, LANGUAGE_NAMES } from "../src/export/languages";
 import { columnWidth, expandLine, layoutLine } from "../src/export/layout";
 import { DEFAULT_OPTIONS, normalizeOptions, pageSize } from "../src/export/options";
 import { parseFontFamilyList, resolveFonts } from "../src/export/fonts";
@@ -24,12 +26,20 @@ const kindOf = (lines: TokenLine[], text: string): TokenKind | undefined => {
   }
   return undefined;
 };
+const tokenizeCpp = (source: string): TokenLine[] => tokenizeCFamily(source, "cpp");
+const tokenizeC = (source: string): TokenLine[] => tokenizeCFamily(source, "c");
+/** Kind of the first token containing `word` as a whole word (plain neighbours get merged into one token). */
+const kindOfWord = (lines: TokenLine[], word: string): TokenKind | undefined => {
+  const pattern = new RegExp(`(^|[^\\w$])${word.replace(/[$]/g, "\\$")}($|[^\\w$])`);
+  return lines.flat().find((token) => pattern.test(token.text))?.kind;
+};
 
 test("tokenizer: joining tokens gives back every fixture exactly", () => {
-  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp"]) {
+  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c"]) {
     const source = fixture(name).replace(/\r\n?/g, "\n");
-    const lines = tokenizeCpp(source);
-    assert.equal(lines.map(joinLine).join("\n"), source, `${name} changed during tokenizing`);
+    for (const lines of [tokenizeCpp(source), tokenizeC(source)]) {
+      assert.equal(lines.map(joinLine).join("\n"), source, `${name} changed during tokenizing`);
+    }
   }
 });
 
@@ -62,6 +72,53 @@ test("tokenizer: unterminated strings and comments don't swallow or lose text", 
   assert.equal(lines.map(joinLine).join("\n"), source);
   assert.equal(kindOf(lines, "int"), "keyword", "an unclosed string stops at the end of its line");
   assert.equal(kindOf(lines, "still comment"), "comment");
+});
+
+test("tokenizer: C uses C's keywords, and C++-only words stay plain", () => {
+  const c = tokenizeC(fixture("basic.c"));
+  assert.equal(kindOf(c, "<stdio.h>"), "string");
+  assert.equal(kindOf(c, '"list.h"'), "string");
+  assert.equal(kindOf(c, "#define"), "preprocessor");
+  assert.equal(kindOf(c, "/* A tiny linked list"), "comment");
+  assert.equal(kindOfWord(c, "typedef"), "keyword");
+  assert.equal(kindOfWord(c, "struct"), "keyword");
+  assert.equal(kindOfWord(c, "_Bool"), "keyword");
+  assert.equal(kindOfWord(c, "_Generic"), "keyword");
+  assert.equal(kindOfWord(c, "restrict"), "keyword");
+  assert.equal(kindOfWord(c, "size_t"), "type");
+  assert.equal(kindOfWord(c, "new"), "plain", "new is an ordinary name in C");
+  assert.equal(kindOfWord(c, "class"), "plain", "class is an ordinary name in C");
+  assert.equal(kindOf(c, "0x10"), "number");
+  assert.equal(kindOf(c, "1e-3"), "number");
+
+  // The same words in C++ are keywords.
+  const cpp = tokenizeCpp("class Box { Box* make() { return new Box; } };");
+  assert.equal(kindOfWord(cpp, "class"), "keyword");
+  assert.equal(kindOfWord(cpp, "new"), "keyword");
+  assert.equal(kindOfWord(tokenizeCpp("restrict"), "restrict"), "plain", "restrict isn't a C++ keyword");
+
+  // wchar_t is a keyword in C++ but a header type in C.
+  assert.equal(kindOfWord(tokenizeCpp("wchar_t w;"), "wchar_t"), "keyword");
+  assert.equal(kindOfWord(tokenizeC("wchar_t w;"), "wchar_t"), "type");
+
+  // C has no raw strings: R"(...)" is the name R followed by an ordinary string.
+  const raw = 'const char *s = R"(one\ntwo)";';
+  assert.equal(kindOf(tokenizeCpp(raw), "two)"), "string", "C++ raw strings continue across lines");
+  assert.notEqual(kindOf(tokenizeC(raw), "two)"), "string", "in C the string ends at the line break");
+});
+
+test("languages: picked by extension or VS Code language id, with .h treated as C++", () => {
+  assert.equal(languageForFile("main.c"), "c");
+  assert.equal(languageForFile("MAIN.C"), "c");
+  assert.equal(languageForFile("main.cpp"), "cpp");
+  assert.equal(languageForFile("list.h"), "cpp", ".h stays C++ (a superset of C)");
+  assert.equal(languageForFile("list.hpp"), "cpp");
+  assert.equal(languageForFile("notes.txt"), undefined);
+  assert.equal(languageForFile("c"), undefined);
+  assert.equal(languageForVscodeId("c"), "c");
+  assert.equal(languageForVscodeId("cpp"), "cpp");
+  assert.equal(languageForVscodeId("python"), undefined);
+  assert.equal(LANGUAGE_NAMES, "C and C++");
 });
 
 test("layout: tabs expand to the next tab stop and control characters become visible", () => {
@@ -106,10 +163,10 @@ test("options: defaults, clamping and page sizes", () => {
 });
 
 test("files: supported extensions, excluded folders and PDF names", () => {
-  for (const name of ["a.cpp", "a.cc", "a.cxx", "a.h", "a.hpp", "a.hh", "a.hxx", "A.CPP"]) {
+  for (const name of ["a.c", "a.cpp", "a.cc", "a.cxx", "a.h", "a.hpp", "a.hh", "a.hxx", "A.CPP", "A.C"]) {
     assert.ok(isSupportedSource(name), name);
   }
-  for (const name of ["a.c", "a.py", "cpp", "a.cpp.bak", "notes.txt"]) {
+  for (const name of ["a.py", "cpp", "c", "a.cpp.bak", "a.c.bak", "notes.txt"]) {
     assert.ok(!isSupportedSource(name), name);
   }
   for (const name of [".git", ".vscode", "node_modules", "build", "dist", "cmake-build-debug", "Debug"]) {

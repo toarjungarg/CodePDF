@@ -2,7 +2,8 @@
 // line numbers, colours, wrapped rows, and a bookmark per file.
 
 import PDFDocument = require("pdfkit");
-import { plainLines, tokenizeCpp, type TokenKind, type TokenLine } from "./cppTokenizer";
+import { plainLines, type TokenKind, type TokenLine } from "./tokens";
+import { languageForFile, tokenize, type LanguageId } from "./languages";
 import { columnWidth, expandLine, layoutLine, type Row } from "./layout";
 import { pageSize, type ExportOptions } from "./options";
 import { BUILT_IN_COURIER, type CodeFont, type FontSet } from "./fonts";
@@ -22,6 +23,8 @@ export interface SourceSection {
    * Line numbers then start at start + 1.
    */
   onlyLines?: { start: number; end: number };
+  /** Which language to colour it as. If left out, it's worked out from `title` (C++ if unknown). */
+  language?: LanguageId;
 }
 
 export interface RenderInfo {
@@ -227,7 +230,8 @@ export async function renderPdf(
   for (let s = 0; s < sections.length; s++) {
     const section = sections[s]!;
     const text = normalizeLineEndings(section.text);
-    let lines: TokenLine[] = options.syntaxHighlighting ? tokenizeCpp(text) : plainLines(text);
+    const language = section.language ?? languageForFile(section.title) ?? "cpp";
+    let lines: TokenLine[] = options.syntaxHighlighting ? tokenize(text, language) : plainLines(text);
     let firstLineNumber = section.firstLineNumber;
     if (section.onlyLines) {
       const start = Math.max(0, Math.min(section.onlyLines.start, lines.length - 1));

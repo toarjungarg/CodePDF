@@ -14,6 +14,8 @@ export interface SourceText {
   unsaved: boolean;
   /** The editor's tab size for this file, when it's open. */
   tabSize?: number;
+  /** VS Code's language id ("c", "cpp", ...), when the file is open. Used for unsaved files with no extension. */
+  vscodeLanguageId?: string;
 }
 
 function openDocument(uri: vscode.Uri): vscode.TextDocument | undefined {
@@ -34,7 +36,7 @@ function editorTabSize(doc: vscode.TextDocument): number | undefined {
 export async function readSource(uri: vscode.Uri): Promise<SourceText> {
   const doc = openDocument(uri);
   if (doc) {
-    const result: SourceText = { text: doc.getText(), unsaved: doc.isDirty };
+    const result: SourceText = { text: doc.getText(), unsaved: doc.isDirty, vscodeLanguageId: doc.languageId };
     const tabSize = editorTabSize(doc);
     if (tabSize !== undefined) {
       result.tabSize = tabSize;

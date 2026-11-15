@@ -1,8 +1,10 @@
-// Rules about files: which ones are C++ sources, which folders a folder export
-// skips, the order files appear in a combined PDF, and what PDFs are named.
+// Rules about files: which ones are supported sources, which folders a folder
+// export skips, the order files appear in a combined PDF, and what PDFs are named.
 // No VS Code imports here, so these rules can be tested in plain Node.
 
-export const SUPPORTED_EXTENSIONS = [".cpp", ".cc", ".cxx", ".h", ".hpp", ".hh", ".hxx"] as const;
+import { languageForFile, SUPPORTED_EXTENSIONS } from "./export/languages";
+
+export { SUPPORTED_EXTENSIONS };
 const HEADER_EXTENSIONS = new Set([".h", ".hpp", ".hh", ".hxx"]);
 
 /** Folders never searched during a folder export (hidden folders are skipped too). */
@@ -19,7 +21,7 @@ export function extensionOf(fileName: string): string {
 }
 
 export function isSupportedSource(fileName: string): boolean {
-  return (SUPPORTED_EXTENSIONS as readonly string[]).includes(extensionOf(fileName));
+  return languageForFile(fileName) !== undefined;
 }
 
 export function isHeader(fileName: string): boolean {
@@ -53,7 +55,7 @@ export interface FolderScan<T> {
 }
 
 /**
- * Searches a folder for C++ sources, skipping hidden files, dependency folders and build folders.
+ * Searches a folder for supported sources, skipping hidden files, dependency folders and build folders.
  * Works with any location type (VS Code URIs in the extension, plain paths in tests).
  */
 export async function scanFolder<T>(

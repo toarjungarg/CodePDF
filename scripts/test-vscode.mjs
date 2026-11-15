@@ -36,6 +36,7 @@ const put = (path, data) => {
   writeFileSync(full, data);
 };
 put("main.cpp", readFileSync(join(fixtures, "basic.cpp")));
+put("lab.c", readFileSync(join(fixtures, "basic.c")));
 for (const name of ["comments_strings.cpp", "unicode.cpp", "long_lines.cpp"]) {
   cpSync(join(fixtures, name), join(project, name));
 }

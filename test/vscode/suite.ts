@@ -70,7 +70,7 @@ export async function run(): Promise<void> {
     await sleep(300);
   };
 
-  const sourceNames = ["main.cpp", "util.h", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "src/extra.cpp"];
+  const sourceNames = ["main.cpp", "lab.c", "util.h","comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "src/extra.cpp"];
   const sourcesBefore = new Map<string, Uint8Array>();
   for (const name of sourceNames) {
     sourcesBefore.set(name, await bytesOf(file(...name.split("/"))));
@@ -229,6 +229,17 @@ export async function run(): Promise<void> {
     return "all three open; string text, Chinese text and the end of the long line are searchable";
   });
 
+  await test("export: Export as PDF works for a C file", async () => {
+    await vscode.commands.executeCommand("codepdf.exportFile", file("lab.c"));
+    const pdf = file("lab.pdf");
+    check(await exists(pdf), "lab.pdf wasn't created");
+    const state = await openPdf(pdf);
+    check(state.status === "loaded", `lab.pdf didn't open: ${state.error}`);
+    await viewer.sendAction(pdf, { action: "find", query: "_Generic" });
+    await viewer.waitForState(pdf, (s) => (s.findMatches?.total ?? 0) > 0);
+    return `${state.pagesCount} page(s), C code searchable`;
+  });
+
   await closeAll();
 
   await test("export: Export Selection as PDF exports only the highlighted lines", async () => {
@@ -267,7 +278,7 @@ export async function run(): Promise<void> {
     for (const excluded of ["build/generated.cpp", "node_modules/dep/dep.cpp", ".hidden.cpp"]) {
       check(!labels.includes(excluded), `${excluded} should have been skipped`);
     }
-    for (const included of ["main.cpp", "util.h", "src/extra.cpp"]) {
+    for (const included of ["main.cpp", "lab.c", "util.h", "src/extra.cpp"]) {
       check(labels.includes(included), `${included} should be included`);
     }
     const state = await openPdf(out);
@@ -290,7 +301,7 @@ export async function run(): Promise<void> {
     await viewer.waitForState(out, (s) => (s.findMatches?.total ?? 0) > 0);
   });
 
-  await test("export: a non-C++ file is refused", async () => {
+  await test("export: an unsupported file is refused", async () => {
     await vscode.commands.executeCommand("codepdf.exportFile", file("notes.txt"));
     check(!(await exists(file("notes.pdf"))), "notes.pdf should not exist");
   });

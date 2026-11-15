@@ -1,19 +1,15 @@
-// A small C++ tokenizer for syntax colouring. It labels pieces of code
+// A small tokenizer for C and C++ syntax colouring. It labels pieces of code
 // (keyword, string, comment, number, preprocessor, plain) without changing
 // a single character: joining every token's text gives back the original.
-// It is pattern-based, not a full C++ parser, which is plenty for colouring.
+// It is pattern-based, not a full parser, which is plenty for colouring.
+// C and C++ share almost all of their syntax; the differences are the keyword
+// lists and C++'s raw strings (R"(...)").
 
-export type TokenKind = "plain" | "keyword" | "type" | "string" | "comment" | "number" | "preprocessor";
+import type { Token, TokenKind, TokenLine } from "./tokens";
 
-export interface Token {
-  text: string;
-  kind: TokenKind;
-}
+export type CFamilyLanguage = "c" | "cpp";
 
-/** One source line, as a list of tokens (no newline characters inside). */
-export type TokenLine = Token[];
-
-const KEYWORDS = new Set([
+const CPP_KEYWORDS = new Set([
   "alignas", "alignof", "and", "and_eq", "asm", "auto", "bitand", "bitor", "break", "case", "catch",
   "class", "compl", "concept", "const", "consteval", "constexpr", "constinit", "const_cast", "continue",
   "co_await", "co_return", "co_yield", "decltype", "default", "delete", "do", "dynamic_cast", "else",
@@ -29,10 +25,36 @@ const KEYWORDS = new Set([
 ]);
 
 /** Common standard type names, coloured as types. */
-const TYPES = new Set([
+const STANDARD_TYPES = [
   "size_t", "ssize_t", "ptrdiff_t", "nullptr_t", "intptr_t", "uintptr_t", "intmax_t", "uintmax_t",
   "int8_t", "int16_t", "int32_t", "int64_t", "uint8_t", "uint16_t", "uint32_t", "uint64_t",
+];
+const CPP_TYPES = new Set(STANDARD_TYPES);
+
+/**
+ * C keywords up to C23. Words that are C++-only (class, new, this, template,
+ * namespace, ...) are ordinary names in C, so they stay uncoloured there.
+ */
+const C_KEYWORDS = new Set([
+  "auto", "break", "case", "const", "continue", "default", "do", "else", "enum", "extern", "for", "goto",
+  "if", "inline", "register", "restrict", "return", "sizeof", "static", "struct", "switch", "typedef",
+  "union", "volatile", "while",
+  "_Alignas", "_Alignof", "_Atomic", "_Generic", "_Noreturn", "_Static_assert", "_Thread_local",
+  // C23 keywords
+  "alignas", "alignof", "constexpr", "false", "nullptr", "static_assert", "thread_local", "true",
+  "typeof", "typeof_unqual",
+  // Built-in types are coloured like keywords, as in VS Code's default theme.
+  "bool", "char", "double", "float", "int", "long", "short", "signed", "unsigned", "void",
+  "_Bool", "_BitInt", "_Complex", "_Imaginary", "_Decimal32", "_Decimal64", "_Decimal128",
 ]);
+
+/** In C these come from headers (<wchar.h>, <uchar.h>, <stdio.h>), so they're types, not keywords. */
+const C_TYPES = new Set([...STANDARD_TYPES, "wchar_t", "char8_t", "char16_t", "char32_t", "FILE"]);
+
+const WORDS: Record<CFamilyLanguage, { keywords: Set<string>; types: Set<string>; rawStrings: boolean }> = {
+  c: { keywords: C_KEYWORDS, types: C_TYPES, rawStrings: false },
+  cpp: { keywords: CPP_KEYWORDS, types: CPP_TYPES, rawStrings: true },
+};
 
 const STRING_PREFIXES = new Set(["L", "u", "U", "u8"]);
 const RAW_STRING_PREFIXES = new Set(["R", "LR", "uR", "UR", "u8R"]);
@@ -125,10 +147,11 @@ function numberEnd(src: string, i: number): number {
 }
 
 /**
- * Splits C++ source into lines of coloured tokens.
+ * Splits C or C++ source into lines of coloured tokens.
  * Expects "\n" line endings (convert "\r\n" first).
  */
-export function tokenizeCpp(source: string): TokenLine[] {
+export function tokenizeCFamily(source: string, language: CFamilyLanguage): TokenLine[] {
+  const { keywords, types, rawStrings } = WORDS[language];
   const tokens: Token[] = [];
   const n = source.length;
 
@@ -224,7 +247,7 @@ export function tokenizeCpp(source: string): TokenLine[] {
       }
       const word = source.slice(i, j);
       const next = source[j];
-      if (next === '"' && RAW_STRING_PREFIXES.has(word)) {
+      if (rawStrings && next === '"' && RAW_STRING_PREFIXES.has(word)) {
         const end = rawStringEnd(source, j);
         push("string", i, end);
         i = end;
@@ -236,7 +259,7 @@ export function tokenizeCpp(source: string): TokenLine[] {
         i = end;
         continue;
       }
-      push(KEYWORDS.has(word) ? "keyword" : TYPES.has(word) ? "type" : "plain", i, j);
+      push(keywords.has(word) ? "keyword" : types.has(word) ? "type" : "plain", i, j);
       i = j;
       continue;
     }
@@ -275,9 +298,4 @@ export function tokenizeCpp(source: string): TokenLine[] {
     });
   }
   return lines;
-}
-
-/** The same line structure without colours, used when syntax highlighting is off. */
-export function plainLines(source: string): TokenLine[] {
-  return source.split("\n").map((line) => (line ? [{ kind: "plain" as const, text: line }] : []));
 }

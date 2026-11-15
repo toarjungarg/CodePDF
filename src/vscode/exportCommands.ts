@@ -9,6 +9,7 @@ import {
   SUPPORTED_EXTENSIONS, batchPdfNames, isSupportedSource, scanFolder, selectionPdfName, sortForExport,
   type DirEntry,
 } from "../files";
+import { LANGUAGE_NAMES, languageForFile, languageForVscodeId, type LanguageId } from "../export/languages";
 import { readExportSettings } from "./settings";
 import { dialogs } from "./dialogs";
 import {
@@ -16,21 +17,31 @@ import {
 } from "./output";
 
 const EXTENSION_LIST = SUPPORTED_EXTENSIONS.join(", ");
-const OPEN_DIALOG_FILTERS = { "C++ files": SUPPORTED_EXTENSIONS.map((ext) => ext.slice(1)) };
+const OPEN_DIALOG_FILTERS = { [`${LANGUAGE_NAMES} files`]: SUPPORTED_EXTENSIONS.map((ext) => ext.slice(1)) };
 
 function isExportable(uri: vscode.Uri): boolean {
   return isSupportedSource(baseName(uri));
 }
 
+/** A saved supported file, or an unsaved "Untitled" one whose language is set to a supported one. */
+function isExportableDocument(doc: vscode.TextDocument): boolean {
+  return isExportable(doc.uri) || (doc.isUntitled && languageForVscodeId(doc.languageId) !== undefined);
+}
+
+/** The file's language from its extension; for unsaved files, from VS Code's language id. */
+function languageOf(uri: vscode.Uri, vscodeLanguageId?: string): LanguageId {
+  return languageForFile(baseName(uri)) ?? languageForVscodeId(vscodeLanguageId) ?? "cpp";
+}
+
 function notSupportedMessage(): void {
-  void vscode.window.showWarningMessage(`CodePDF exports C++ files (${EXTENSION_LIST}).`);
+  void vscode.window.showWarningMessage(`CodePDF exports ${LANGUAGE_NAMES} files (${EXTENSION_LIST}).`);
 }
 
 function workspaceFolderUri(): vscode.Uri | undefined {
   return vscode.workspace.workspaceFolders?.[0]?.uri;
 }
 
-/** Renders sections with the settings that apply to `resource`. */
+/** Renders sections with the settings that apply to `resource` (and the first section's language). */
 async function render(
   sections: SourceSection[],
   resource: vscode.Uri | undefined,
@@ -39,7 +50,7 @@ async function render(
   onSectionDone?: (done: number, total: number) => void,
   tabSize?: number,
 ): Promise<Uint8Array> {
-  const settings = readExportSettings(resource);
+  const settings = readExportSettings(resource, sections[0]?.language);
   const options: ExportOptions = tabSize ? { ...settings.options, tabSize } : settings.options;
   const fonts = resolveFonts(settings.editorFontFamily);
   const hooks = {
@@ -61,14 +72,14 @@ export async function exportFileCommand(uri?: vscode.Uri, selected?: vscode.Uri[
     targets = [uri];
   } else {
     const active = vscode.window.activeTextEditor?.document;
-    if (active && (isExportable(active.uri) || (active.isUntitled && active.languageId === "cpp"))) {
+    if (active && isExportableDocument(active)) {
       targets = [active.uri];
     } else {
       const picked = await dialogs.chooseFiles({
         canSelectMany: true,
         filters: OPEN_DIALOG_FILTERS,
         openLabel: "Export as PDF",
-        title: "Choose C++ files to export",
+        title: `Choose ${LANGUAGE_NAMES} files to export`,
         ...(workspaceFolderUri() ? { defaultUri: workspaceFolderUri()! } : {}),
       });
       if (!picked || picked.length === 0) {
@@ -115,7 +126,12 @@ export async function exportFileCommand(uri?: vscode.Uri, selected?: vscode.Uri[
       progress.report({ message: `${index + 1} of ${jobs.length}: ${baseName(job.source)}` });
       const source = await readSource(job.source);
       unsaved ||= source.unsaved;
-      const section: SourceSection = { title: baseName(job.source), text: source.text, firstLineNumber: 1 };
+      const section: SourceSection = {
+        title: baseName(job.source),
+        text: source.text,
+        firstLineNumber: 1,
+        language: languageOf(job.source, source.vscodeLanguageId),
+      };
       const bytes = await render([section], job.source, baseName(job.output), token, undefined, source.tabSize);
       await writePdf(job.output, bytes);
       progress.report({ increment: 100 / jobs.length });
@@ -128,7 +144,7 @@ export async function exportFileCommand(uri?: vscode.Uri, selected?: vscode.Uri[
 
   const note = result.unsaved ? " It includes unsaved changes from the editor." : "";
   if (unsupported.length > 0) {
-    void vscode.window.showWarningMessage(`Skipped ${unsupported.length} file(s) that aren't C++ (${EXTENSION_LIST}).`);
+    void vscode.window.showWarningMessage(`Skipped ${unsupported.length} file(s) that aren't ${LANGUAGE_NAMES} (${EXTENSION_LIST}).`);
   }
   if (jobs.length === 1) {
     announceExport(jobs[0]!.output, `Exported ${baseName(jobs[0]!.output)}.${note}`);
@@ -144,11 +160,11 @@ export async function exportFileCommand(uri?: vscode.Uri, selected?: vscode.Uri[
 export async function exportSelectionCommand(): Promise<void> {
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
-    void vscode.window.showWarningMessage("Open a C++ file and highlight some code first.");
+    void vscode.window.showWarningMessage(`Open a ${LANGUAGE_NAMES} file and highlight some code first.`);
     return;
   }
   const doc = editor.document;
-  if (!isExportable(doc.uri) && !(doc.isUntitled && doc.languageId === "cpp")) {
+  if (!isExportableDocument(doc)) {
     notSupportedMessage();
     return;
   }
@@ -171,7 +187,7 @@ export async function exportSelectionCommand(): Promise<void> {
   let output: vscode.Uri | undefined;
   if (doc.isUntitled) {
     output = await askSaveLocation(
-      vscode.Uri.joinPath(workspaceFolderUri() ?? vscode.Uri.file("/"), selectionPdfName("untitled.cpp", firstLine, lastLine)),
+      vscode.Uri.joinPath(workspaceFolderUri() ?? vscode.Uri.file("/"), selectionPdfName("untitled", firstLine, lastLine)),
     );
     if (!output) {
       return;
@@ -193,6 +209,7 @@ export async function exportSelectionCommand(): Promise<void> {
       text: doc.getText(),
       firstLineNumber: 1,
       onlyLines: { start, end },
+      language: languageOf(doc.uri, doc.languageId),
     };
     const bytes = await render([section], doc.uri, baseName(target), token, undefined, tabSize);
     await writePdf(target, bytes);
@@ -258,7 +275,12 @@ async function exportCombined(files: PickedFile[], resource: vscode.Uri, default
       progress.report({ message: `Reading ${index + 1} of ${files.length}` });
       const source = await readSource(file.uri);
       unsaved ||= source.unsaved;
-      sections.push({ title: file.relativePath, text: source.text, firstLineNumber: 1 });
+      sections.push({
+        title: file.relativePath,
+        text: source.text,
+        firstLineNumber: 1,
+        language: languageOf(file.uri, source.vscodeLanguageId),
+      });
     }
     const bytes = await render(sections, resource, baseName(output), token, (done, total) => {
       progress.report({ message: `Drawing ${done} of ${total}`, increment: 100 / total });
@@ -279,7 +301,7 @@ export async function exportMultipleCommand(uri?: vscode.Uri, selected?: vscode.
       canSelectMany: true,
       filters: OPEN_DIALOG_FILTERS,
       openLabel: "Choose Files",
-      title: "Choose the C++ files to combine into one PDF",
+      title: `Choose the ${LANGUAGE_NAMES} files to combine into one PDF`,
       ...(workspaceFolderUri() ? { defaultUri: workspaceFolderUri()! } : {}),
     });
   }
@@ -293,7 +315,7 @@ export async function exportMultipleCommand(uri?: vscode.Uri, selected?: vscode.
   }
   const files = supported.map((u) => ({ uri: u, relativePath: vscode.workspace.asRelativePath(u, false) }));
   const skipped = uris.length - supported.length;
-  const note = skipped > 0 ? `${skipped} non-C++ file(s) were left out.` : undefined;
+  const note = skipped > 0 ? `${skipped} file(s) that aren't ${LANGUAGE_NAMES} were left out.` : undefined;
   const confirmed = await confirmFileList(files, "CodePDF: Export Multiple Files", note);
   if (!confirmed) {
     return;
@@ -351,7 +373,7 @@ export async function exportFolderCommand(uri?: vscode.Uri): Promise<void> {
 
   if (scan.files.length === 0) {
     void vscode.window.showInformationMessage(
-      `No C++ files (${EXTENSION_LIST}) found in "${baseName(root)}". ${skippedNote.join(" ")}`.trim(),
+      `No ${LANGUAGE_NAMES} files (${EXTENSION_LIST}) found in "${baseName(root)}". ${skippedNote.join(" ")}`.trim(),
     );
     return;
   }

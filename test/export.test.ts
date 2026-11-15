@@ -41,6 +41,28 @@ test("1. exports a basic C++ file", async () => {
   assert.equal(pdf.title, "basic.pdf");
 });
 
+test("1b. exports a C file, and C and C++ files combined", async () => {
+  const source = fixture("basic.c");
+  const { pdf } = await exportSections("basic_c.pdf", [file("basic.c", source)]);
+  assert.ok(pdf.pages[0]!.lines[0]!.startsWith("basic.c"), "file name in the header");
+  for (const expected of [
+    "#define ABS(x) _Generic((x), int: abs, double: fabs)(x)",
+    "static _Bool is_cold(double celsius) {",
+    "void copy(double *restrict out, const double *restrict in, size_t n) {",
+    'const char *class = "Weather station"; /* a name in C */',
+  ]) {
+    assert.ok(pdf.text.includes(expected), `missing: ${expected}`);
+  }
+
+  const combined = await exportSections("mixed_c_cpp.pdf", [
+    { ...file("basic.c", source), language: "c" },
+    { ...file("basic.cpp", fixture("basic.cpp")), language: "cpp" },
+  ]);
+  assert.deepEqual(combined.pdf.outline, ["basic.c", "basic.cpp"], "one bookmark per file");
+  assert.ok(combined.pdf.text.includes("node_t *push(node_t *head, double value) {"));
+  assert.ok(combined.pdf.text.includes("int sumOf(const std::vector<int>& values) {"));
+});
+
 test("2. exports comments and strings exactly", async () => {
   const { pdf } = await exportSections("comments_strings.pdf", [file("comments_strings.cpp", fixture("comments_strings.cpp"))]);
   for (const expected of [

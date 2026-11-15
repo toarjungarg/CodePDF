@@ -2,7 +2,7 @@
 // characters visible, measures characters in columns, and wraps or cuts
 // lines that are too long for the page.
 
-import type { Token, TokenKind, TokenLine } from "./cppTokenizer";
+import type { Token, TokenKind, TokenLine } from "./tokens";
 
 /** A piece of same-coloured text placed at a column. */
 export interface Run {

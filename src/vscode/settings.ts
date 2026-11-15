@@ -2,6 +2,7 @@
 
 import * as vscode from "vscode";
 import { normalizeOptions, type ExportOptions } from "../export/options";
+import { LANGUAGES, type LanguageId } from "../export/languages";
 
 export interface ExportSettings {
   options: ExportOptions;
@@ -9,10 +10,14 @@ export interface ExportSettings {
   editorFontFamily: string | undefined;
 }
 
-/** Reads settings for a file (folder-level settings can differ from user settings). */
-export function readExportSettings(resource?: vscode.Uri): ExportSettings {
+/**
+ * Reads settings for a file (folder-level settings can differ from user settings).
+ * `language` picks up per-language editor settings, like a different tab size for C.
+ */
+export function readExportSettings(resource?: vscode.Uri, language: LanguageId = "cpp"): ExportSettings {
   const config = vscode.workspace.getConfiguration("codepdf", resource);
-  const editor = vscode.workspace.getConfiguration("editor", resource ? { uri: resource, languageId: "cpp" } : undefined);
+  const languageId = LANGUAGES[language].vscodeId;
+  const editor = vscode.workspace.getConfiguration("editor", resource ? { uri: resource, languageId } : undefined);
   const options = normalizeOptions({
     paperSize: config.get("paperSize"),
     orientation: config.get("orientation"),
