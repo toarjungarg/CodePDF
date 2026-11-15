@@ -3,3 +3,8 @@ out/
 media/pdfjs/
 *.vsix
 .DS_Store
+.dev.vars
+.dev.vars.*
+.wrangler/
+.env
+.env.*
