@@ -37,6 +37,7 @@ const put = (path, data) => {
 };
 put("main.cpp", readFileSync(join(fixtures, "basic.cpp")));
 put("lab.c", readFileSync(join(fixtures, "basic.c")));
+put("stats.py", readFileSync(join(fixtures, "basic.py")));
 for (const name of ["comments_strings.cpp", "unicode.cpp", "long_lines.cpp"]) {
   cpSync(join(fixtures, name), join(project, name));
 }
@@ -45,7 +46,9 @@ put("src/extra.cpp", '#include "../util.h"\n\nint helper(int value) {\n    retur
 put("build/generated.cpp", "// build output: must be skipped\n");
 put("node_modules/dep/dep.cpp", "// dependency: must be skipped\n");
 put(".hidden.cpp", "// hidden: must be skipped\n");
-put("notes.txt", "Not C++.\n");
+put("__pycache__/cached.py", "# cache folder: must be skipped\n");
+put("venv/lib/site.py", "# virtual environment: must be skipped\n");
+put("notes.txt", "Not source code.\n");
 
 // 2. Test PDFs, made with CodePDF's own (compiled) engine.
 const { renderPdf } = require(join(root, "out", "src", "export", "renderer.js"));

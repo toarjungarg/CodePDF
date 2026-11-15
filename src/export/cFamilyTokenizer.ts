@@ -5,7 +5,7 @@
 // C and C++ share almost all of their syntax; the differences are the keyword
 // lists and C++'s raw strings (R"(...)").
 
-import type { Token, TokenKind, TokenLine } from "./tokens";
+import { TokenBuilder, type TokenKind, type TokenLine } from "./tokens";
 
 export type CFamilyLanguage = "c" | "cpp";
 
@@ -152,21 +152,9 @@ function numberEnd(src: string, i: number): number {
  */
 export function tokenizeCFamily(source: string, language: CFamilyLanguage): TokenLine[] {
   const { keywords, types, rawStrings } = WORDS[language];
-  const tokens: Token[] = [];
+  const builder = new TokenBuilder(source);
+  const push = (kind: TokenKind, start: number, end: number): void => builder.push(kind, start, end);
   const n = source.length;
-
-  const push = (kind: TokenKind, start: number, end: number): void => {
-    if (end <= start) {
-      return;
-    }
-    const text = source.slice(start, end);
-    const last = tokens[tokens.length - 1];
-    if (last && last.kind === kind) {
-      last.text += text;
-    } else {
-      tokens.push({ kind, text });
-    }
-  };
 
   let i = 0;
   let atLineStart = true;
@@ -285,17 +273,5 @@ export function tokenizeCFamily(source: string, language: CFamilyLanguage): Toke
     i += length;
   }
 
-  const lines: TokenLine[] = [[]];
-  for (const token of tokens) {
-    const parts = token.text.split("\n");
-    parts.forEach((part, index) => {
-      if (index > 0) {
-        lines.push([]);
-      }
-      if (part) {
-        lines[lines.length - 1]!.push({ kind: token.kind, text: part });
-      }
-    });
-  }
-  return lines;
+  return builder.lines();
 }

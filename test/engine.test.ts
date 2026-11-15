@@ -4,8 +4,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { tokenizeCFamily } from "../src/export/cFamilyTokenizer";
+import { tokenizePython } from "../src/export/pythonTokenizer";
 import type { TokenKind, TokenLine } from "../src/export/tokens";
-import { languageForFile, languageForVscodeId, LANGUAGE_NAMES } from "../src/export/languages";
+import { languageForFile, languageForVscodeId, LANGUAGE_NAMES, LANGUAGE_NAMES_OR } from "../src/export/languages";
 import { columnWidth, expandLine, layoutLine } from "../src/export/layout";
 import { DEFAULT_OPTIONS, normalizeOptions, pageSize } from "../src/export/options";
 import { parseFontFamilyList, resolveFonts } from "../src/export/fonts";
@@ -35,9 +36,9 @@ const kindOfWord = (lines: TokenLine[], word: string): TokenKind | undefined => 
 };
 
 test("tokenizer: joining tokens gives back every fixture exactly", () => {
-  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c"]) {
+  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py"]) {
     const source = fixture(name).replace(/\r\n?/g, "\n");
-    for (const lines of [tokenizeCpp(source), tokenizeC(source)]) {
+    for (const lines of [tokenizeCpp(source), tokenizeC(source), tokenizePython(source)]) {
       assert.equal(lines.map(joinLine).join("\n"), source, `${name} changed during tokenizing`);
     }
   }
@@ -107,6 +108,109 @@ test("tokenizer: C uses C's keywords, and C++-only words stay plain", () => {
   assert.notEqual(kindOf(tokenizeC(raw), "two)"), "string", "in C the string ends at the line break");
 });
 
+test("tokenizer: Python comments, strings, numbers, keywords and decorators", () => {
+  const py = tokenizePython(fixture("basic.py"));
+  assert.equal(kindOf(py, "A small weather log"), "string", "docstring");
+  assert.equal(kindOf(py, "has a # that is not a comment"), "string", "triple-quoted strings continue across lines");
+  assert.equal(kindOf(py, "# raw string, then a comment"), "comment");
+  assert.equal(kindOf(py, 'r"^(\\w+)'), "string", "the r prefix is part of the string");
+  assert.equal(kindOf(py, 'b"bytes"'), "string");
+  assert.equal(kindOf(py, "'Toronto'"), "string");
+  assert.equal(kindOf(py, "1_000"), "number");
+  assert.equal(kindOf(py, "0xFF"), "number");
+  assert.equal(kindOf(py, "3.14e-2"), "number");
+  assert.equal(kindOf(py, ".5"), "number");
+  assert.equal(kindOf(py, "@dataclass"), "preprocessor");
+  assert.equal(kindOf(py, "@staticmethod"), "preprocessor");
+  for (const word of ["import", "from", "class", "def", "return", "if", "is", "None", "for", "in", "not", "else"]) {
+    assert.ok(py.flat().some((t) => t.text === word && t.kind === "keyword"), word);
+  }
+  assert.equal(kindOfWord(py, "float"), "type");
+  assert.equal(kindOfWord(py, "self"), "plain");
+  assert.equal(kindOfWord(py, "print"), "plain");
+
+  // A number stops where the number ends.
+  const numbers = tokenizePython("x = 1.5.is_integer() + 0b1010 + 0o17 + 2j + 1if y else 0xE+1");
+  for (const text of ["1.5", "0b1010", "0o17", "2j", "0xE"]) {
+    assert.ok(numbers.flat().some((t) => t.kind === "number" && t.text === text), text);
+  }
+  assert.equal(kindOfWord(numbers, "is_integer"), "plain");
+
+  // @ in the middle of a line, or inside brackets, is the matrix operator.
+  const matmul = tokenizePython("c = a @b\nd = (a\n     @b)\n@wraps(f)\ndef g(): pass");
+  assert.deepEqual(matmul.flat().filter((t) => t.kind === "preprocessor").map((t) => t.text), ["@wraps"]);
+
+  // Built-in type names after a dot are ordinary attributes.
+  assert.equal(kindOfWord(tokenizePython("y = np.float(3)"), "float"), "plain");
+});
+
+test("tokenizer: Python soft keywords are only coloured where they are keywords", () => {
+  const kinds = (source: string, word: string): TokenKind[] =>
+    tokenizePython(source).flat().filter((t) => t.text === word).map((t) => t.kind);
+  const statement = "match command:\n    case [x, y]:\n        pass\n    case _:  # anything\n        pass";
+  assert.deepEqual(kinds(statement, "match"), ["keyword"]);
+  assert.deepEqual(kinds(statement, "case"), ["keyword", "keyword"]);
+  for (const source of ["match = re.match(p, s)", "match.group(1)", "match: int = 3", "x = match", "print(match)", "match(x)"]) {
+    assert.ok(!kinds(source, "match").includes("keyword"), source);
+  }
+  assert.deepEqual(kinds("type Point = tuple[int, int]", "type"), ["keyword"]);
+  assert.deepEqual(kinds("type Box[T] = list[T]", "type"), ["keyword"]);
+  assert.deepEqual(kinds("type = 3", "type"), ["type"], "as a name it's the built-in");
+  assert.deepEqual(kinds("x = type(y)", "type"), ["type"]);
+
+  const inFixture = tokenizePython(fixture("basic.py")).flat();
+  const matchKinds = inFixture.filter((t) => /(^|\W)match($|\W)/.test(t.text)).map((t) => t.kind);
+  assert.ok(matchKinds.includes("keyword") && matchKinds.includes("plain"), "the fixture has match as a keyword and as a name");
+});
+
+test("tokenizer: Python f-strings colour the code inside the braces", () => {
+  const tokensOf = (source: string): string[] => tokenizePython(source).flat().map((t) => `${t.kind}:${t.text}`);
+  assert.deepEqual(tokensOf('f"{name!r} is {age + 1:>4} {{literal}}"'), [
+    'string:f"', "plain:{name", "string:!r", "plain:}", "string: is ", "plain:{age + ", "number:1", "string::>4", "plain:}",
+    'string: {{literal}}"',
+  ]);
+  assert.deepEqual(tokensOf("f'{d[\"k\"]} {x if x != 0 else None}'"), [
+    "string:f'", "plain:{d[", 'string:"k"', "plain:]}", "string: ", "plain:{x ", "keyword:if", "plain: x != ", "number:0",
+    "plain: ", "keyword:else", "plain: ", "keyword:None", "plain:}", "string:'",
+  ]);
+  // A dict inside the braces: its colon belongs to the code, not a format spec.
+  assert.ok(tokensOf('f"{ {1: 2}[1] }"').includes("number:2"));
+  // Raw f-strings: a backslash doesn't hide a field.
+  assert.ok(tokensOf('rf"\\d{count}"').includes("plain:{count}"));
+  // Other prefixes are plain strings, braces and all.
+  assert.deepEqual(tokensOf('Rb"{x}" + u"{y}"'), ['string:Rb"{x}"', "plain: + ", 'string:u"{y}"']);
+  // Triple-quoted f-strings keep going across lines.
+  const multi = tokenizePython('s = f"""a {x}\nb {y:02d}"""\nz = 1');
+  assert.equal(kindOf(multi, "b "), "string");
+  assert.equal(kindOf(multi, "02d"), "string");
+  assert.equal(kindOf(multi, "1"), "number");
+});
+
+test("tokenizer: unterminated Python strings and fields don't swallow or lose text", () => {
+  const sources = [
+    's = "no end\nx = 1',
+    "s = f'{no end\nx = 1",
+    's = f"{a!r:{w}} {" \nx = 1',
+    'doc = """never closed\nstill string',
+    'f"{',
+    'f"{x:',
+    "x = '\\",
+    'f"\\',
+    'rf"\\{',
+    "@",
+    "1e",
+    "0x",
+    "f\"\"\"{a\n}\"\"\" + f'{b\n}'",
+    "s = f\"{'}'}\" # \u{1F600}",
+  ];
+  for (const source of sources) {
+    assert.equal(tokenizePython(source).map(joinLine).join("\n"), source, JSON.stringify(source));
+  }
+  const lines = tokenizePython('s = "no end\nx = 1\ndoc = """never closed\nstill string');
+  assert.equal(kindOf(lines, "1"), "number", "an unclosed string stops at the end of its line");
+  assert.equal(kindOf(lines, "still string"), "string");
+});
+
 test("languages: picked by extension or VS Code language id, with .h treated as C++", () => {
   assert.equal(languageForFile("main.c"), "c");
   assert.equal(languageForFile("MAIN.C"), "c");
@@ -117,8 +221,13 @@ test("languages: picked by extension or VS Code language id, with .h treated as 
   assert.equal(languageForFile("c"), undefined);
   assert.equal(languageForVscodeId("c"), "c");
   assert.equal(languageForVscodeId("cpp"), "cpp");
-  assert.equal(languageForVscodeId("python"), undefined);
-  assert.equal(LANGUAGE_NAMES, "C and C++");
+  assert.equal(languageForFile("stats.py"), "python");
+  assert.equal(languageForFile("app.PYW"), "python");
+  assert.equal(languageForFile("py"), undefined);
+  assert.equal(languageForVscodeId("python"), "python");
+  assert.equal(languageForVscodeId("javascript"), undefined);
+  assert.equal(LANGUAGE_NAMES, "C, C++ and Python");
+  assert.equal(LANGUAGE_NAMES_OR, "C, C++ or Python");
 });
 
 test("layout: tabs expand to the next tab stop and control characters become visible", () => {
@@ -163,13 +272,13 @@ test("options: defaults, clamping and page sizes", () => {
 });
 
 test("files: supported extensions, excluded folders and PDF names", () => {
-  for (const name of ["a.c", "a.cpp", "a.cc", "a.cxx", "a.h", "a.hpp", "a.hh", "a.hxx", "A.CPP", "A.C"]) {
+  for (const name of ["a.c", "a.cpp", "a.cc", "a.cxx", "a.h", "a.hpp", "a.hh", "a.hxx", "A.CPP", "A.C", "a.py", "a.pyw", "A.PY"]) {
     assert.ok(isSupportedSource(name), name);
   }
-  for (const name of ["a.py", "cpp", "c", "a.cpp.bak", "a.c.bak", "notes.txt"]) {
+  for (const name of ["a.js", "cpp", "c", "py", "a.cpp.bak", "a.c.bak", "a.pyc", "notes.txt"]) {
     assert.ok(!isSupportedSource(name), name);
   }
-  for (const name of [".git", ".vscode", "node_modules", "build", "dist", "cmake-build-debug", "Debug"]) {
+  for (const name of [".git", ".vscode", "node_modules", "build", "dist", "cmake-build-debug", "Debug", "__pycache__", "venv", ".venv"]) {
     assert.ok(isExcludedFolder(name), name);
   }
   assert.ok(!isExcludedFolder("src"));

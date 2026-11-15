@@ -9,7 +9,7 @@ import {
   SUPPORTED_EXTENSIONS, batchPdfNames, isSupportedSource, scanFolder, selectionPdfName, sortForExport,
   type DirEntry,
 } from "../files";
-import { LANGUAGE_NAMES, languageForFile, languageForVscodeId, type LanguageId } from "../export/languages";
+import { LANGUAGE_NAMES, LANGUAGE_NAMES_OR, languageForFile, languageForVscodeId, type LanguageId } from "../export/languages";
 import { readExportSettings } from "./settings";
 import { dialogs } from "./dialogs";
 import {
@@ -144,7 +144,7 @@ export async function exportFileCommand(uri?: vscode.Uri, selected?: vscode.Uri[
 
   const note = result.unsaved ? " It includes unsaved changes from the editor." : "";
   if (unsupported.length > 0) {
-    void vscode.window.showWarningMessage(`Skipped ${unsupported.length} file(s) that aren't ${LANGUAGE_NAMES} (${EXTENSION_LIST}).`);
+    void vscode.window.showWarningMessage(`Skipped ${unsupported.length} file(s) that aren't ${LANGUAGE_NAMES_OR} (${EXTENSION_LIST}).`);
   }
   if (jobs.length === 1) {
     announceExport(jobs[0]!.output, `Exported ${baseName(jobs[0]!.output)}.${note}`);
@@ -160,7 +160,7 @@ export async function exportFileCommand(uri?: vscode.Uri, selected?: vscode.Uri[
 export async function exportSelectionCommand(): Promise<void> {
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
-    void vscode.window.showWarningMessage(`Open a ${LANGUAGE_NAMES} file and highlight some code first.`);
+    void vscode.window.showWarningMessage(`Open a ${LANGUAGE_NAMES_OR} file and highlight some code first.`);
     return;
   }
   const doc = editor.document;
@@ -315,7 +315,7 @@ export async function exportMultipleCommand(uri?: vscode.Uri, selected?: vscode.
   }
   const files = supported.map((u) => ({ uri: u, relativePath: vscode.workspace.asRelativePath(u, false) }));
   const skipped = uris.length - supported.length;
-  const note = skipped > 0 ? `${skipped} file(s) that aren't ${LANGUAGE_NAMES} were left out.` : undefined;
+  const note = skipped > 0 ? `${skipped} file(s) that aren't ${LANGUAGE_NAMES_OR} were left out.` : undefined;
   const confirmed = await confirmFileList(files, "CodePDF: Export Multiple Files", note);
   if (!confirmed) {
     return;
@@ -373,7 +373,7 @@ export async function exportFolderCommand(uri?: vscode.Uri): Promise<void> {
 
   if (scan.files.length === 0) {
     void vscode.window.showInformationMessage(
-      `No ${LANGUAGE_NAMES} files (${EXTENSION_LIST}) found in "${baseName(root)}". ${skippedNote.join(" ")}`.trim(),
+      `No ${LANGUAGE_NAMES_OR} files (${EXTENSION_LIST}) found in "${baseName(root)}". ${skippedNote.join(" ")}`.trim(),
     );
     return;
   }

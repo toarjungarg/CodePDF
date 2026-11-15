@@ -63,6 +63,30 @@ test("1b. exports a C file, and C and C++ files combined", async () => {
   assert.ok(combined.pdf.text.includes("int sumOf(const std::vector<int>& values) {"));
 });
 
+test("1c. exports a Python file, and Python and C++ files combined", async () => {
+  const source = fixture("basic.py");
+  const { pdf } = await exportSections("basic_py.pdf", [file("basic.py", source)]);
+  assert.ok(pdf.pages[0]!.lines[0]!.startsWith("basic.py"), "file name in the header");
+  for (const expected of [
+    "This docstring spans several lines and has a # that is not a comment.",
+    'PATTERN = re.compile(r"^(\\w+):\\s*(-?\\d+\\.\\d+)$") # raw string, then a comment', // the PDF reader squeezes the two spaces into one
+    "@dataclass",
+    'case "Waterloo" | \'Toronto\':',
+    'label = f"{reading.city!r} ({where}): {reading.celsius:.1f} C"',
+    "print(f\"mean is {lookup['mean']:>8.2f} over {len(readings)} reading(s)\")",
+  ]) {
+    assert.ok(pdf.text.includes(expected), `missing: ${expected}`);
+  }
+
+  const combined = await exportSections("mixed_py_cpp.pdf", [
+    { ...file("basic.py", source), language: "python" },
+    { ...file("basic.cpp", fixture("basic.cpp")), language: "cpp" },
+  ]);
+  assert.deepEqual(combined.pdf.outline, ["basic.py", "basic.cpp"], "one bookmark per file");
+  assert.ok(combined.pdf.text.includes("def describe(reading: Reading) -> str:"));
+  assert.ok(combined.pdf.text.includes("int sumOf(const std::vector<int>& values) {"));
+});
+
 test("2. exports comments and strings exactly", async () => {
   const { pdf } = await exportSections("comments_strings.pdf", [file("comments_strings.cpp", fixture("comments_strings.cpp"))]);
   for (const expected of [
