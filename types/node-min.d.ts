@@ -12,6 +12,7 @@ declare function clearTimeout(handle: unknown): void;
 
 declare const console: {
   log(...values: unknown[]): void;
+  warn(...values: unknown[]): void;
 };
 
 /** Folder of the running compiled file (used by tests to find fixtures). */

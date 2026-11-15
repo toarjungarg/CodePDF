@@ -88,10 +88,31 @@ export function columnOf(page: PageInfo, str: string): number {
 
 let pdfjsPromise: Promise<PdfJs> | null = null;
 
+/** The warnings pdf.js prints while loading in Node without its optional drawing package. */
+const EXPECTED_LOAD_WARNING = /^Warning: Cannot (load "@napi-rs\/canvas"|polyfill `(DOMMatrix|Path2D)`)/;
+
+/**
+ * Loads pdf.js without its start-up warnings. They say drawing may not work,
+ * but the tests only read text and never draw. Any other warning still prints.
+ */
+async function importPdfJs(specifier: string): Promise<PdfJs> {
+  const original = console.warn;
+  console.warn = (...values: unknown[]): void => {
+    if (!EXPECTED_LOAD_WARNING.test(String(values[0]))) {
+      original(...values);
+    }
+  };
+  try {
+    return (await import(specifier)) as PdfJs;
+  } finally {
+    console.warn = original;
+  }
+}
+
 function loadPdfJs(): Promise<PdfJs> {
   // The legacy build is the one pdf.js recommends for Node. It's dev-only (not shipped).
   const specifier: string = "pdfjs-dist/legacy/build/pdf.mjs";
-  pdfjsPromise ??= import(specifier) as Promise<PdfJs>;
+  pdfjsPromise ??= importPdfJs(specifier);
   return pdfjsPromise;
 }
 

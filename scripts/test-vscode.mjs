@@ -107,7 +107,6 @@ writeFileSync(
       "security.workspace.trust.enabled": false,
       "git.enabled": false,
       "npm.fetchOnlinePackageInfo": false,
-      "chat.disableAIFeatures": true,
     },
     null,
     2,

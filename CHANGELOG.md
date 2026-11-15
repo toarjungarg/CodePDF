@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.1
+- Optimized file size: the download is about half as big.
+- Tidied up small UI details.
+
 ## 1.2.0
 - Added Python export (`.py`, `.pyw`).
 
