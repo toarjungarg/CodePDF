@@ -3,11 +3,15 @@
 
 !package.json
 !README.md
+!CHANGELOG.md
 !LICENSE
 !out/src/**/*.js
 !out/webview/**/*.js
 !media/**
-!node_modules/**
+# Keep the packages, minus extras the extension never loads: source maps,
+# type files, a stray copy of yarn inside pdfkit, and pdfkit's browser builds.
+# (A "!" line always wins over an ignore line, so the exceptions go in here.)
+!node_modules/**/!(*.map|*.d.ts|yarn-*.cjs|install-state.gz|pdfkit.standalone.js|pdfkit.browser.*)
 
 # pdf.js ships as the trimmed copy in media/pdfjs, not from node_modules.
 node_modules/pdfjs-dist/**

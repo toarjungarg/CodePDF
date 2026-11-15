@@ -92,7 +92,7 @@ export async function askSaveLocation(defaultUri: vscode.Uri): Promise<vscode.Ur
     defaultUri,
     filters: { PDF: ["pdf"] },
     saveLabel: "Export PDF",
-    title: "Save the combined PDF",
+    title: "Save the PDF",
   });
 }
 

@@ -3,7 +3,7 @@
 // normal settings and extensions are never touched. Nothing is downloaded.
 import { execFileSync, spawn } from "node:child_process";
 import { createRequire } from "node:module";
-import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -118,9 +118,11 @@ writeFileSync(
 let developmentPath = root;
 let testsPath = join(root, "out", "test", "vscode", "suite.js");
 if (packaged) {
-  const vsix = readdirSync(root).filter((name) => name.endsWith(".vsix")).sort().pop();
-  if (!vsix) {
-    console.error("No .vsix file found. Run `npm run package` first.");
+  // Test the .vsix for the current version, even when older ones are kept in the folder.
+  const { version } = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+  const vsix = `codepdf-${version}.vsix`;
+  if (!existsSync(join(root, vsix))) {
+    console.error(`${vsix} wasn't found. Run \`npm run package\` first.`);
     process.exit(1);
   }
   // Install the .vsix into the throwaway profile only (never your real VS Code).

@@ -9,6 +9,10 @@ I built it for my own assignments. I wanted to read the assignment PDF next to m
 
 Everything runs on your computer. There is no telemetry, no account and no network access.
 
+## Install
+
+Search for "CodePDF" in the Extensions view in VS Code, or get it from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=toarjungarg.codepdf).
+
 ## Viewing PDFs
 
 Open any `.pdf` file in VS Code and it shows up in a tab.
@@ -18,7 +22,8 @@ Open any `.pdf` file in VS Code and it shows up in a tab.
 - Search for text (Cmd+F on Mac, Ctrl+F elsewhere)
 - Open several PDFs at once
 - If the PDF changes on disk, the tab reloads and keeps your place
-- Broken, empty or password-protected files get a clear message instead of a blank tab
+- Password-protected PDFs ask for the password
+- Broken or empty files get a clear message instead of a blank tab
 
 Links inside a PDF never open by themselves. CodePDF asks first, and only opens web and email links.
 
@@ -31,6 +36,8 @@ Supported files:
 - Python: `.py`, `.pyw`
 
 `.h` files are coloured as C++, which also works for C headers.
+
+I'm adding more languages. CSS is next.
 
 | Command | What it does |
 |---|---|
@@ -76,6 +83,7 @@ Some details worth knowing:
 - If a file is open with unsaved changes, the export uses what is on screen and tells you so.
 - The PDF uses the same font as your editor (the `editor.fontFamily` setting), as long as it is a monospace font installed on your computer. Otherwise it uses the system's default monospace font.
 - Folder export skips hidden files and folders, and folders named `node_modules`, `build`, `builds`, `dist`, `out`, `bin`, `obj`, `debug`, `release`, `x64`, `x86`, `target`, `__pycache__`, `venv` or starting with `cmake-build-`. It shows you the file list before exporting, so you can untick anything.
+- Folder export stops at 500 files and does not follow shortcuts (symlinks). Header files come first, then the rest in alphabetical order.
 - If you export `main.cpp` and `main.h` together as separate PDFs, they are named `main.cpp.pdf` and `main.h.pdf` so one does not overwrite the other.
 
 ## Settings
@@ -133,17 +141,17 @@ The syntax colouring is written from scratch (`src/export/cFamilyTokenizer.ts` f
 
 Install scripts are turned off for this project (`.npmrc`), and optional binary packages are not installed.
 
-Known issue: `npm audit` reports one moderate issue in `minimatch` 10.2.6, which `@vscode/vsce` uses ([GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249)). It is a build tool only, it only reads this project's own packaging patterns, and it is not part of the extension.
+Known issue: `npm audit` reports a moderate issue in `minimatch` 10.2.6, which `@vscode/vsce` uses ([GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249)). It is counted twice, once for each package. It is a build tool only, it only reads this project's own packaging patterns, and it is not part of the extension.
 
 ## Limitations
 
 - Syntax colouring is for C, C++ and Python only, and it is pattern-based rather than a full parser, so unusual macros can be coloured slightly wrong. The text itself is always exact.
 - In Python, `match`, `case` and `type` are only coloured as keywords when the statement fits on one line.
 - Since `.h` files are coloured as C++, a C header that uses a C++ word like `new` or `class` as a name shows that word coloured as a keyword.
-- Emoji are not supported in exported PDFs.
-- Characters your editor font does not have (for example Chinese, Japanese or Korean) are filled in from a system font. This is tested on macOS. On Windows and Linux the font lookup is written but not tested yet.
+- Emoji are not supported in exported PDFs. They print as a placeholder symbol.
+- Characters your editor font does not have (for example Chinese, Japanese or Korean) are filled in from a system font.
 - The viewer is read-only. It cannot edit, annotate, fill in forms or print.
-- PDFs over 300 MB and source files over 10 MB are refused.
+- PDFs over 300 MB are refused. So are source files over 10 MB, unless the file is already open in the editor.
 
 ## Building it yourself
 
