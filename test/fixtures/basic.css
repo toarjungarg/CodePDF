@@ -1,0 +1,45 @@
+/* Styles for a small recipe card page.
+   This comment has a { brace and a ; that are not code. */
+
+@import url("theme.css");
+@import url(fonts/serif.css);
+
+:root {
+  --accent: #e4572e;
+  --gap: 1.5rem;
+}
+
+body {
+  margin: 0;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  background: #fafafa url(data:image/png;base64,iVBORw0KGgo=) no-repeat;
+}
+
+.card > h2,
+#featured .title::before {
+  content: "Recipe: ";
+  color: var(--accent) !important;
+  margin: -2px 0 calc(100% - 12px) .5em;
+}
+
+a[href^="https"]:hover {
+  text-decoration: underline;
+}
+
+.card {
+  padding: var(--gap);
+
+  &:hover {
+    transform: scale(1.05) rotate(-3deg);
+  }
+}
+
+@media screen and (max-width: 600px) {
+  .card { padding: 8px; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  50% { opacity: 0.5; }
+  to { opacity: 1; }
+}

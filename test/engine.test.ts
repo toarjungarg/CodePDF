@@ -5,6 +5,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { tokenizeCFamily } from "../src/export/cFamilyTokenizer";
 import { tokenizePython } from "../src/export/pythonTokenizer";
+import { tokenizeCss } from "../src/export/cssTokenizer";
 import type { TokenKind, TokenLine } from "../src/export/tokens";
 import { languageForFile, languageForVscodeId, LANGUAGE_NAMES, LANGUAGE_NAMES_OR } from "../src/export/languages";
 import { columnWidth, expandLine, layoutLine } from "../src/export/layout";
@@ -36,9 +37,9 @@ const kindOfWord = (lines: TokenLine[], word: string): TokenKind | undefined => 
 };
 
 test("tokenizer: joining tokens gives back every fixture exactly", () => {
-  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py"]) {
+  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py", "basic.css"]) {
     const source = fixture(name).replace(/\r\n?/g, "\n");
-    for (const lines of [tokenizeCpp(source), tokenizeC(source), tokenizePython(source)]) {
+    for (const lines of [tokenizeCpp(source), tokenizeC(source), tokenizePython(source), tokenizeCss(source)]) {
       assert.equal(lines.map(joinLine).join("\n"), source, `${name} changed during tokenizing`);
     }
   }
@@ -106,6 +107,59 @@ test("tokenizer: C uses C's keywords, and C++-only words stay plain", () => {
   const raw = 'const char *s = R"(one\ntwo)";';
   assert.equal(kindOf(tokenizeCpp(raw), "two)"), "string", "C++ raw strings continue across lines");
   assert.notEqual(kindOf(tokenizeC(raw), "two)"), "string", "in C the string ends at the line break");
+});
+
+test("tokenizer: CSS selectors, properties, values, at-rules, strings and comments", () => {
+  const css = tokenizeCss(fixture("basic.css"));
+  assert.equal(kindOf(css, "Styles for a small recipe card page."), "comment");
+  assert.equal(kindOf(css, "This comment has a { brace"), "comment", "comments continue across lines");
+  assert.equal(kindOf(css, "@import"), "preprocessor");
+  assert.equal(kindOf(css, "@media"), "preprocessor");
+  assert.equal(kindOf(css, "@keyframes"), "preprocessor");
+  assert.equal(kindOf(css, '"theme.css"'), "string");
+  assert.equal(kindOf(css, "fonts/serif.css"), "string", "an unquoted url(...) address is a string");
+  assert.equal(kindOf(css, "data:image/png;base64,iVBORw0KGgo="), "string", "a ; inside url(...) doesn't end the value");
+  for (const selector of [":root", "body", ".card", "h2", "#featured", ".title::before", ":hover", "&:hover", "from", "to"]) {
+    assert.ok(css.flat().some((t) => t.text === selector && t.kind === "keyword"), selector);
+  }
+  for (const property of ["--accent", "margin", "font-family", "background", "color", "text-decoration", "opacity"]) {
+    assert.ok(css.flat().some((t) => t.text === property && t.kind === "type"), property);
+  }
+  for (const value of ["#e4572e", "1.5rem", "-2px", "100%", ".5em", "-3deg", "600px", "50%", "0.5"]) {
+    assert.ok(css.flat().some((t) => t.text === value && t.kind === "number"), value);
+  }
+  assert.equal(kindOf(css, "!important"), "keyword");
+  assert.equal(kindOf(css, '"Helvetica Neue"'), "string");
+  assert.ok(css.flat().some((t) => t.text === "and" && t.kind === "keyword"), "and in a @media condition");
+  assert.equal(kindOfWord(css, "sans-serif"), "plain", "ordinary values stay plain");
+  assert.equal(kindOfWord(css, "https"), "string", "quoted attribute values are strings");
+
+  // A minus between two values is an operator, not part of the number.
+  const calc = tokenizeCss("a { width: calc(100% - 2px); height: 1px-2px; }").flat();
+  assert.ok(calc.some((t) => t.text === "2px" && t.kind === "number"), "2px after a spaced minus");
+  // A declaration outside any block (a style attribute's contents) is still coloured as one.
+  const loose = tokenizeCss("color: red;\npadding: 4px").flat();
+  assert.ok(loose.some((t) => t.text === "color" && t.kind === "type"));
+  assert.ok(loose.some((t) => t.text === "padding" && t.kind === "type"));
+});
+
+test("tokenizer: unterminated CSS comments and strings don't swallow or lose text", () => {
+  for (const source of [
+    "/* never closed\na { color: red; }",
+    'a { content: "no end\n  color: red; }',
+    "a { background: url(no-end\n  color: red; }",
+    "a { color: red",
+    "@media screen and (",
+    "a[href",
+    "a { margin: - +; } #",
+    "\\",
+    "",
+  ]) {
+    assert.equal(tokenizeCss(source).map(joinLine).join("\n"), source, JSON.stringify(source));
+  }
+  const lines = tokenizeCss('a { content: "no end\n  color: red; }');
+  assert.notEqual(kindOf(lines, "color"), "string", "a string stops at the end of its line");
+  assert.equal(kindOf(tokenizeCss("/* never closed\na { color: red; }"), "color: red;"), "comment");
 });
 
 test("tokenizer: Python comments, strings, numbers, keywords and decorators", () => {
@@ -225,9 +279,13 @@ test("languages: picked by extension or VS Code language id, with .h treated as 
   assert.equal(languageForFile("app.PYW"), "python");
   assert.equal(languageForFile("py"), undefined);
   assert.equal(languageForVscodeId("python"), "python");
+  assert.equal(languageForFile("styles.css"), "css");
+  assert.equal(languageForFile("THEME.CSS"), "css");
+  assert.equal(languageForFile("styles.scss"), undefined);
+  assert.equal(languageForVscodeId("css"), "css");
   assert.equal(languageForVscodeId("javascript"), undefined);
-  assert.equal(LANGUAGE_NAMES, "C, C++ and Python");
-  assert.equal(LANGUAGE_NAMES_OR, "C, C++ or Python");
+  assert.equal(LANGUAGE_NAMES, "C, C++, Python and CSS");
+  assert.equal(LANGUAGE_NAMES_OR, "C, C++, Python or CSS");
 });
 
 test("layout: tabs expand to the next tab stop and control characters become visible", () => {
@@ -272,10 +330,10 @@ test("options: defaults, clamping and page sizes", () => {
 });
 
 test("files: supported extensions, excluded folders and PDF names", () => {
-  for (const name of ["a.c", "a.cpp", "a.cc", "a.cxx", "a.h", "a.hpp", "a.hh", "a.hxx", "A.CPP", "A.C", "a.py", "a.pyw", "A.PY"]) {
+  for (const name of ["a.c", "a.cpp", "a.cc", "a.cxx", "a.h", "a.hpp", "a.hh", "a.hxx", "A.CPP", "A.C", "a.py", "a.pyw", "A.PY", "a.css", "A.CSS"]) {
     assert.ok(isSupportedSource(name), name);
   }
-  for (const name of ["a.js", "cpp", "c", "py", "a.cpp.bak", "a.c.bak", "a.pyc", "notes.txt"]) {
+  for (const name of ["a.js", "cpp", "c", "py", "css", "a.scss", "a.css.map", "a.cpp.bak", "a.c.bak", "a.pyc", "notes.txt"]) {
     assert.ok(!isSupportedSource(name), name);
   }
   for (const name of [".git", ".vscode", "node_modules", "build", "dist", "cmake-build-debug", "Debug", "__pycache__", "venv", ".venv"]) {

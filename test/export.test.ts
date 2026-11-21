@@ -87,6 +87,30 @@ test("1c. exports a Python file, and Python and C++ files combined", async () =>
   assert.ok(combined.pdf.text.includes("int sumOf(const std::vector<int>& values) {"));
 });
 
+test("1d. exports a CSS file, and CSS and C++ files combined", async () => {
+  const source = fixture("basic.css");
+  const { pdf } = await exportSections("basic_css.pdf", [file("basic.css", source)]);
+  assert.ok(pdf.pages[0]!.lines[0]!.startsWith("basic.css"), "file name in the header");
+  for (const expected of [
+    "This comment has a { brace and a ; that are not code. */",
+    "@import url(fonts/serif.css);",
+    "background: #fafafa url(data:image/png;base64,iVBORw0KGgo=) no-repeat;",
+    "#featured .title::before {",
+    "color: var(--accent) !important;",
+    "@media screen and (max-width: 600px) {",
+  ]) {
+    assert.ok(pdf.text.includes(expected), `missing: ${expected}`);
+  }
+
+  const combined = await exportSections("mixed_css_cpp.pdf", [
+    { ...file("basic.css", source), language: "css" },
+    { ...file("basic.cpp", fixture("basic.cpp")), language: "cpp" },
+  ]);
+  assert.deepEqual(combined.pdf.outline, ["basic.css", "basic.cpp"], "one bookmark per file");
+  assert.ok(combined.pdf.text.includes("a[href^=\"https\"]:hover {"));
+  assert.ok(combined.pdf.text.includes("int sumOf(const std::vector<int>& values) {"));
+});
+
 test("2. exports comments and strings exactly", async () => {
   const { pdf } = await exportSections("comments_strings.pdf", [file("comments_strings.cpp", fixture("comments_strings.cpp"))]);
   for (const expected of [

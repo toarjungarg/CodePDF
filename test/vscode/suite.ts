@@ -70,7 +70,7 @@ export async function run(): Promise<void> {
     await sleep(300);
   };
 
-  const sourceNames = ["main.cpp", "lab.c", "stats.py", "util.h", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "src/extra.cpp"];
+  const sourceNames = ["main.cpp", "lab.c", "stats.py", "styles.css", "util.h", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "src/extra.cpp"];
   const sourcesBefore = new Map<string, Uint8Array>();
   for (const name of sourceNames) {
     sourcesBefore.set(name, await bytesOf(file(...name.split("/"))));
@@ -251,6 +251,17 @@ export async function run(): Promise<void> {
     return `${state.pagesCount} page(s), Python code searchable`;
   });
 
+  await test("export: Export as PDF works for a CSS file", async () => {
+    await vscode.commands.executeCommand("codepdf.exportFile", file("styles.css"));
+    const pdf = file("styles.pdf");
+    check(await exists(pdf), "styles.pdf wasn't created");
+    const state = await openPdf(pdf);
+    check(state.status === "loaded", `styles.pdf didn't open: ${state.error}`);
+    await viewer.sendAction(pdf, { action: "find", query: "@media" });
+    await viewer.waitForState(pdf, (s) => (s.findMatches?.total ?? 0) > 0);
+    return `${state.pagesCount} page(s), CSS code searchable`;
+  });
+
   await closeAll();
 
   await test("export: Export Selection as PDF exports only the highlighted lines", async () => {
@@ -289,7 +300,7 @@ export async function run(): Promise<void> {
     for (const excluded of ["build/generated.cpp", "node_modules/dep/dep.cpp", ".hidden.cpp", "__pycache__/cached.py", "venv/lib/site.py"]) {
       check(!labels.includes(excluded), `${excluded} should have been skipped`);
     }
-    for (const included of ["main.cpp", "lab.c", "stats.py", "util.h", "src/extra.cpp"]) {
+    for (const included of ["main.cpp", "lab.c", "stats.py", "styles.css", "util.h", "src/extra.cpp"]) {
       check(labels.includes(included), `${included} should be included`);
     }
     const state = await openPdf(out);
