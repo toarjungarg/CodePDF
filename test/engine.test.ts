@@ -32,6 +32,9 @@ const kindOf = (lines: TokenLine[], text: string): TokenKind | undefined => {
 };
 const tokenizeCpp = (source: string): TokenLine[] => tokenizeCFamily(source, "cpp");
 const tokenizeC = (source: string): TokenLine[] => tokenizeCFamily(source, "c");
+const tokenizeTs = (source: string): TokenLine[] => tokenizeJavaScript(source, { typescript: true });
+const tokenizeJsx = (source: string): TokenLine[] => tokenizeJavaScript(source, { jsx: true });
+const tokenizeTsx = (source: string): TokenLine[] => tokenizeJavaScript(source, { typescript: true, jsx: true });
 /** Kind of the first token containing `word` as a whole word (plain neighbours get merged into one token). */
 const kindOfWord = (lines: TokenLine[], word: string): TokenKind | undefined => {
   const pattern = new RegExp(`(^|[^\\w$])${word.replace(/[$]/g, "\\$")}($|[^\\w$])`);
@@ -39,9 +42,12 @@ const kindOfWord = (lines: TokenLine[], word: string): TokenKind | undefined => 
 };
 
 test("tokenizer: joining tokens gives back every fixture exactly", () => {
-  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py", "basic.css", "basic.html", "basic.js"]) {
+  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py", "basic.css", "basic.html", "basic.js", "basic.ts", "basic.jsx", "basic.tsx"]) {
     const source = fixture(name).replace(/\r\n?/g, "\n");
-    for (const lines of [tokenizeCpp(source), tokenizeC(source), tokenizePython(source), tokenizeCss(source), tokenizeHtml(source), tokenizeJavaScript(source)]) {
+    for (const lines of [
+      tokenizeCpp(source), tokenizeC(source), tokenizePython(source), tokenizeCss(source), tokenizeHtml(source), tokenizeJavaScript(source),
+      tokenizeTs(source), tokenizeJsx(source), tokenizeTsx(source),
+    ]) {
       assert.equal(lines.map(joinLine).join("\n"), source, `${name} changed during tokenizing`);
     }
   }
@@ -290,6 +296,81 @@ test("tokenizer: unfinished JavaScript doesn't swallow or lose text", () => {
   assert.equal(kindOfWord(tokenizeJavaScript("promise.catch(e)"), "catch"), "plain", "a keyword after a dot is a property");
 });
 
+test("tokenizer: TypeScript keywords, types, and words that are only sometimes keywords", () => {
+  const ts = tokenizeTs(fixture("basic.ts"));
+  const has = (text: string, kind: TokenKind): boolean => ts.flat().some((t) => t.text === text && t.kind === kind);
+  const plainHas = (text: string): boolean => ts.flat().some((t) => t.kind === "plain" && t.text.includes(text));
+  assert.equal(kindOf(ts, 'says interface and "string"'), "comment");
+  for (const word of ["interface", "readonly", "type", "enum", "declare", "abstract", "implements", "private", "protected", "public", "is", "as", "satisfies", "extends", "import", "export"]) {
+    assert.ok(has(word, "keyword"), `keyword ${word}`);
+  }
+  for (const name of ["string", "number", "unknown", "boolean", "object", "Partial", "Record", "Promise", "Symbol", "JSON"]) {
+    assert.ok(has(name, "type"), `type ${name}`);
+  }
+  assert.ok(plainHas(" type = "), "`const type =` is a name");
+  assert.ok(plainHas("{ readonly: "), "readonly as a property name");
+  assert.ok(plainHas("type, meal: Meal.Breakfast "), "type as a shorthand property");
+  assert.ok(!ts.flat().some((t) => t.kind === "string" && t.text.includes("/ 2")), "a / after a non-null ! is division");
+  assert.ok(plainHas(")!.textContent"), "non-null ! before a dot");
+  // TypeScript-only colours stay off in plain JavaScript, and .ts files have no JSX.
+  assert.equal(kindOfWord(tokenizeJavaScript("let x: string = y as T;"), "string"), "plain");
+  assert.equal(kindOfWord(tokenizeJavaScript("interface Shape {}"), "interface"), "plain");
+  assert.equal(kindOfWord(tokenizeTs("const x = <Foo>bar;"), "Foo"), "plain", "a type assertion in .ts isn't a tag");
+});
+
+test("tokenizer: JSX tags, attributes, text and {code}", () => {
+  const jsx = tokenizeJsx(fixture("basic.jsx"));
+  const has = (text: string, kind: TokenKind): boolean => jsx.flat().some((t) => t.text === text && t.kind === kind);
+  assert.equal(kindOf(jsx, "has a <div> that is not a tag"), "comment");
+  for (const tag of ["article", "h2", "ol", "li", "img", "button"]) {
+    assert.ok(has(tag, "keyword"), `tag ${tag}`);
+  }
+  for (const attribute of ["className", "data-open", "onClick", "key", "title", "src", "alt", "disabled"]) {
+    assert.ok(has(attribute, "type"), `attribute ${attribute}`);
+  }
+  for (const value of ['"card"', "'step'", '"pancake.png"', '"A stack"']) {
+    assert.ok(has(value, "string"), `attribute value ${value}`);
+  }
+  assert.ok(has("&amp;", "number"), "character reference in JSX text");
+  assert.equal(kindOf(jsx, "A comment inside JSX"), "comment");
+  assert.equal(kindOf(jsx, "Don't skip step "), "plain", "an apostrophe in JSX text doesn't start a string");
+  assert.ok(has("1", "number") && has("false", "keyword"), "code inside {...} and in the component is coloured");
+  assert.equal(kindOf(jsx, "length < "), "plain", "a < after a name is less-than, not a tag");
+  assert.ok(!jsx.flat().some((t) => t.kind === "string" && t.text.includes("/ 2")), "a / after a name is still division");
+  assert.equal(kindOfWord(tokenizeJavaScript("x = <div>"), "div"), "plain", "plain .js files have no JSX");
+});
+
+test("tokenizer: TSX tells generics apart from tags", () => {
+  const tsx = tokenizeTsx(fixture("basic.tsx"));
+  const has = (text: string, kind: TokenKind): boolean => tsx.flat().some((t) => t.text === text && t.kind === kind);
+  assert.equal(kindOf(tsx, "The <T> in this comment"), "comment");
+  assert.equal(kindOf(tsx, "<T,>(value"), "plain", "<T,> is a generic");
+  assert.ok(!has("T", "keyword"), "no generic T is coloured as a tag");
+  assert.ok(has("extends", "keyword") && has("object", "type"), "<T extends object> is a generic");
+  assert.ok(!has("number", "keyword") && has("number", "type"), "useState<number> isn't a tag");
+  for (const tag of ["Menu.Group", "li", "button"]) {
+    assert.ok(has(tag, "keyword"), `tag ${tag}`);
+  }
+  assert.ok(has("label", "type") && has('"Recipes"', "string") && has("&gt;", "number"));
+  for (const word of ["interface", "readonly", "as", "type"]) {
+    assert.ok(has(word, "keyword"), `keyword ${word}`);
+  }
+  assert.ok(!tsx.flat().some((t) => t.kind === "string" && t.text.includes("/ 2")), "a / after a non-null ! is division");
+});
+
+test("tokenizer: unfinished JSX and TypeScript don't swallow or lose text", () => {
+  for (const source of [
+    "<", "<>", "</", "<div", "<div ", '<div a="x', "<div a=", "<div a={", "<div>{a", "<div>text", "<a><b>", "<div /",
+    "<div // note", "<div /* note", "x = <div className={`${a}`}>", "<T,", "<T extends", "a < b", "</div>", "<>{</>",
+    "x!", "!", "type", "interface", "a as", "中文 <b>😀</b>", "",
+  ]) {
+    for (const tokenize of [tokenizeJsx, tokenizeTsx, tokenizeTs]) {
+      assert.equal(tokenize(source).map(joinLine).join("\n"), source, JSON.stringify(source));
+    }
+  }
+  assert.equal(kindOfWord(tokenizeTsx("x = <T,>() => 1;\nlet y = 2;"), "let"), "keyword", "code after a generic is code");
+});
+
 test("tokenizer: Python comments, strings, numbers, keywords and decorators", () => {
   const py = tokenizePython(fixture("basic.py"));
   assert.equal(kindOf(py, "A small weather log"), "string", "docstring");
@@ -418,11 +499,18 @@ test("languages: picked by extension or VS Code language id, with .h treated as 
   assert.equal(languageForFile("app.js"), "javascript");
   assert.equal(languageForFile("SERVER.MJS"), "javascript");
   assert.equal(languageForFile("config.cjs"), "javascript");
-  assert.equal(languageForFile("App.jsx"), undefined);
+  assert.equal(languageForFile("App.jsx"), "javascriptreact");
+  assert.equal(languageForFile("App.TSX"), "typescriptreact");
+  assert.equal(languageForFile("util.ts"), "typescript");
+  assert.equal(languageForFile("load.mts"), "typescript");
+  assert.equal(languageForFile("conf.cts"), "typescript");
+  assert.equal(languageForFile("types.d.ts"), "typescript");
   assert.equal(languageForVscodeId("javascript"), "javascript");
-  assert.equal(languageForVscodeId("typescript"), undefined);
-  assert.equal(LANGUAGE_NAMES, "C, C++, Python, CSS, HTML and JavaScript");
-  assert.equal(LANGUAGE_NAMES_OR, "C, C++, Python, CSS, HTML or JavaScript");
+  assert.equal(languageForVscodeId("typescript"), "typescript");
+  assert.equal(languageForVscodeId("javascriptreact"), "javascriptreact");
+  assert.equal(languageForVscodeId("typescriptreact"), "typescriptreact");
+  assert.equal(LANGUAGE_NAMES, "C, C++, Python, CSS, HTML, JavaScript, TypeScript and React");
+  assert.equal(LANGUAGE_NAMES_OR, "C, C++, Python, CSS, HTML, JavaScript, TypeScript or React");
 });
 
 test("layout: tabs expand to the next tab stop and control characters become visible", () => {
@@ -467,10 +555,10 @@ test("options: defaults, clamping and page sizes", () => {
 });
 
 test("files: supported extensions, excluded folders and PDF names", () => {
-  for (const name of ["a.c", "a.cpp", "a.cc", "a.cxx", "a.h", "a.hpp", "a.hh", "a.hxx", "A.CPP", "A.C", "a.py", "a.pyw", "A.PY", "a.css", "A.CSS", "a.html", "a.htm", "A.HTML", "a.js", "a.mjs", "a.cjs", "A.JS"]) {
+  for (const name of ["a.c", "a.cpp", "a.cc", "a.cxx", "a.h", "a.hpp", "a.hh", "a.hxx", "A.CPP", "A.C", "a.py", "a.pyw", "A.PY", "a.css", "A.CSS", "a.html", "a.htm", "A.HTML", "a.js", "a.mjs", "a.cjs", "A.JS", "a.ts", "a.mts", "a.cts", "A.TS", "a.jsx", "a.tsx", "A.TSX"]) {
     assert.ok(isSupportedSource(name), name);
   }
-  for (const name of ["a.jsx", "a.ts", "a.js.map", "js", "cpp", "c", "py", "css", "a.scss", "a.css.map", "html", "a.html.bak", "a.xhtml", "a.cpp.bak", "a.c.bak", "a.pyc", "notes.txt"]) {
+  for (const name of ["a.ts.map", "a.tsbuildinfo", "a.js.map", "js", "cpp", "c", "py", "css", "a.scss", "a.css.map", "html", "a.html.bak", "a.xhtml", "a.cpp.bak", "a.c.bak", "a.pyc", "notes.txt"]) {
     assert.ok(!isSupportedSource(name), name);
   }
   for (const name of [".git", ".vscode", "node_modules", "build", "dist", "cmake-build-debug", "Debug", "__pycache__", "venv", ".venv"]) {

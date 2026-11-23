@@ -10,7 +10,7 @@ import { tokenizeJavaScript } from "./javascriptTokenizer";
 import { tokenizePython } from "./pythonTokenizer";
 import type { TokenLine } from "./tokens";
 
-export type LanguageId = "c" | "cpp" | "python" | "css" | "html" | "javascript";
+export type LanguageId = "c" | "cpp" | "python" | "css" | "html" | "javascript" | "typescript" | "javascriptreact" | "typescriptreact";
 
 interface Language {
   /** Shown in messages, e.g. "C++". */
@@ -60,7 +60,26 @@ export const LANGUAGES: Record<LanguageId, Language> = {
     label: "JavaScript",
     extensions: [".js", ".mjs", ".cjs"],
     vscodeId: "javascript",
-    tokenize: tokenizeJavaScript,
+    tokenize: (source) => tokenizeJavaScript(source),
+  },
+  typescript: {
+    label: "TypeScript",
+    extensions: [".ts", ".mts", ".cts"],
+    vscodeId: "typescript",
+    tokenize: (source) => tokenizeJavaScript(source, { typescript: true }),
+  },
+  // React files: JSX in JavaScript (.jsx) or TypeScript (.tsx). Both are "React" in messages.
+  javascriptreact: {
+    label: "React",
+    extensions: [".jsx"],
+    vscodeId: "javascriptreact",
+    tokenize: (source) => tokenizeJavaScript(source, { jsx: true }),
+  },
+  typescriptreact: {
+    label: "React",
+    extensions: [".tsx"],
+    vscodeId: "typescriptreact",
+    tokenize: (source) => tokenizeJavaScript(source, { typescript: true, jsx: true }),
   },
 };
 
@@ -70,14 +89,14 @@ const LANGUAGE_IDS = Object.keys(LANGUAGES) as LanguageId[];
 export const SUPPORTED_EXTENSIONS: readonly string[] = LANGUAGE_IDS.flatMap((id) => LANGUAGES[id].extensions);
 
 function nameList(lastJoiner: string): string {
-  const labels = LANGUAGE_IDS.map((id) => LANGUAGES[id].label);
+  const labels = [...new Set(LANGUAGE_IDS.map((id) => LANGUAGES[id].label))]; // "React" only once
   return labels.length < 2 ? labels.join("") : `${labels.slice(0, -1).join(", ")} ${lastJoiner} ${labels[labels.length - 1]}`;
 }
 
-/** "C, C++, Python, CSS, HTML and JavaScript", for messages. */
+/** "C, C++, Python, CSS, HTML, JavaScript, TypeScript and React", for messages. */
 export const LANGUAGE_NAMES = nameList("and");
 
-/** "C, C++, Python, CSS, HTML or JavaScript", for messages like "files that aren't C, C++, Python, CSS, HTML or JavaScript". */
+/** "C, C++, Python, CSS, HTML, JavaScript, TypeScript or React", for messages like "files that aren't ...". */
 export const LANGUAGE_NAMES_OR = nameList("or");
 
 function extensionOf(fileName: string): string {
@@ -91,7 +110,7 @@ export function languageForFile(fileName: string): LanguageId | undefined {
   return LANGUAGE_IDS.find((id) => LANGUAGES[id].extensions.includes(ext));
 }
 
-/** The language for VS Code's language id ("c", "cpp", "python", "css", "html", "javascript"), or undefined if unsupported. */
+/** The language for VS Code's language id ("c", "cpp", "python", "javascript", "typescriptreact", ...), or undefined if unsupported. */
 export function languageForVscodeId(vscodeId: string | undefined): LanguageId | undefined {
   return LANGUAGE_IDS.find((id) => LANGUAGES[id].vscodeId === vscodeId);
 }

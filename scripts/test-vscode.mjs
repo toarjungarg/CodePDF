@@ -41,6 +41,9 @@ put("stats.py", readFileSync(join(fixtures, "basic.py")));
 put("styles.css", readFileSync(join(fixtures, "basic.css")));
 put("index.html", readFileSync(join(fixtures, "basic.html")));
 put("recipe.js", readFileSync(join(fixtures, "basic.js")));
+put("scale.ts", readFileSync(join(fixtures, "basic.ts")));
+put("card.jsx", readFileSync(join(fixtures, "basic.jsx")));
+put("list.tsx", readFileSync(join(fixtures, "basic.tsx")));
 for (const name of ["comments_strings.cpp", "unicode.cpp", "long_lines.cpp"]) {
   cpSync(join(fixtures, name), join(project, name));
 }
@@ -49,6 +52,7 @@ put("src/extra.cpp", '#include "../util.h"\n\nint helper(int value) {\n    retur
 put("build/generated.cpp", "// build output: must be skipped\n");
 put("node_modules/dep/dep.cpp", "// dependency: must be skipped\n");
 put("node_modules/dep/index.js", "// dependency: must be skipped\n");
+put("node_modules/dep/index.d.ts", "// dependency types: must be skipped\n");
 put("dist/bundle.js", "// build output: must be skipped\n");
 put(".hidden.cpp", "// hidden: must be skipped\n");
 put("__pycache__/cached.py", "# cache folder: must be skipped\n");

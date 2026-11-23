@@ -161,6 +161,29 @@ test("1f. exports a JavaScript file, and HTML and JavaScript files combined", as
   assert.ok(combined.pdf.text.includes("export default card;"));
 });
 
+test("1g. exports TypeScript, JSX and TSX files, alone and combined", async () => {
+  const cases: Array<[string, string[]]> = [
+    ["basic.ts", ["export interface Ingredient {", "type Pair<T> = [T, T];", "const half = settings.meal! / 2;"]],
+    ["basic.jsx", ['<article className="card" data-open={open} {...rest}>', "Don't skip step {i + 1}: {step}", "<>"]],
+    ["basic.tsx", ["const identity = <T,>(value: T): T => value;", '<Menu.Group label="Recipes">', "More &gt;"]],
+  ];
+  for (const [name, expectedLines] of cases) {
+    const { pdf } = await exportSections(`${name.replace(".", "_")}.pdf`, [file(name, fixture(name))]);
+    assert.ok(pdf.pages[0]!.lines[0]!.startsWith(name), `${name}: file name in the header`);
+    for (const expected of expectedLines) {
+      assert.ok(pdf.text.includes(expected), `${name} missing: ${expected}`);
+    }
+  }
+
+  const combined = await exportSections("mixed_ts_react.pdf", [
+    { ...file("basic.ts", fixture("basic.ts")), language: "typescript" },
+    { ...file("basic.jsx", fixture("basic.jsx")), language: "javascriptreact" },
+    { ...file("basic.tsx", fixture("basic.tsx")), language: "typescriptreact" },
+  ]);
+  assert.deepEqual(combined.pdf.outline, ["basic.ts", "basic.jsx", "basic.tsx"], "one bookmark per file");
+  assert.ok(combined.pdf.text.includes("export { load, isIngredient, pair, half, first, VERSION };"));
+});
+
 test("2. exports comments and strings exactly", async () => {
   const { pdf } = await exportSections("comments_strings.pdf", [file("comments_strings.cpp", fixture("comments_strings.cpp"))]);
   for (const expected of [

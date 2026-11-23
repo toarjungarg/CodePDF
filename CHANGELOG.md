@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.6.0
+- Added TypeScript export (`.ts`, `.mts`, `.cts`).
+- Added React export (`.jsx`, `.tsx`). JSX tags are coloured like HTML.
+
 ## 1.5.0
 - Added JavaScript export (`.js`, `.mjs`, `.cjs`).
 - JavaScript inside HTML `<script>` tags and attributes like `onclick` is coloured too.

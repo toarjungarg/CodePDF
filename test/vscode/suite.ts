@@ -70,7 +70,7 @@ export async function run(): Promise<void> {
     await sleep(300);
   };
 
-  const sourceNames = ["main.cpp", "lab.c", "stats.py", "styles.css", "index.html", "recipe.js", "util.h", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "src/extra.cpp"];
+  const sourceNames = ["main.cpp", "lab.c", "stats.py", "styles.css", "index.html", "recipe.js", "scale.ts", "card.jsx", "list.tsx", "util.h", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "src/extra.cpp"];
   const sourcesBefore = new Map<string, Uint8Array>();
   for (const name of sourceNames) {
     sourcesBefore.set(name, await bytesOf(file(...name.split("/"))));
@@ -284,6 +284,21 @@ export async function run(): Promise<void> {
     return `${state.pagesCount} page(s), JavaScript code searchable`;
   });
 
+  await test("export: Export as PDF works for TypeScript, JSX and TSX files", async () => {
+    const results: string[] = [];
+    for (const [name, query] of [["scale.ts", "isIngredient"], ["card.jsx", "RecipeCard"], ["list.tsx", "RecipeList"]] as const) {
+      await vscode.commands.executeCommand("codepdf.exportFile", file(name));
+      const pdf = file(name.replace(/\.\w+$/, ".pdf"));
+      check(await exists(pdf), `${name}'s PDF wasn't created`);
+      const state = await openPdf(pdf);
+      check(state.status === "loaded", `${name}'s PDF didn't open: ${state.error}`);
+      await viewer.sendAction(pdf, { action: "find", query });
+      await viewer.waitForState(pdf, (s) => (s.findMatches?.total ?? 0) > 0);
+      results.push(`${name} ${state.pagesCount} page(s)`);
+    }
+    return `${results.join(", ")}, all searchable`;
+  });
+
   await closeAll();
 
   await test("export: Export Selection as PDF exports only the highlighted lines", async () => {
@@ -319,10 +334,10 @@ export async function run(): Promise<void> {
     answers.save.push(out);
     await vscode.commands.executeCommand("codepdf.exportFolder", project);
     const labels = answers.pickedLabels.pop() ?? [];
-    for (const excluded of ["build/generated.cpp", "node_modules/dep/dep.cpp", "node_modules/dep/index.js", "dist/bundle.js", ".hidden.cpp", "__pycache__/cached.py", "venv/lib/site.py"]) {
+    for (const excluded of ["build/generated.cpp", "node_modules/dep/dep.cpp", "node_modules/dep/index.js", "node_modules/dep/index.d.ts", "dist/bundle.js", ".hidden.cpp", "__pycache__/cached.py", "venv/lib/site.py"]) {
       check(!labels.includes(excluded), `${excluded} should have been skipped`);
     }
-    for (const included of ["main.cpp", "lab.c", "stats.py", "styles.css", "index.html", "recipe.js", "util.h", "src/extra.cpp"]) {
+    for (const included of ["main.cpp", "lab.c", "stats.py", "styles.css", "index.html", "recipe.js", "scale.ts", "card.jsx", "list.tsx", "util.h", "src/extra.cpp"]) {
       check(labels.includes(included), `${included} should be included`);
     }
     const state = await openPdf(out);

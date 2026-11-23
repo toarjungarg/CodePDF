@@ -17,5 +17,5 @@
     "sourceMap": true
   },
   "include": ["src/**/*.ts", "test/**/*.ts", "types/**/*.d.ts"],
-  "exclude": ["src/webview/**"]
+  "exclude": ["src/webview/**", "test/fixtures/**"]
 }
