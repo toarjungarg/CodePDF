@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<!-- A small recipe card page.
+     This comment has a <div> tag and an & that are not code. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Pancakes &amp; Syrup</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .card { padding: 8px; }
+    /* a </div> inside a style comment */
+    h1::after { content: "<3"; color: #e4572e; }
+  </style>
+</head>
+<body class=page data-theme='light'>
+  <recipe-card id="featured" hidden>
+    <h1 style="font-weight: bold; margin: 0 4px">Pancakes</h1>
+    <img src="images/pancakes.png" alt="A stack of pancakes" />
+    <p>Serves 4. Salt & pepper not needed. &copy; &#169; &#x1F95E;</p>
+    <ul>
+      <li>2 cups flour</li>
+      <li>1 &frac12; cups milk</li>
+    </ul>
+    <button type="button"
+            onclick="flip()"
+            disabled>Flip</button><br>
+  </recipe-card>
+  <script>
+    if (count < 3 && total > 0) {
+      document.title = "<b>Done</b>";
+    }
+  </script>
+</body>
+</html>

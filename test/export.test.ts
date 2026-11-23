@@ -111,6 +111,31 @@ test("1d. exports a CSS file, and CSS and C++ files combined", async () => {
   assert.ok(combined.pdf.text.includes("int sumOf(const std::vector<int>& values) {"));
 });
 
+test("1e. exports an HTML file, and HTML and CSS files combined", async () => {
+  const source = fixture("basic.html");
+  const { pdf } = await exportSections("basic_html.pdf", [file("basic.html", source)]);
+  assert.ok(pdf.pages[0]!.lines[0]!.startsWith("basic.html"), "file name in the header");
+  for (const expected of [
+    "<!DOCTYPE html>",
+    "This comment has a <div> tag and an & that are not code. -->",
+    "<title>Pancakes &amp; Syrup</title>",
+    "<body class=page data-theme='light'>",
+    '<h1 style="font-weight: bold; margin: 0 4px">Pancakes</h1>',
+    "<p>Serves 4. Salt & pepper not needed. &copy; &#169; &#x1F95E;</p>",
+    "if (count < 3 && total > 0) {",
+  ]) {
+    assert.ok(pdf.text.includes(expected), `missing: ${expected}`);
+  }
+
+  const combined = await exportSections("mixed_html_css.pdf", [
+    { ...file("basic.html", source), language: "html" },
+    { ...file("basic.css", fixture("basic.css")), language: "css" },
+  ]);
+  assert.deepEqual(combined.pdf.outline, ["basic.html", "basic.css"], "one bookmark per file");
+  assert.ok(combined.pdf.text.includes('<recipe-card id="featured" hidden>'));
+  assert.ok(combined.pdf.text.includes("a[href^=\"https\"]:hover {"));
+});
+
 test("2. exports comments and strings exactly", async () => {
   const { pdf } = await exportSections("comments_strings.pdf", [file("comments_strings.cpp", fixture("comments_strings.cpp"))]);
   for (const expected of [

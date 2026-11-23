@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.4.0
+- Added HTML export (`.html`, `.htm`). CSS inside `<style>` tags is coloured too.
+
 ## 1.3.0
 - Added CSS export (`.css`).
 
