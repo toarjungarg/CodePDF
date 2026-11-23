@@ -136,6 +136,31 @@ test("1e. exports an HTML file, and HTML and CSS files combined", async () => {
   assert.ok(combined.pdf.text.includes("a[href^=\"https\"]:hover {"));
 });
 
+test("1f. exports a JavaScript file, and HTML and JavaScript files combined", async () => {
+  const source = fixture("basic.js");
+  const { pdf } = await exportSections("basic_js.pdf", [file("basic.js", source)]);
+  assert.ok(pdf.pages[0]!.lines[0]!.startsWith("basic.js"), "file name in the header");
+  for (const expected of [
+    "#!/usr/bin/env node",
+    'import { readFile } from "node:fs/promises";',
+    "const ratio = amount / SERVINGS / 2;",
+    "const pattern = /\\d+ cups?[/a-z]*/gi;",
+    "const amounts = `${card.scale(flour, 2).toFixed(1)} cups`;",
+    "const label = `Serves ${SERVINGS} with ${amounts} and ${`${eggs} eggs`}`;",
+    "on a new line`;",
+  ]) {
+    assert.ok(pdf.text.includes(expected), `missing: ${expected}`);
+  }
+
+  const combined = await exportSections("mixed_html_js.pdf", [
+    { ...file("basic.html", fixture("basic.html")), language: "html" },
+    { ...file("basic.js", source), language: "javascript" },
+  ]);
+  assert.deepEqual(combined.pdf.outline, ["basic.html", "basic.js"], "one bookmark per file");
+  assert.ok(combined.pdf.text.includes("if (count < 3 && total > 0) {"));
+  assert.ok(combined.pdf.text.includes("export default card;"));
+});
+
 test("2. exports comments and strings exactly", async () => {
   const { pdf } = await exportSections("comments_strings.pdf", [file("comments_strings.cpp", fixture("comments_strings.cpp"))]);
   for (const expected of [

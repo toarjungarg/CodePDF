@@ -40,6 +40,7 @@ put("lab.c", readFileSync(join(fixtures, "basic.c")));
 put("stats.py", readFileSync(join(fixtures, "basic.py")));
 put("styles.css", readFileSync(join(fixtures, "basic.css")));
 put("index.html", readFileSync(join(fixtures, "basic.html")));
+put("recipe.js", readFileSync(join(fixtures, "basic.js")));
 for (const name of ["comments_strings.cpp", "unicode.cpp", "long_lines.cpp"]) {
   cpSync(join(fixtures, name), join(project, name));
 }
@@ -47,6 +48,8 @@ put("util.h", "#pragma once\n\nint helper(int value);\n");
 put("src/extra.cpp", '#include "../util.h"\n\nint helper(int value) {\n    return value * 2;\n}\n');
 put("build/generated.cpp", "// build output: must be skipped\n");
 put("node_modules/dep/dep.cpp", "// dependency: must be skipped\n");
+put("node_modules/dep/index.js", "// dependency: must be skipped\n");
+put("dist/bundle.js", "// build output: must be skipped\n");
 put(".hidden.cpp", "// hidden: must be skipped\n");
 put("__pycache__/cached.py", "# cache folder: must be skipped\n");
 put("venv/lib/site.py", "# virtual environment: must be skipped\n");

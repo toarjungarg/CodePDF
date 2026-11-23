@@ -6,10 +6,11 @@
 import { tokenizeCFamily } from "./cFamilyTokenizer";
 import { tokenizeCss } from "./cssTokenizer";
 import { tokenizeHtml } from "./htmlTokenizer";
+import { tokenizeJavaScript } from "./javascriptTokenizer";
 import { tokenizePython } from "./pythonTokenizer";
 import type { TokenLine } from "./tokens";
 
-export type LanguageId = "c" | "cpp" | "python" | "css" | "html";
+export type LanguageId = "c" | "cpp" | "python" | "css" | "html" | "javascript";
 
 interface Language {
   /** Shown in messages, e.g. "C++". */
@@ -55,6 +56,12 @@ export const LANGUAGES: Record<LanguageId, Language> = {
     vscodeId: "html",
     tokenize: tokenizeHtml,
   },
+  javascript: {
+    label: "JavaScript",
+    extensions: [".js", ".mjs", ".cjs"],
+    vscodeId: "javascript",
+    tokenize: tokenizeJavaScript,
+  },
 };
 
 const LANGUAGE_IDS = Object.keys(LANGUAGES) as LanguageId[];
@@ -67,10 +74,10 @@ function nameList(lastJoiner: string): string {
   return labels.length < 2 ? labels.join("") : `${labels.slice(0, -1).join(", ")} ${lastJoiner} ${labels[labels.length - 1]}`;
 }
 
-/** "C, C++, Python, CSS and HTML", for messages. */
+/** "C, C++, Python, CSS, HTML and JavaScript", for messages. */
 export const LANGUAGE_NAMES = nameList("and");
 
-/** "C, C++, Python, CSS or HTML", for messages like "files that aren't C, C++, Python, CSS or HTML". */
+/** "C, C++, Python, CSS, HTML or JavaScript", for messages like "files that aren't C, C++, Python, CSS, HTML or JavaScript". */
 export const LANGUAGE_NAMES_OR = nameList("or");
 
 function extensionOf(fileName: string): string {
@@ -84,7 +91,7 @@ export function languageForFile(fileName: string): LanguageId | undefined {
   return LANGUAGE_IDS.find((id) => LANGUAGES[id].extensions.includes(ext));
 }
 
-/** The language for VS Code's language id ("c", "cpp", "python", "css", "html"), or undefined if unsupported. */
+/** The language for VS Code's language id ("c", "cpp", "python", "css", "html", "javascript"), or undefined if unsupported. */
 export function languageForVscodeId(vscodeId: string | undefined): LanguageId | undefined {
   return LANGUAGE_IDS.find((id) => LANGUAGES[id].vscodeId === vscodeId);
 }

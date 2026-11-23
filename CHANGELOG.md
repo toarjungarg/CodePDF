@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.5.0
+- Added JavaScript export (`.js`, `.mjs`, `.cjs`).
+- JavaScript inside HTML `<script>` tags and attributes like `onclick` is coloured too.
+
 ## 1.4.0
 - Added HTML export (`.html`, `.htm`). CSS inside `<style>` tags is coloured too.
 

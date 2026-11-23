@@ -7,6 +7,7 @@ import { tokenizeCFamily } from "../src/export/cFamilyTokenizer";
 import { tokenizePython } from "../src/export/pythonTokenizer";
 import { tokenizeCss } from "../src/export/cssTokenizer";
 import { tokenizeHtml } from "../src/export/htmlTokenizer";
+import { tokenizeJavaScript } from "../src/export/javascriptTokenizer";
 import type { TokenKind, TokenLine } from "../src/export/tokens";
 import { languageForFile, languageForVscodeId, LANGUAGE_NAMES, LANGUAGE_NAMES_OR } from "../src/export/languages";
 import { columnWidth, expandLine, layoutLine } from "../src/export/layout";
@@ -38,9 +39,9 @@ const kindOfWord = (lines: TokenLine[], word: string): TokenKind | undefined => 
 };
 
 test("tokenizer: joining tokens gives back every fixture exactly", () => {
-  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py", "basic.css", "basic.html"]) {
+  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py", "basic.css", "basic.html", "basic.js"]) {
     const source = fixture(name).replace(/\r\n?/g, "\n");
-    for (const lines of [tokenizeCpp(source), tokenizeC(source), tokenizePython(source), tokenizeCss(source), tokenizeHtml(source)]) {
+    for (const lines of [tokenizeCpp(source), tokenizeC(source), tokenizePython(source), tokenizeCss(source), tokenizeHtml(source), tokenizeJavaScript(source)]) {
       assert.equal(lines.map(joinLine).join("\n"), source, `${name} changed during tokenizing`);
     }
   }
@@ -175,7 +176,7 @@ test("tokenizer: HTML tags, attributes, values, comments, references and the doc
   for (const name of ["lang", "charset", "href", "class", "data-theme", "hidden", "alt", "onclick", "disabled"]) {
     assert.ok(has(name, "type"), `attribute name ${name}`);
   }
-  for (const value of ['"en"', "page", "'light'", '"images/pancakes.png"', '"flip()"']) {
+  for (const value of ['"en"', "page", "'light'", '"images/pancakes.png"']) {
     assert.ok(has(value, "string"), `attribute value ${value}`);
   }
   for (const reference of ["&amp;", "&copy;", "&#169;", "&#x1F95E;", "&frac12;"]) {
@@ -189,10 +190,18 @@ test("tokenizer: HTML tags, attributes, values, comments, references and the doc
   assert.ok(has("#e4572e", "number") && has("4px", "number"), "CSS numbers and colours");
   assert.equal(kindOf(html, "a </div> inside a style comment"), "comment", "</div> doesn't end <style>");
   assert.ok(has('"<3"', "string"), "a CSS string inside <style>");
-  // <script> stays plain, and a < inside it isn't a tag.
-  assert.equal(kindOf(html, "if (count < 3 && total > 0) {"), "plain");
-  assert.equal(kindOf(html, '"<b>Done</b>"'), "plain");
+  // JavaScript inside <script> and in an onclick="..." attribute, and a < inside it isn't a tag.
+  assert.ok(has("if", "keyword") && has("3", "number"), "JavaScript keyword and number inside <script>");
+  assert.ok(has('"<b>Done</b>"', "string"), "a JavaScript string inside <script>");
   assert.ok(!has("b", "keyword"), "no tag inside the script");
+  assert.equal(kindOf(html, "flip()"), "plain", "the code inside onclick is JavaScript, not one long string");
+});
+
+test("tokenizer: HTML only colours <script> content when it's JavaScript", () => {
+  for (const tag of ["<script>", '<script type="module">', "<script type=text/javascript>", "<script type='application/json'>"]) {
+    assert.equal(kindOfWord(tokenizeHtml(`${tag}let x = 1;</script>`), "let"), "keyword", tag);
+  }
+  assert.equal(kindOfWord(tokenizeHtml('<script type="text/template">let x = 1;</script>'), "let"), "plain", "a template script stays plain");
 });
 
 test("tokenizer: unfinished HTML doesn't swallow or lose text", () => {
@@ -222,6 +231,63 @@ test("tokenizer: unfinished HTML doesn't swallow or lose text", () => {
   assert.equal(kindOfWord(tokenizeHtml("a < b"), "b"), "plain", "a < followed by a space isn't a tag");
   assert.ok(tokenizeHtml("<SCRIPT>x</Script><p>").flat().some((t) => t.text === "p" && t.kind === "keyword"), "end tags match in any case");
   assert.equal(kindOf(tokenizeHtml("<!-->a"), "a"), "plain", "<!--> is an empty comment");
+});
+
+test("tokenizer: JavaScript comments, strings, templates, regexes, numbers and keywords", () => {
+  const js = tokenizeJavaScript(fixture("basic.js"));
+  const has = (text: string, kind: TokenKind): boolean => js.flat().some((t) => t.text === text && t.kind === kind);
+  assert.equal(kindOf(js, "#!/usr/bin/env node"), "preprocessor");
+  assert.equal(kindOf(js, 'has a "quote" and a /slash/'), "comment");
+  assert.equal(kindOf(js, "across lines with a `backtick`"), "comment", "block comments continue across lines");
+  for (const word of ["import", "from", "as", "const", "class", "static", "get", "return", "this", "new", "async", "await", "typeof", "export", "default"]) {
+    assert.ok(has(word, "keyword"), `keyword ${word}`);
+  }
+  for (const name of ["Map", "Math"]) {
+    assert.ok(has(name, "type"), `built-in ${name}`);
+  }
+  for (const number of ["4", "2.5e0", ".75", "0x2", "1_000_000n"]) {
+    assert.ok(has(number, "number"), `number ${number}`);
+  }
+  for (const text of ['"node:fs/promises"', "'Pancakes'", "/\\d+ cups?[/a-z]*/gi", "/,/", " eggs`"]) {
+    assert.ok(has(text, "string"), `string ${text}`);
+  }
+  assert.equal(kindOf(js, "amount / SERVINGS /"), "plain", "a / after a name is division, not a regex");
+  assert.equal(kindOf(js, ") / ratio"), "plain", "a / after ) is division");
+  assert.ok(has("`Serves ", "string") && has(" with ", "string"), "template text is a string");
+  assert.ok(js.flat().some((t) => t.kind === "plain" && t.text.includes("card.scale(flour,")), "code inside ${...} is code");
+  assert.ok(has("s", "string") && has("on a new line`", "string"), "templates continue across lines");
+  assert.equal(kindOfWord(js, "get"), "keyword", "get before a getter name");
+  assert.ok(js.flat().some((t) => t.kind === "plain" && t.text.includes("lookup.get(")), "map.get is a property, not a keyword");
+  assert.ok(js.flat().some((t) => t.kind === "plain" && t.text.includes(".#steps")), "a private #name is plain");
+});
+
+test("tokenizer: unfinished JavaScript doesn't swallow or lose text", () => {
+  for (const source of [
+    "`never closed ${a",
+    "`a ${ {b: 1} } c`",
+    '"no end\nlet x = 1;',
+    "/* never closed\nlet x = 1;",
+    "x = /unclosed\nlet y = 2;",
+    "a / b / c",
+    "/",
+    "`",
+    "${",
+    "#",
+    "#!",
+    "@",
+    "a?.5:1",
+    "中文 😀 / 2",
+    "",
+  ]) {
+    assert.equal(tokenizeJavaScript(source).map(joinLine).join("\n"), source, JSON.stringify(source));
+  }
+  assert.equal(kindOfWord(tokenizeJavaScript('"no end\nlet x = 1;'), "let"), "keyword", "a string stops at the end of its line");
+  assert.equal(kindOfWord(tokenizeJavaScript("x = /unclosed\nlet y = 2;"), "let"), "keyword", "a / that never closes isn't a regex");
+  assert.equal(kindOf(tokenizeJavaScript("/* never closed\nlet x = 1;"), "let x"), "comment");
+  assert.equal(kindOf(tokenizeJavaScript("a?.5:1"), ".5"), "number", "?. followed by a digit is a ternary");
+  assert.equal(kindOfWord(tokenizeJavaScript("let as = 1;"), "as"), "plain", "as outside an import is a name");
+  assert.equal(kindOfWord(tokenizeJavaScript("x = { get: 1 }"), "get"), "plain", "get as a property name");
+  assert.equal(kindOfWord(tokenizeJavaScript("promise.catch(e)"), "catch"), "plain", "a keyword after a dot is a property");
 });
 
 test("tokenizer: Python comments, strings, numbers, keywords and decorators", () => {
@@ -349,9 +415,14 @@ test("languages: picked by extension or VS Code language id, with .h treated as 
   assert.equal(languageForFile("PAGE.HTM"), "html");
   assert.equal(languageForFile("page.xhtml"), undefined);
   assert.equal(languageForVscodeId("html"), "html");
-  assert.equal(languageForVscodeId("javascript"), undefined);
-  assert.equal(LANGUAGE_NAMES, "C, C++, Python, CSS and HTML");
-  assert.equal(LANGUAGE_NAMES_OR, "C, C++, Python, CSS or HTML");
+  assert.equal(languageForFile("app.js"), "javascript");
+  assert.equal(languageForFile("SERVER.MJS"), "javascript");
+  assert.equal(languageForFile("config.cjs"), "javascript");
+  assert.equal(languageForFile("App.jsx"), undefined);
+  assert.equal(languageForVscodeId("javascript"), "javascript");
+  assert.equal(languageForVscodeId("typescript"), undefined);
+  assert.equal(LANGUAGE_NAMES, "C, C++, Python, CSS, HTML and JavaScript");
+  assert.equal(LANGUAGE_NAMES_OR, "C, C++, Python, CSS, HTML or JavaScript");
 });
 
 test("layout: tabs expand to the next tab stop and control characters become visible", () => {
@@ -396,10 +467,10 @@ test("options: defaults, clamping and page sizes", () => {
 });
 
 test("files: supported extensions, excluded folders and PDF names", () => {
-  for (const name of ["a.c", "a.cpp", "a.cc", "a.cxx", "a.h", "a.hpp", "a.hh", "a.hxx", "A.CPP", "A.C", "a.py", "a.pyw", "A.PY", "a.css", "A.CSS", "a.html", "a.htm", "A.HTML"]) {
+  for (const name of ["a.c", "a.cpp", "a.cc", "a.cxx", "a.h", "a.hpp", "a.hh", "a.hxx", "A.CPP", "A.C", "a.py", "a.pyw", "A.PY", "a.css", "A.CSS", "a.html", "a.htm", "A.HTML", "a.js", "a.mjs", "a.cjs", "A.JS"]) {
     assert.ok(isSupportedSource(name), name);
   }
-  for (const name of ["a.js", "cpp", "c", "py", "css", "a.scss", "a.css.map", "html", "a.html.bak", "a.xhtml", "a.cpp.bak", "a.c.bak", "a.pyc", "notes.txt"]) {
+  for (const name of ["a.jsx", "a.ts", "a.js.map", "js", "cpp", "c", "py", "css", "a.scss", "a.css.map", "html", "a.html.bak", "a.xhtml", "a.cpp.bak", "a.c.bak", "a.pyc", "notes.txt"]) {
     assert.ok(!isSupportedSource(name), name);
   }
   for (const name of [".git", ".vscode", "node_modules", "build", "dist", "cmake-build-debug", "Debug", "__pycache__", "venv", ".venv"]) {

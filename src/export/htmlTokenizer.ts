@@ -12,13 +12,27 @@
 //   plain         text between tags, and the < > / = around them
 //
 // The code inside <style> and a style="..." attribute is coloured by the CSS
-// tokenizer. The code inside <script> stays plain for now.
+// tokenizer. The code inside <script> and event attributes like onclick="..."
+// is coloured by the JavaScript tokenizer.
 
 import { tokenizeCss } from "./cssTokenizer";
+import { tokenizeJavaScript } from "./javascriptTokenizer";
 import { TokenBuilder, type TokenKind, type TokenLine } from "./tokens";
 
 /** Elements whose content is raw text: tags and comments inside them don't count, only the matching end tag closes them. */
 const RAW_TEXT_ELEMENTS = new Set(["script", "style", "textarea", "title"]);
+
+/**
+ * <script type="..."> values whose content is JavaScript (or JSON, which colours the same way).
+ * Anything else, like type="text/template", holds something that isn't JavaScript, so it stays plain.
+ */
+const SCRIPT_TYPES = new Set([
+  "", "module", "text/javascript", "application/javascript", "text/ecmascript", "application/ecmascript",
+  "application/json", "application/ld+json", "importmap", "speculationrules",
+]);
+
+/** Event attributes like onclick and onload, whose values are JavaScript. */
+const EVENT_ATTRIBUTE = /^on[a-z]+$/;
 
 /** A character reference: &name; or &#123; or &#x7B;. The "y" flag makes it match only at lastIndex. */
 const CHARACTER_REFERENCE = /&(?:#[0-9]+|#[xX][0-9a-fA-F]+|[A-Za-z][A-Za-z0-9]*);/y;
@@ -45,10 +59,10 @@ export function tokenizeHtml(source: string): TokenLine[] {
   const push = (kind: TokenKind, start: number, end: number): void => builder.push(kind, start, end);
   const n = source.length;
 
-  /** Colours source[start..end) with the CSS tokenizer, keeping every character in place. */
-  const pushCss = (start: number, end: number): void => {
+  /** Colours source[start..end) with another language's tokenizer (CSS or JavaScript), keeping every character in place. */
+  const pushEmbedded = (tokenize: (code: string) => TokenLine[], start: number, end: number): void => {
     let at = start;
-    tokenizeCss(source.slice(start, end)).forEach((line, index) => {
+    tokenize(source.slice(start, end)).forEach((line, index) => {
       if (index > 0) {
         push("plain", at, at + 1); // the "\n" between two lines
         at++;
@@ -104,6 +118,7 @@ export function tokenizeHtml(source: string): TokenLine[] {
     push("plain", i, nameStart); // "<" or "</"
     push("keyword", nameStart, j);
     const name = source.slice(nameStart, j).toLowerCase();
+    let scriptType: string | undefined; // the type="..." value, if this tag has one
 
     // Attributes, up to the ">".
     while (j < n && source[j] !== ">") {
@@ -143,9 +158,13 @@ export function tokenizeHtml(source: string): TokenLine[] {
         const lineEnd = source.indexOf("\n", j);
         const inside = close !== -1 ? close : lineEnd !== -1 ? lineEnd : n;
         const stop = close !== -1 ? close + 1 : inside;
-        if (attribute === "style" && !isEndTag) {
+        if (attribute === "type") {
+          scriptType = source.slice(j + 1, inside);
+        }
+        const embedded = isEndTag ? undefined : attribute === "style" ? tokenizeCss : EVENT_ATTRIBUTE.test(attribute) ? tokenizeJavaScript : undefined;
+        if (embedded) {
           push("string", j, j + 1);
-          pushCss(j + 1, inside);
+          pushEmbedded(embedded, j + 1, inside);
           push("string", inside, stop);
         } else {
           push("string", j, stop);
@@ -161,6 +180,9 @@ export function tokenizeHtml(source: string): TokenLine[] {
         valueEnd++;
       }
       push("string", j, valueEnd); // an unquoted value like class=page
+      if (attribute === "type") {
+        scriptType = source.slice(j, valueEnd);
+      }
       j = valueEnd;
     }
 
@@ -172,9 +194,13 @@ export function tokenizeHtml(source: string): TokenLine[] {
     if (!isEndTag && RAW_TEXT_ELEMENTS.has(name)) {
       const end = rawTextEnd(j, name);
       if (name === "style") {
-        pushCss(j, end);
+        pushEmbedded(tokenizeCss, j, end);
       } else if (name === "script") {
-        push("plain", j, end);
+        if (SCRIPT_TYPES.has((scriptType ?? "").trim().toLowerCase())) {
+          pushEmbedded(tokenizeJavaScript, j, end);
+        } else {
+          push("plain", j, end);
+        }
       } else {
         pushText(j, end); // <title> and <textarea> still show &amp; and friends
       }
