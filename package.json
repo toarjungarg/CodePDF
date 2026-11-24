@@ -1,8 +1,8 @@
 {
   "name": "codepdf",
   "displayName": "CodePDF",
-  "description": "View PDFs inside VS Code and export C, C++, Python, CSS, HTML, JavaScript, TypeScript and React files as clean, printable PDFs. Everything runs locally.",
-  "version": "1.6.0",
+  "description": "View PDFs inside VS Code and export C, C++, Python, CSS, HTML, JavaScript, TypeScript, React and Rust files as clean, printable PDFs. Everything runs locally.",
+  "version": "1.7.0",
   "publisher": "toarjungarg",
   "icon": "media/icon.png",
   "private": true,
@@ -29,6 +29,7 @@
     "javascript",
     "typescript",
     "react",
+    "rust",
     "print",
     "export"
   ],
@@ -61,12 +62,12 @@
       "explorer/context": [
         {
           "command": "codepdf.exportFile",
-          "when": "!explorerResourceIsFolder && resourceExtname =~ /^\\.(c|cpp|cc|cxx|h|hpp|hh|hxx|py|pyw|css|html|htm|js|mjs|cjs|ts|mts|cts|jsx|tsx)$/i",
+          "when": "!explorerResourceIsFolder && resourceExtname =~ /^\\.(c|cpp|cc|cxx|h|hpp|hh|hxx|py|pyw|css|html|htm|js|mjs|cjs|ts|mts|cts|jsx|tsx|rs)$/i",
           "group": "7_codepdf@1"
         },
         {
           "command": "codepdf.exportMultiple",
-          "when": "listMultiSelection && !explorerResourceIsFolder && resourceExtname =~ /^\\.(c|cpp|cc|cxx|h|hpp|hh|hxx|py|pyw|css|html|htm|js|mjs|cjs|ts|mts|cts|jsx|tsx)$/i",
+          "when": "listMultiSelection && !explorerResourceIsFolder && resourceExtname =~ /^\\.(c|cpp|cc|cxx|h|hpp|hh|hxx|py|pyw|css|html|htm|js|mjs|cjs|ts|mts|cts|jsx|tsx|rs)$/i",
           "group": "7_codepdf@2"
         },
         {
@@ -78,19 +79,19 @@
       "editor/context": [
         {
           "command": "codepdf.exportSelection",
-          "when": "editorHasSelection && resourceExtname =~ /^\\.(c|cpp|cc|cxx|h|hpp|hh|hxx|py|pyw|css|html|htm|js|mjs|cjs|ts|mts|cts|jsx|tsx)$/i",
+          "when": "editorHasSelection && resourceExtname =~ /^\\.(c|cpp|cc|cxx|h|hpp|hh|hxx|py|pyw|css|html|htm|js|mjs|cjs|ts|mts|cts|jsx|tsx|rs)$/i",
           "group": "7_codepdf@1"
         },
         {
           "command": "codepdf.exportFile",
-          "when": "resourceExtname =~ /^\\.(c|cpp|cc|cxx|h|hpp|hh|hxx|py|pyw|css|html|htm|js|mjs|cjs|ts|mts|cts|jsx|tsx)$/i",
+          "when": "resourceExtname =~ /^\\.(c|cpp|cc|cxx|h|hpp|hh|hxx|py|pyw|css|html|htm|js|mjs|cjs|ts|mts|cts|jsx|tsx|rs)$/i",
           "group": "7_codepdf@2"
         }
       ],
       "editor/title/context": [
         {
           "command": "codepdf.exportFile",
-          "when": "resourceExtname =~ /^\\.(c|cpp|cc|cxx|h|hpp|hh|hxx|py|pyw|css|html|htm|js|mjs|cjs|ts|mts|cts|jsx|tsx)$/i",
+          "when": "resourceExtname =~ /^\\.(c|cpp|cc|cxx|h|hpp|hh|hxx|py|pyw|css|html|htm|js|mjs|cjs|ts|mts|cts|jsx|tsx|rs)$/i",
           "group": "7_codepdf@1"
         }
       ],

@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.7.0
+- Added Rust export (`.rs`).
+
 ## 1.6.0
 - Added TypeScript export (`.ts`, `.mts`, `.cts`).
 - Added React export (`.jsx`, `.tsx`). JSX tags are coloured like HTML.

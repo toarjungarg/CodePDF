@@ -8,6 +8,7 @@ import { tokenizePython } from "../src/export/pythonTokenizer";
 import { tokenizeCss } from "../src/export/cssTokenizer";
 import { tokenizeHtml } from "../src/export/htmlTokenizer";
 import { tokenizeJavaScript } from "../src/export/javascriptTokenizer";
+import { tokenizeRust } from "../src/export/rustTokenizer";
 import type { TokenKind, TokenLine } from "../src/export/tokens";
 import { languageForFile, languageForVscodeId, LANGUAGE_NAMES, LANGUAGE_NAMES_OR } from "../src/export/languages";
 import { columnWidth, expandLine, layoutLine } from "../src/export/layout";
@@ -42,11 +43,11 @@ const kindOfWord = (lines: TokenLine[], word: string): TokenKind | undefined => 
 };
 
 test("tokenizer: joining tokens gives back every fixture exactly", () => {
-  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py", "basic.css", "basic.html", "basic.js", "basic.ts", "basic.jsx", "basic.tsx"]) {
+  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py", "basic.css", "basic.html", "basic.js", "basic.ts", "basic.jsx", "basic.tsx", "basic.rs"]) {
     const source = fixture(name).replace(/\r\n?/g, "\n");
     for (const lines of [
       tokenizeCpp(source), tokenizeC(source), tokenizePython(source), tokenizeCss(source), tokenizeHtml(source), tokenizeJavaScript(source),
-      tokenizeTs(source), tokenizeJsx(source), tokenizeTsx(source),
+      tokenizeTs(source), tokenizeJsx(source), tokenizeTsx(source), tokenizeRust(source),
     ]) {
       assert.equal(lines.map(joinLine).join("\n"), source, `${name} changed during tokenizing`);
     }
@@ -371,6 +372,54 @@ test("tokenizer: unfinished JSX and TypeScript don't swallow or lose text", () =
   assert.equal(kindOfWord(tokenizeTsx("x = <T,>() => 1;\nlet y = 2;"), "let"), "keyword", "code after a generic is code");
 });
 
+test("tokenizer: Rust chars vs lifetimes, raw strings, nested comments, macros and attributes", () => {
+  const rs = tokenizeRust(fixture("basic.rs"));
+  const has = (text: string, kind: TokenKind): boolean => rs.flat().some((t) => t.text === text && t.kind === kind);
+  assert.equal(kindOf(rs, 'says fn and "String"'), "comment");
+  assert.equal(kindOf(rs, "Inner doc comment"), "comment");
+  assert.equal(kindOf(rs, "still a comment after the inner close"), "comment", "block comments nest");
+  for (const word of ["use", "pub", "struct", "enum", "const", "impl", "fn", "Self", "self", "let", "mut", "for", "in", "if", "else", "break"]) {
+    assert.ok(has(word, "keyword"), `keyword ${word}`);
+  }
+  for (const name of ["f32", "u32", "u8", "usize", "str", "String", "Vec", "HashMap", "Option", "Some", "None"]) {
+    assert.ok(has(name, "type"), `type ${name}`);
+  }
+  for (const lifetime of ["'a", "'static", "'_", "'outer"]) {
+    assert.ok(has(lifetime, "keyword"), `lifetime or label ${lifetime}`);
+  }
+  for (const char of ["'\\''", "'a'", "'\\t'", "'😀'"]) {
+    assert.ok(has(char, "string"), `char ${char}`);
+  }
+  assert.ok(has('r#"He said "two cups" and left"#', "string"), "raw string with quotes inside");
+  assert.ok(has('r"C:\\recipes\\pancakes"', "string"), "raw string ends at the first quote, backslashes and all");
+  assert.ok(has('b"flour"', "string"), "byte string");
+  assert.equal(kindOf(rs, "spans two lines"), "string", "strings can span lines");
+  assert.equal(kindOf(rs, "r#match = "), "plain", "a raw identifier is a name");
+  for (const macro of ["write!", "println!", "vec!"]) {
+    assert.ok(has(macro, "preprocessor"), `macro ${macro}`);
+  }
+  assert.ok(has("#[derive(Debug, Clone, PartialEq)]", "preprocessor") && has("#[allow(dead_code)]", "preprocessor"));
+  for (const number of ["1_000", "0xFF", "0b1010", "2.5f32", "2.", "0.0", "1", "10"]) {
+    assert.ok(has(number, "number"), `number ${number}`);
+  }
+  assert.ok(!has("1..10", "number"), "a range isn't one number");
+  assert.equal(kindOf(rs, " != "), "plain", "!= after a name isn't a macro");
+  assert.equal(kindOfWord(tokenizeRust("x.0.max(1)"), "max"), "plain", "a method on a number isn't part of it");
+  assert.equal(kindOfWord(tokenizeRust("let b = b'x';"), "b'x'"), "string", "byte char");
+  assert.equal(kindOfWord(tokenizeRust("#![no_std]\nfn f() {}"), "fn"), "keyword", "an inner attribute isn't a script line");
+});
+
+test("tokenizer: unfinished Rust doesn't swallow or lose text", () => {
+  for (const source of [
+    "'", "'a", "'\\", "'\\'", "b'", "r#", "r#\"", 'r##"x"#', "r", "br", "c\"x", '"no end', "/*", "/* /* */", "#[", "#![x",
+    "#!/usr/bin/env run-cargo-script\nfn main() {}", "x!", "x!=", "0x", "1e", "1e+", "1.", "1..", "中文 '中' 😀", "",
+  ]) {
+    assert.equal(tokenizeRust(source).map(joinLine).join("\n"), source, JSON.stringify(source));
+  }
+  assert.equal(kindOfWord(tokenizeRust("/* a /* b */ c */ let x = 1;"), "let"), "keyword", "code after a nested comment is code");
+  assert.equal(kindOfWord(tokenizeRust('let s = r#"a " b"#;\nlet y = 2;'), "y"), "plain", "code after a raw string is code");
+});
+
 test("tokenizer: Python comments, strings, numbers, keywords and decorators", () => {
   const py = tokenizePython(fixture("basic.py"));
   assert.equal(kindOf(py, "A small weather log"), "string", "docstring");
@@ -509,8 +558,12 @@ test("languages: picked by extension or VS Code language id, with .h treated as 
   assert.equal(languageForVscodeId("typescript"), "typescript");
   assert.equal(languageForVscodeId("javascriptreact"), "javascriptreact");
   assert.equal(languageForVscodeId("typescriptreact"), "typescriptreact");
-  assert.equal(LANGUAGE_NAMES, "C, C++, Python, CSS, HTML, JavaScript, TypeScript and React");
-  assert.equal(LANGUAGE_NAMES_OR, "C, C++, Python, CSS, HTML, JavaScript, TypeScript or React");
+  assert.equal(languageForFile("main.rs"), "rust");
+  assert.equal(languageForFile("LIB.RS"), "rust");
+  assert.equal(languageForFile("main.rs.bk"), undefined);
+  assert.equal(languageForVscodeId("rust"), "rust");
+  assert.equal(LANGUAGE_NAMES, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React and Rust");
+  assert.equal(LANGUAGE_NAMES_OR, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React or Rust");
 });
 
 test("layout: tabs expand to the next tab stop and control characters become visible", () => {
@@ -555,13 +608,13 @@ test("options: defaults, clamping and page sizes", () => {
 });
 
 test("files: supported extensions, excluded folders and PDF names", () => {
-  for (const name of ["a.c", "a.cpp", "a.cc", "a.cxx", "a.h", "a.hpp", "a.hh", "a.hxx", "A.CPP", "A.C", "a.py", "a.pyw", "A.PY", "a.css", "A.CSS", "a.html", "a.htm", "A.HTML", "a.js", "a.mjs", "a.cjs", "A.JS", "a.ts", "a.mts", "a.cts", "A.TS", "a.jsx", "a.tsx", "A.TSX"]) {
+  for (const name of ["a.c", "a.cpp", "a.cc", "a.cxx", "a.h", "a.hpp", "a.hh", "a.hxx", "A.CPP", "A.C", "a.py", "a.pyw", "A.PY", "a.css", "A.CSS", "a.html", "a.htm", "A.HTML", "a.js", "a.mjs", "a.cjs", "A.JS", "a.ts", "a.mts", "a.cts", "A.TS", "a.jsx", "a.tsx", "A.TSX", "a.rs", "A.RS"]) {
     assert.ok(isSupportedSource(name), name);
   }
-  for (const name of ["a.ts.map", "a.tsbuildinfo", "a.js.map", "js", "cpp", "c", "py", "css", "a.scss", "a.css.map", "html", "a.html.bak", "a.xhtml", "a.cpp.bak", "a.c.bak", "a.pyc", "notes.txt"]) {
+  for (const name of ["a.ts.map", "a.tsbuildinfo", "a.js.map", "js", "cpp", "c", "py", "css", "a.scss", "a.css.map", "html", "a.html.bak", "a.xhtml", "a.cpp.bak", "a.c.bak", "a.pyc", "a.rs.bk", "rs", "notes.txt"]) {
     assert.ok(!isSupportedSource(name), name);
   }
-  for (const name of [".git", ".vscode", "node_modules", "build", "dist", "cmake-build-debug", "Debug", "__pycache__", "venv", ".venv"]) {
+  for (const name of [".git", ".vscode", "node_modules", "build", "dist", "cmake-build-debug", "Debug", "__pycache__", "venv", ".venv", "target"]) {
     assert.ok(isExcludedFolder(name), name);
   }
   assert.ok(!isExcludedFolder("src"));

@@ -44,6 +44,7 @@ put("recipe.js", readFileSync(join(fixtures, "basic.js")));
 put("scale.ts", readFileSync(join(fixtures, "basic.ts")));
 put("card.jsx", readFileSync(join(fixtures, "basic.jsx")));
 put("list.tsx", readFileSync(join(fixtures, "basic.tsx")));
+put("pantry.rs", readFileSync(join(fixtures, "basic.rs")));
 for (const name of ["comments_strings.cpp", "unicode.cpp", "long_lines.cpp"]) {
   cpSync(join(fixtures, name), join(project, name));
 }
@@ -57,6 +58,7 @@ put("dist/bundle.js", "// build output: must be skipped\n");
 put(".hidden.cpp", "// hidden: must be skipped\n");
 put("__pycache__/cached.py", "# cache folder: must be skipped\n");
 put("venv/lib/site.py", "# virtual environment: must be skipped\n");
+put("target/debug/build.rs", "// Cargo build output: must be skipped\n");
 put("notes.txt", "Not source code.\n");
 
 // 2. Test PDFs, made with CodePDF's own (compiled) engine.

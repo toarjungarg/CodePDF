@@ -184,6 +184,28 @@ test("1g. exports TypeScript, JSX and TSX files, alone and combined", async () =
   assert.ok(combined.pdf.text.includes("export { load, isIngredient, pair, half, first, VERSION };"));
 });
 
+test("1h. exports a Rust file, alone and combined with C++", async () => {
+  const source = fixture("basic.rs");
+  const { pdf } = await exportSections("basic_rs.pdf", [file("basic.rs", source)]);
+  assert.ok(pdf.pages[0]!.lines[0]!.startsWith("basic.rs"), "file name in the header");
+  for (const expected of [
+    "pub struct Ingredient<'a> {",
+    "let quote = '\\'';",
+    'let raw = r#"He said "two cups" and left"#;',
+    "/* Block comment /* with a nested one */",
+    "'outer: for i in 1..10 {",
+  ]) {
+    assert.ok(pdf.text.includes(expected), `missing: ${expected}`);
+  }
+
+  const combined = await exportSections("mixed_rs_cpp.pdf", [
+    { ...file("basic.rs", source), language: "rust" },
+    { ...file("basic.cpp", fixture("basic.cpp")), language: "cpp" },
+  ]);
+  assert.deepEqual(combined.pdf.outline, ["basic.rs", "basic.cpp"], "one bookmark per file");
+  assert.ok(combined.pdf.text.includes('println!("{VERSION} {MAX_ITEMS} {MASK} {half}");'));
+});
+
 test("2. exports comments and strings exactly", async () => {
   const { pdf } = await exportSections("comments_strings.pdf", [file("comments_strings.cpp", fixture("comments_strings.cpp"))]);
   for (const expected of [
