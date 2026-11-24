@@ -10,6 +10,7 @@ import { tokenizeHtml } from "../src/export/htmlTokenizer";
 import { tokenizeJavaScript } from "../src/export/javascriptTokenizer";
 import { tokenizeRust } from "../src/export/rustTokenizer";
 import { tokenizeJava } from "../src/export/javaTokenizer";
+import { tokenizeCSharp } from "../src/export/csharpTokenizer";
 import type { TokenKind, TokenLine } from "../src/export/tokens";
 import { languageForFile, languageForVscodeId, LANGUAGE_NAMES, LANGUAGE_NAMES_OR } from "../src/export/languages";
 import { columnWidth, expandLine, layoutLine } from "../src/export/layout";
@@ -44,11 +45,11 @@ const kindOfWord = (lines: TokenLine[], word: string): TokenKind | undefined => 
 };
 
 test("tokenizer: joining tokens gives back every fixture exactly", () => {
-  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py", "basic.css", "basic.html", "basic.js", "basic.ts", "basic.jsx", "basic.tsx", "basic.rs", "basic.java"]) {
+  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py", "basic.css", "basic.html", "basic.js", "basic.ts", "basic.jsx", "basic.tsx", "basic.rs", "basic.java", "basic.cs"]) {
     const source = fixture(name).replace(/\r\n?/g, "\n");
     for (const lines of [
       tokenizeCpp(source), tokenizeC(source), tokenizePython(source), tokenizeCss(source), tokenizeHtml(source), tokenizeJavaScript(source),
-      tokenizeTs(source), tokenizeJsx(source), tokenizeTsx(source), tokenizeRust(source), tokenizeJava(source),
+      tokenizeTs(source), tokenizeJsx(source), tokenizeTsx(source), tokenizeRust(source), tokenizeJava(source), tokenizeCSharp(source),
     ]) {
       assert.equal(lines.map(joinLine).join("\n"), source, `${name} changed during tokenizing`);
     }
@@ -464,6 +465,57 @@ test("tokenizer: unfinished Java doesn't swallow or lose text", () => {
   assert.equal(kindOfWord(tokenizeJava('String s = """\n  a\n  """;\nint y = 2;'), "int"), "keyword", "code after a text block is code");
 });
 
+test("tokenizer: C# strings, attributes, contextual keywords and types", () => {
+  const cs = tokenizeCSharp(fixture("basic.cs"));
+  const has = (text: string, kind: TokenKind): boolean => cs.flat().some((t) => t.text === text && t.kind === kind);
+  assert.equal(kindOf(cs, 'This comment says class and "string"'), "comment");
+  assert.equal(kindOf(cs, "A block comment with"), "comment");
+  for (const word of ["using", "namespace", "public", "interface", "string", "record", "struct", "enum", "partial", "class", "private", "const", "int", "ulong", "decimal", "get", "init", "set", "readonly", "new", "static", "where", "foreach", "var", "in", "switch", "when", "and", "yield", "async", "await", "from", "orderby", "select", "with", "is", "not", "null", "nameof", "global", "char"]) {
+    assert.ok(has(word, "keyword"), `keyword ${word}`);
+  }
+  assert.equal(kindOfWord(tokenizeCSharp("int var = 3;"), "var"), "plain", "var as a variable name");
+  assert.equal(kindOfWord(tokenizeCSharp("foreach (var file in files)"), "file"), "plain", "file as a loop variable");
+  assert.equal(kindOfWord(tokenizeCSharp("file class Secret {}"), "file"), "keyword");
+  assert.equal(kindOfWord(tokenizeCSharp("x = get;"), "get"), "plain", "get as a variable name");
+  assert.equal(kindOfWord(tokenizeCSharp("if (and < 10) {}"), "and"), "plain", "and as a variable name");
+  for (const name of ["IDish", "Soup", "Portion", "Unit", "Cookbook", "Dictionary", "T", "List", "IComparable", "IEnumerable", "Task", "Console"]) {
+    assert.ok(has(name, "type"), `type ${name}`);
+  }
+  assert.equal(kindOfWord(tokenizeCSharp("order.Type = Path;"), "Type"), "plain", "a common type name after a dot is a property");
+  for (const name of ["Serializable", "Obsolete", "#nullable enable", "#region Helpers", "#endregion", "#if DEBUG", "#endif"]) {
+    assert.ok(has(name, "preprocessor"), `preprocessor ${name}`);
+  }
+  assert.equal(kindOfWord(tokenizeCSharp('[assembly: InternalsVisibleTo("Tests")]'), "assembly"), "keyword", "attribute target");
+  assert.equal(kindOfWord(tokenizeCSharp("var d = new Dictionary<string, int>\n{\n    [key] = 1,\n};"), "key"), "plain", "an index isn't an attribute");
+  assert.equal(kindOfWord(tokenizeCSharp("int[] numbers = [one, two];"), "one"), "plain", "a collection isn't an attribute");
+  for (const literal of ['@"C:\\recipes\\pancakes"', '@"She said ""hi"""', "'\\''", "'\\t'", '"flour"u8', '"Pancakes"']) {
+    assert.ok(has(literal, "string"), `string ${literal}`);
+  }
+  assert.equal(kindOf(cs, '{ "dish": "soup" }'), "string", "raw string spans lines");
+  assert.equal(kindOf(cs, "in "), "string", "verbatim interpolated string spans lines");
+  const line = tokenizeCSharp('string line = $"{name,-10}: {cups:F1} cups, {{not a hole}}";');
+  assert.equal(kindOfWord(line, "name"), "plain", "code inside a hole");
+  assert.ok(line.flat().some((t) => t.text === ":F1" && t.kind === "string"), "format inside a hole");
+  assert.ok(line.flat().some((t) => t.text.includes("{{not a hole}}") && t.kind === "string"), "{{ is a plain brace");
+  const raw = tokenizeCSharp('string raw = $$"""{"name": "{{name}}"}""";');
+  assert.ok(raw.flat().some((t) => t.text === "{{name}}" && t.kind === "plain"), "{{...}} is a hole in $$ raw strings");
+  assert.ok(raw.flat().some((t) => t.text === '$$"""{"name": "' && t.kind === "string"), "a single { is text in $$ raw strings");
+  for (const number of ["1_000", "0xFF", "0b1010", "10L", "10UL", "1e-3", "2.5f", "9.99m", ".5"]) {
+    assert.ok(has(number, "number"), `number ${number}`);
+  }
+  const range = tokenizeCSharp("var r = 1..5;").flat();
+  assert.ok(range.some((t) => t.text === "1" && t.kind === "number") && range.some((t) => t.text === "5" && t.kind === "number"), "a range isn't one number");
+});
+
+test("tokenizer: unfinished C# doesn't swallow or lose text", () => {
+  for (const source of ['"', "'", '"""', '"""\nno end', '"no end\nint x;', "/*", "/// x", "@", '@"', "$", '$"', '$"{', '$"{x', '$$"""{{', '@$"{a}\nb', "#", "#if", "0x", "1e", "1e+", "1.", "1..", "[", "[A", "[A(", "中文 '中' 😀", '"a"u', ""]) {
+    assert.equal(tokenizeCSharp(source).map(joinLine).join("\n"), source, JSON.stringify(source));
+  }
+  assert.equal(kindOfWord(tokenizeCSharp('string s = "no end\nint x = 1;'), "int"), "keyword", "an unclosed string stops at the line end");
+  assert.equal(kindOfWord(tokenizeCSharp('string s = """\n  a\n  """;\nint y = 2;'), "int"), "keyword", "code after a raw string is code");
+  assert.equal(kindOfWord(tokenizeCSharp('string s = $"{x\nint y = 2;'), "int"), "keyword", "an unclosed hole stops at the line end");
+});
+
 test("tokenizer: Python comments, strings, numbers, keywords and decorators", () => {
   const py = tokenizePython(fixture("basic.py"));
   assert.equal(kindOf(py, "A small weather log"), "string", "docstring");
@@ -610,8 +662,12 @@ test("languages: picked by extension or VS Code language id, with .h treated as 
   assert.equal(languageForFile("MAIN.JAVA"), "java");
   assert.equal(languageForFile("Main.class"), undefined);
   assert.equal(languageForVscodeId("java"), "java");
-  assert.equal(LANGUAGE_NAMES, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust and Java");
-  assert.equal(LANGUAGE_NAMES_OR, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust or Java");
+  assert.equal(languageForFile("Program.cs"), "csharp");
+  assert.equal(languageForFile("PROGRAM.CS"), "csharp");
+  assert.equal(languageForFile("App.csproj"), undefined);
+  assert.equal(languageForVscodeId("csharp"), "csharp");
+  assert.equal(LANGUAGE_NAMES, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java and C#");
+  assert.equal(LANGUAGE_NAMES_OR, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java or C#");
 });
 
 test("layout: tabs expand to the next tab stop and control characters become visible", () => {
@@ -656,13 +712,13 @@ test("options: defaults, clamping and page sizes", () => {
 });
 
 test("files: supported extensions, excluded folders and PDF names", () => {
-  for (const name of ["a.c", "a.cpp", "a.cc", "a.cxx", "a.h", "a.hpp", "a.hh", "a.hxx", "A.CPP", "A.C", "a.py", "a.pyw", "A.PY", "a.css", "A.CSS", "a.html", "a.htm", "A.HTML", "a.js", "a.mjs", "a.cjs", "A.JS", "a.ts", "a.mts", "a.cts", "A.TS", "a.jsx", "a.tsx", "A.TSX", "a.rs", "A.RS", "a.java", "A.JAVA"]) {
+  for (const name of ["a.c", "a.cpp", "a.cc", "a.cxx", "a.h", "a.hpp", "a.hh", "a.hxx", "A.CPP", "A.C", "a.py", "a.pyw", "A.PY", "a.css", "A.CSS", "a.html", "a.htm", "A.HTML", "a.js", "a.mjs", "a.cjs", "A.JS", "a.ts", "a.mts", "a.cts", "A.TS", "a.jsx", "a.tsx", "A.TSX", "a.rs", "A.RS", "a.java", "A.JAVA", "a.cs", "A.CS"]) {
     assert.ok(isSupportedSource(name), name);
   }
-  for (const name of ["a.ts.map", "a.tsbuildinfo", "a.js.map", "js", "cpp", "c", "py", "css", "a.scss", "a.css.map", "html", "a.html.bak", "a.xhtml", "a.cpp.bak", "a.c.bak", "a.pyc", "a.rs.bk", "rs", "a.class", "a.jar", "java", "notes.txt"]) {
+  for (const name of ["a.ts.map", "a.tsbuildinfo", "a.js.map", "js", "cpp", "c", "py", "css", "a.scss", "a.css.map", "html", "a.html.bak", "a.xhtml", "a.cpp.bak", "a.c.bak", "a.pyc", "a.rs.bk", "rs", "a.class", "a.jar", "java", "a.csproj", "a.sln", "a.dll", "cs", "notes.txt"]) {
     assert.ok(!isSupportedSource(name), name);
   }
-  for (const name of [".git", ".vscode", "node_modules", "build", "dist", "cmake-build-debug", "Debug", "__pycache__", "venv", ".venv", "target", "out", "bin", ".gradle"]) {
+  for (const name of [".git", ".vscode", "node_modules", "build", "dist", "cmake-build-debug", "Debug", "__pycache__", "venv", ".venv", "target", "out", "bin", ".gradle", "obj"]) {
     assert.ok(isExcludedFolder(name), name);
   }
   assert.ok(!isExcludedFolder("src"));

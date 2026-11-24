@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.9.0
+- Added C# export (`.cs`).
+
 ## 1.8.0
 - Added Java export (`.java`).
 
