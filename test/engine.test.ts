@@ -9,6 +9,7 @@ import { tokenizeCss } from "../src/export/cssTokenizer";
 import { tokenizeHtml } from "../src/export/htmlTokenizer";
 import { tokenizeJavaScript } from "../src/export/javascriptTokenizer";
 import { tokenizeRust } from "../src/export/rustTokenizer";
+import { tokenizeJava } from "../src/export/javaTokenizer";
 import type { TokenKind, TokenLine } from "../src/export/tokens";
 import { languageForFile, languageForVscodeId, LANGUAGE_NAMES, LANGUAGE_NAMES_OR } from "../src/export/languages";
 import { columnWidth, expandLine, layoutLine } from "../src/export/layout";
@@ -43,11 +44,11 @@ const kindOfWord = (lines: TokenLine[], word: string): TokenKind | undefined => 
 };
 
 test("tokenizer: joining tokens gives back every fixture exactly", () => {
-  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py", "basic.css", "basic.html", "basic.js", "basic.ts", "basic.jsx", "basic.tsx", "basic.rs"]) {
+  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py", "basic.css", "basic.html", "basic.js", "basic.ts", "basic.jsx", "basic.tsx", "basic.rs", "basic.java"]) {
     const source = fixture(name).replace(/\r\n?/g, "\n");
     for (const lines of [
       tokenizeCpp(source), tokenizeC(source), tokenizePython(source), tokenizeCss(source), tokenizeHtml(source), tokenizeJavaScript(source),
-      tokenizeTs(source), tokenizeJsx(source), tokenizeTsx(source), tokenizeRust(source),
+      tokenizeTs(source), tokenizeJsx(source), tokenizeTsx(source), tokenizeRust(source), tokenizeJava(source),
     ]) {
       assert.equal(lines.map(joinLine).join("\n"), source, `${name} changed during tokenizing`);
     }
@@ -420,6 +421,49 @@ test("tokenizer: unfinished Rust doesn't swallow or lose text", () => {
   assert.equal(kindOfWord(tokenizeRust('let s = r#"a " b"#;\nlet y = 2;'), "y"), "plain", "code after a raw string is code");
 });
 
+test("tokenizer: Java annotations, text blocks, contextual keywords and capitalized types", () => {
+  const java = tokenizeJava(fixture("basic.java"));
+  const has = (text: string, kind: TokenKind): boolean => java.flat().some((t) => t.text === text && t.kind === kind);
+  assert.equal(kindOf(java, 'This Javadoc says class and "String"'), "comment");
+  assert.equal(kindOf(java, "A block comment with"), "comment");
+  for (const word of ["package", "import", "public", "class", "private", "static", "final", "int", "long", "interface", "implements", "return", "switch", "case", "default", "new", "for", "if", "instanceof", "void", "char", "extends"]) {
+    assert.ok(has(word, "keyword"), `keyword ${word}`);
+  }
+  for (const word of ["sealed", "permits", "record", "non-sealed", "when", "yield", "var"]) {
+    assert.ok(has(word, "keyword"), `contextual keyword ${word}`);
+  }
+  assert.equal(kindOfWord(tokenizeJava("int var = 3;"), "var"), "plain", "var as a variable name");
+  assert.equal(kindOfWord(tokenizeJava("return record;"), "record"), "plain", "record as a variable name");
+  for (const name of ["Kitchen", "String", "ArrayList", "List", "Map", "Integer", "Soup", "Cake", "T", "Comparable", "System", "Runnable"]) {
+    assert.ok(has(name, "type"), `type ${name}`);
+  }
+  for (const constant of ["MAX_ITEMS", "MASK", "CUP", "GRAM"]) {
+    assert.ok(!has(constant, "type"), `a constant isn't a type: ${constant}`);
+  }
+  for (const annotation of ["@Override", "@SuppressWarnings", "@java.lang.Deprecated"]) {
+    assert.ok(has(annotation, "preprocessor"), `annotation ${annotation}`);
+  }
+  assert.equal(kindOfWord(tokenizeJava("public @interface Tag {}"), "@interface"), "keyword");
+  assert.equal(kindOf(java, 'Mix "two cups" of flour.'), "string", "text block spans lines");
+  assert.equal(kindOf(java, 'A tricky line: \\"""'), "string", "an escaped \"\"\" doesn't end a text block");
+  for (const literal of ["'\\''", "'\\t'", '"C:\\\\recipes\\\\pancakes"', '"unchecked"']) {
+    assert.ok(has(literal, "string"), `string ${literal}`);
+  }
+  for (const number of ["1_000", "0xFF", "0b1010", "10L", "1e-3", "2.5f", "0", "4", ".5"]) {
+    assert.ok(has(number, "number"), `number ${number}`);
+  }
+  assert.equal(kindOfWord(tokenizeJava("double d = 0x1.8p-3;"), "0x1.8p-3"), "number", "hex float");
+  assert.equal(kindOfWord(tokenizeJava("int x = 0xE+1;"), "0xE"), "number", "+ after a hex E isn't an exponent");
+});
+
+test("tokenizer: unfinished Java doesn't swallow or lose text", () => {
+  for (const source of ['"', "'", '"""', '"""\nno end', '"no end\nint x;', "/*", "/** x", "@", "@x.", "non-", "non-sealed", "0x", "1e", "1e+", "1.", "中文 '中' 😀", ""]) {
+    assert.equal(tokenizeJava(source).map(joinLine).join("\n"), source, JSON.stringify(source));
+  }
+  assert.equal(kindOfWord(tokenizeJava('String s = "no end\nint x = 1;'), "int"), "keyword", "an unclosed string stops at the line end");
+  assert.equal(kindOfWord(tokenizeJava('String s = """\n  a\n  """;\nint y = 2;'), "int"), "keyword", "code after a text block is code");
+});
+
 test("tokenizer: Python comments, strings, numbers, keywords and decorators", () => {
   const py = tokenizePython(fixture("basic.py"));
   assert.equal(kindOf(py, "A small weather log"), "string", "docstring");
@@ -562,8 +606,12 @@ test("languages: picked by extension or VS Code language id, with .h treated as 
   assert.equal(languageForFile("LIB.RS"), "rust");
   assert.equal(languageForFile("main.rs.bk"), undefined);
   assert.equal(languageForVscodeId("rust"), "rust");
-  assert.equal(LANGUAGE_NAMES, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React and Rust");
-  assert.equal(LANGUAGE_NAMES_OR, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React or Rust");
+  assert.equal(languageForFile("Main.java"), "java");
+  assert.equal(languageForFile("MAIN.JAVA"), "java");
+  assert.equal(languageForFile("Main.class"), undefined);
+  assert.equal(languageForVscodeId("java"), "java");
+  assert.equal(LANGUAGE_NAMES, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust and Java");
+  assert.equal(LANGUAGE_NAMES_OR, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust or Java");
 });
 
 test("layout: tabs expand to the next tab stop and control characters become visible", () => {
@@ -608,13 +656,13 @@ test("options: defaults, clamping and page sizes", () => {
 });
 
 test("files: supported extensions, excluded folders and PDF names", () => {
-  for (const name of ["a.c", "a.cpp", "a.cc", "a.cxx", "a.h", "a.hpp", "a.hh", "a.hxx", "A.CPP", "A.C", "a.py", "a.pyw", "A.PY", "a.css", "A.CSS", "a.html", "a.htm", "A.HTML", "a.js", "a.mjs", "a.cjs", "A.JS", "a.ts", "a.mts", "a.cts", "A.TS", "a.jsx", "a.tsx", "A.TSX", "a.rs", "A.RS"]) {
+  for (const name of ["a.c", "a.cpp", "a.cc", "a.cxx", "a.h", "a.hpp", "a.hh", "a.hxx", "A.CPP", "A.C", "a.py", "a.pyw", "A.PY", "a.css", "A.CSS", "a.html", "a.htm", "A.HTML", "a.js", "a.mjs", "a.cjs", "A.JS", "a.ts", "a.mts", "a.cts", "A.TS", "a.jsx", "a.tsx", "A.TSX", "a.rs", "A.RS", "a.java", "A.JAVA"]) {
     assert.ok(isSupportedSource(name), name);
   }
-  for (const name of ["a.ts.map", "a.tsbuildinfo", "a.js.map", "js", "cpp", "c", "py", "css", "a.scss", "a.css.map", "html", "a.html.bak", "a.xhtml", "a.cpp.bak", "a.c.bak", "a.pyc", "a.rs.bk", "rs", "notes.txt"]) {
+  for (const name of ["a.ts.map", "a.tsbuildinfo", "a.js.map", "js", "cpp", "c", "py", "css", "a.scss", "a.css.map", "html", "a.html.bak", "a.xhtml", "a.cpp.bak", "a.c.bak", "a.pyc", "a.rs.bk", "rs", "a.class", "a.jar", "java", "notes.txt"]) {
     assert.ok(!isSupportedSource(name), name);
   }
-  for (const name of [".git", ".vscode", "node_modules", "build", "dist", "cmake-build-debug", "Debug", "__pycache__", "venv", ".venv", "target"]) {
+  for (const name of [".git", ".vscode", "node_modules", "build", "dist", "cmake-build-debug", "Debug", "__pycache__", "venv", ".venv", "target", "out", "bin", ".gradle"]) {
     assert.ok(isExcludedFolder(name), name);
   }
   assert.ok(!isExcludedFolder("src"));

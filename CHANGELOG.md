@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.8.0
+- Added Java export (`.java`).
+
 ## 1.7.0
 - Added Rust export (`.rs`).
 

@@ -206,6 +206,28 @@ test("1h. exports a Rust file, alone and combined with C++", async () => {
   assert.ok(combined.pdf.text.includes('println!("{VERSION} {MAX_ITEMS} {MASK} {half}");'));
 });
 
+test("1i. exports a Java file, alone and combined with Rust", async () => {
+  const source = fixture("basic.java");
+  const { pdf } = await exportSections("basic_java.pdf", [file("basic.java", source)]);
+  assert.ok(pdf.pages[0]!.lines[0]!.startsWith("basic.java"), "file name in the header");
+  for (const expected of [
+    "public non-sealed class Cake implements Dish {",
+    "char quote = '\\'';",
+    'String path = "C:\\\\recipes\\\\pancakes";',
+    'Mix "two cups" of flour.',
+    'case Soup s when s.cups() > 4 -> "a big soup";',
+  ]) {
+    assert.ok(pdf.text.includes(expected), `missing: ${expected}`);
+  }
+
+  const combined = await exportSections("mixed_java_rs.pdf", [
+    { ...file("basic.java", source), language: "java" },
+    { ...file("basic.rs", fixture("basic.rs")), language: "rust" },
+  ]);
+  assert.deepEqual(combined.pdf.outline, ["basic.java", "basic.rs"], "one bookmark per file");
+  assert.ok(combined.pdf.text.includes("pantry.forEach(System.out::println);"));
+});
+
 test("2. exports comments and strings exactly", async () => {
   const { pdf } = await exportSections("comments_strings.pdf", [file("comments_strings.cpp", fixture("comments_strings.cpp"))]);
   for (const expected of [
