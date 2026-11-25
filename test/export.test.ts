@@ -275,6 +275,33 @@ test("1k. exports a Go file, alone and combined with C#", async () => {
   assert.ok(combined.pdf.text.includes("public partial class Cookbook : IDish"));
 });
 
+test("1l. exports a PHP file, alone and combined with Go", async () => {
+  const source = fixture("basic.php");
+  const { pdf } = await exportSections("basic_php.pdf", [file("basic.php", source)]);
+  assert.ok(pdf.pages[0]!.lines[0]!.startsWith("basic.php"), "file name in the header");
+  for (const expected of [
+    "<h1 class=\"title\">Pantry page: if else function \"quotes\" here</h1>",
+    "#[Attribute(Attribute::TARGET_CLASS)]",
+    "public function add(Item $item, int ...$more): static",
+    "$$name = 'indirect';",
+    "$greeting = \"Hello $name, you have {$count} items and",
+    "She said \"hi\" and // this is not a comment.",
+    "Nowdoc keeps $name and {$count} exactly.",
+    "<p>$name</p>",
+    "<?= $name ?>",
+    "# This file has no closing tag at the end.",
+  ]) {
+    assert.ok(pdf.text.includes(expected), `missing: ${expected}`);
+  }
+
+  const combined = await exportSections("mixed_php_go.pdf", [
+    { ...file("basic.php", source), language: "php" },
+    { ...file("basic.go", fixture("basic.go")), language: "go" },
+  ]);
+  assert.deepEqual(combined.pdf.outline, ["basic.php", "basic.go"], "one bookmark per file");
+  assert.ok(combined.pdf.text.includes("type Shelf struct {"));
+});
+
 test("2. exports comments and strings exactly", async () => {
   const { pdf } = await exportSections("comments_strings.pdf", [file("comments_strings.cpp", fixture("comments_strings.cpp"))]);
   for (const expected of [

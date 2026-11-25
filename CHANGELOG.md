@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.11.0
+- Added PHP export (`.php`).
+
 ## 1.10.0
 - Added Go export (`.go`).
 - Folder export now skips `vendor` folders.

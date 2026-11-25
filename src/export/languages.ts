@@ -10,11 +10,12 @@ import { tokenizeGo } from "./goTokenizer";
 import { tokenizeHtml } from "./htmlTokenizer";
 import { tokenizeJava } from "./javaTokenizer";
 import { tokenizeJavaScript } from "./javascriptTokenizer";
+import { tokenizePhp } from "./phpTokenizer";
 import { tokenizePython } from "./pythonTokenizer";
 import { tokenizeRust } from "./rustTokenizer";
 import type { TokenLine } from "./tokens";
 
-export type LanguageId = "c" | "cpp" | "python" | "css" | "html" | "javascript" | "typescript" | "javascriptreact" | "typescriptreact" | "rust" | "java" | "csharp" | "go";
+export type LanguageId = "c" | "cpp" | "python" | "css" | "html" | "javascript" | "typescript" | "javascriptreact" | "typescriptreact" | "rust" | "java" | "csharp" | "go" | "php";
 
 interface Language {
   /** Shown in messages, e.g. "C++". */
@@ -109,6 +110,12 @@ export const LANGUAGES: Record<LanguageId, Language> = {
     vscodeId: "go",
     tokenize: tokenizeGo,
   },
+  php: {
+    label: "PHP",
+    extensions: [".php"],
+    vscodeId: "php",
+    tokenize: tokenizePhp,
+  },
 };
 
 const LANGUAGE_IDS = Object.keys(LANGUAGES) as LanguageId[];
@@ -121,10 +128,10 @@ function nameList(lastJoiner: string): string {
   return labels.length < 2 ? labels.join("") : `${labels.slice(0, -1).join(", ")} ${lastJoiner} ${labels[labels.length - 1]}`;
 }
 
-/** "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C# and Go", for messages. */
+/** "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go and PHP", for messages. */
 export const LANGUAGE_NAMES = nameList("and");
 
-/** "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C# or Go", for messages like "files that aren't ...". */
+/** "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go or PHP", for messages like "files that aren't ...". */
 export const LANGUAGE_NAMES_OR = nameList("or");
 
 function extensionOf(fileName: string): string {
@@ -138,7 +145,7 @@ export function languageForFile(fileName: string): LanguageId | undefined {
   return LANGUAGE_IDS.find((id) => LANGUAGES[id].extensions.includes(ext));
 }
 
-/** The language for VS Code's language id ("c", "cpp", "python", "typescriptreact", "rust", "java", "csharp", "go", ...), or undefined if unsupported. */
+/** The language for VS Code's language id ("c", "cpp", "python", "typescriptreact", "rust", "java", "csharp", "go", "php", ...), or undefined if unsupported. */
 export function languageForVscodeId(vscodeId: string | undefined): LanguageId | undefined {
   return LANGUAGE_IDS.find((id) => LANGUAGES[id].vscodeId === vscodeId);
 }

@@ -12,6 +12,7 @@ import { tokenizeRust } from "../src/export/rustTokenizer";
 import { tokenizeJava } from "../src/export/javaTokenizer";
 import { tokenizeCSharp } from "../src/export/csharpTokenizer";
 import { tokenizeGo } from "../src/export/goTokenizer";
+import { tokenizePhp } from "../src/export/phpTokenizer";
 import type { TokenKind, TokenLine } from "../src/export/tokens";
 import { languageForFile, languageForVscodeId, LANGUAGE_NAMES, LANGUAGE_NAMES_OR } from "../src/export/languages";
 import { columnWidth, expandLine, layoutLine } from "../src/export/layout";
@@ -46,11 +47,11 @@ const kindOfWord = (lines: TokenLine[], word: string): TokenKind | undefined => 
 };
 
 test("tokenizer: joining tokens gives back every fixture exactly", () => {
-  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py", "basic.css", "basic.html", "basic.js", "basic.ts", "basic.jsx", "basic.tsx", "basic.rs", "basic.java", "basic.cs", "basic.go"]) {
+  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py", "basic.css", "basic.html", "basic.js", "basic.ts", "basic.jsx", "basic.tsx", "basic.rs", "basic.java", "basic.cs", "basic.go", "basic.php"]) {
     const source = fixture(name).replace(/\r\n?/g, "\n");
     for (const lines of [
       tokenizeCpp(source), tokenizeC(source), tokenizePython(source), tokenizeCss(source), tokenizeHtml(source), tokenizeJavaScript(source),
-      tokenizeTs(source), tokenizeJsx(source), tokenizeTsx(source), tokenizeRust(source), tokenizeJava(source), tokenizeCSharp(source), tokenizeGo(source),
+      tokenizeTs(source), tokenizeJsx(source), tokenizeTsx(source), tokenizeRust(source), tokenizeJava(source), tokenizeCSharp(source), tokenizeGo(source), tokenizePhp(source),
     ]) {
       assert.equal(lines.map(joinLine).join("\n"), source, `${name} changed during tokenizing`);
     }
@@ -576,6 +577,140 @@ test("tokenizer: unfinished Go doesn't swallow or lose text", () => {
   assert.equal(kindOfWord(tokenizeGo("s := 'a\nvar y = 1"), "var"), "keyword", "an unclosed rune stops at the line end");
 });
 
+test("tokenizer: PHP tags, comments, strings, heredocs, numbers, keywords and class names", () => {
+  const source = fixture("basic.php");
+  const php = tokenizePhp(source);
+  const has = (text: string, kind: TokenKind): boolean => php.flat().some((t) => t.text === text && t.kind === kind);
+  assert.equal(php.length, source.split("\n").length, "one token line per source line");
+
+  // Text outside the tags is plain, even when it looks like code.
+  assert.equal(kindOf(php, "<h1 class="), "plain", "html before the first tag");
+  assert.equal(kindOf(php, "Pantry page: if else function"), "plain");
+  assert.equal(kindOf(php, "Back in HTML with"), "plain", "html after ?>");
+  assert.equal(kindOf(php, "Total:"), "plain", "html after a ?> and <?=");
+  assert.equal(kindOf(php, "<!DOCTYPE html>"), "plain", "a doctype outside php is plain");
+  for (const tag of ["<?php", "<?=", "?>"]) {
+    assert.ok(has(tag, "preprocessor"), `tag ${tag}`);
+  }
+
+  // Comments.
+  assert.equal(kindOf(php, 'This comment says function and "string"'), "comment");
+  assert.equal(kindOf(php, "A hash comment with"), "comment");
+  assert.equal(kindOf(php, "over two lines."), "comment");
+  assert.equal(kindOf(php, "A doc comment for the class below."), "comment");
+  assert.equal(kindOf(php, "The next line ends PHP here"), "comment", "the comment before ?>");
+  assert.equal(kindOf(php, "and goes back to HTML."), "plain", "the text after ?> in a // comment is html");
+  assert.ok(has("#[Attribute(Attribute::TARGET_CLASS)]", "preprocessor"), "an attribute is not a comment");
+  assert.equal(kindOf(php, "This file has no closing tag"), "comment");
+
+  // Keywords ignore case.
+  for (const word of ["namespace", "use", "declare", "const", "final", "class", "public", "private", "protected", "function", "return", "new", "static", "foreach", "as", "if", "abstract", "implements", "extends", "interface", "enum", "case", "fn", "instanceof", "IF", "ECHO", "ELSEIF", "Print", "NULL", "else", "$this"]) {
+    assert.ok(has(word, "keyword"), `keyword ${word}`);
+  }
+  for (const word of ["int", "string", "Shelf", "Item", "Spice", "Unit", "Labeled", "Countable", "Loggable", "Sortable", "InvalidArgumentException"]) {
+    assert.ok(has(word, "type"), `type ${word}`);
+  }
+  assert.ok(has("App\\Shared\\Labeled", "type"), "a name with namespace parts after use");
+  // Plain tokens merge with their neighbours, so these look for the word inside a plain token.
+  const plainHas = (text: string): boolean => php.flat().some((t) => t.kind === "plain" && t.text.includes(text));
+  assert.ok(plainHas("App\\Pantry"), "the namespace name itself is plain");
+
+  // Variables, member names and constants stay plain.
+  for (const word of ["$name", "$$name", "$count", "$items", "$item", "label", "items", "LIMIT", "MAX_ITEMS", "Cup", "from", "make"]) {
+    assert.ok(plainHas(word), `plain ${word}`);
+  }
+  assert.ok(has("class", "keyword"), "Shelf::class");
+  assert.equal(kindOfWord(tokenizePhp("<?php $a->class = 1; $b->list = 2; X::DEFAULT;"), "class"), "plain", "a property named like a keyword");
+  assert.equal(kindOfWord(tokenizePhp("<?php $b->list = 2;"), "list"), "plain");
+  assert.equal(kindOfWord(tokenizePhp("<?php X::DEFAULT;"), "DEFAULT"), "plain", "a constant named like a keyword");
+  assert.equal(kindOfWord(tokenizePhp("<?php function list() {}"), "list"), "plain", "a function named like a keyword");
+  assert.equal(kindOfWord(tokenizePhp("<?php $this->count = 1;"), "count"), "plain");
+  assert.equal(kindOfWord(tokenizePhp("<?php $x = $a?->size;"), "size"), "plain", "after ?->");
+  assert.equal(kindOfWord(tokenizePhp("<?php function f() { yield from g(); }"), "from"), "keyword", "yield from");
+  assert.equal(kindOfWord(tokenizePhp("<?php $n = from($x);"), "from"), "plain", "a function named from");
+  assert.equal(kindOfWord(tokenizePhp("<?php $n = max(1, 2);"), "max"), "plain", "a function call stays plain");
+  assert.ok(tokenizePhp("<?php $n = new \\App\\Item();").flat().some((t) => t.text === "\\App\\Item" && t.kind === "type"), "a name with a leading backslash after new");
+  assert.equal(kindOfWord(tokenizePhp("<?php class A extends B implements C, D { use T1, T2; }"), "D"), "type", "second name in an implements list");
+  assert.equal(kindOfWord(tokenizePhp("<?php class A extends B implements C, D { use T1, T2; }"), "T2"), "type", "second trait");
+  assert.equal(kindOfWord(tokenizePhp("<?php $f = function () use ($a, $b) { return Foo::bar; };"), "Foo"), "type", "a name before ::");
+  assert.equal(kindOfWord(tokenizePhp("<?php try {} catch (Boom $e) {}"), "Boom"), "type", "a type hint in catch");
+  assert.equal(kindOfWord(tokenizePhp("<?php $x = count($a) ? 1 : FOO;"), "FOO"), "plain", "a constant isn't a type");
+  assert.equal(kindOfWord(tokenizePhp("<?php function f(): Dish {}"), "Dish"), "type", "a return type");
+  assert.equal(kindOfWord(tokenizePhp("<?php function f(?Dish $d, &$e) {}"), "Dish"), "type", "a nullable type hint");
+
+  // Strings: single quotes have two escapes, double quotes show the interpolated parts as plain.
+  assert.ok(has("'It\\'s a spice, path C:\\\\pantry\\\\spices and \\n stays two characters'", "string"), "single-quoted string with its two escapes");
+  assert.ok(has("'single $name and {$count} stay plain text'", "string"), "no interpolation in single quotes");
+  assert.equal(kindOf(php, "Hello "), "string");
+  assert.ok(has("$name", "plain"), "$name inside a double-quoted string");
+  assert.ok(has("{$count}", "plain"), "{$expr} inside a double-quoted string");
+  assert.ok(has('{$shelf->items[0]["x"]}', "plain"), "quotes and brackets inside {$expr}");
+  assert.ok(has(" left, cost \\$5 and \\{", "string"), "an escaped $ is not interpolated, and \\{ is not a hole");
+  assert.ok(has("}.\"", "string"), "the text after the plain $count");
+  assert.ok(has("$item->label", "plain"), "$obj->prop inside a string");
+  assert.ok(has(" and a stray { brace and \\\" quote\"", "string"), "a stray { and an escaped quote");
+  assert.equal(kindOf(php, "ls -l "), "string", "backtick string");
+
+  // Heredoc and nowdoc, with an indented closing marker.
+  assert.equal(kindOf(php, "<<<EOT"), "string");
+  assert.equal(kindOf(php, "She said"), "string", "heredoc body holds no comment");
+  assert.equal(kindOf(php, "EOTX is not the end."), "string", "a longer word is not the closing marker");
+  assert.equal(kindOf(php, "<<<'RAW'"), "string");
+  assert.equal(kindOf(php, "Nowdoc keeps $name and {$count} exactly."), "string", "nowdoc has no interpolation");
+  assert.equal(kindOf(php, "<<<\"HTML\""), "string");
+  assert.equal(kindOf(php, "    HTML"), "string", "indented closing marker");
+  assert.equal(kindOfWord(tokenizePhp("<?php $a = <<<X\nbody text\n  X;\n$b = IF;"), "IF"), "keyword", "code after the heredoc is code");
+  assert.equal(kindOfWord(tokenizePhp("<?php $a = <<<X\nbody IF\n  X;\n$b = 1;"), "IF"), "string", "a keyword inside the heredoc");
+
+  // Numbers.
+  for (const number of ["1_000", "0xFF", "0b1010", "0o755", "0755", "1.5e-3", ".5", "3", "4.25", "2.5E-3", "0x1F", "0"]) {
+    assert.ok(has(number, "number"), `number ${number}`);
+  }
+  assert.ok(has("1", "number") && has("0", "number"));
+
+  // Operators don't confuse anything.
+  const arrows = tokenizePhp("<?php $a = $b?->c ?? $d->e; $m = ['k' => 1]; $z = A::B;");
+  assert.ok(arrows.flat().some((t) => t.text === "1" && t.kind === "number"));
+  assert.equal(tokenizePhp("<?php\n$a = 1 << 3;\n$b = 2 <<< 1;").length, 3, "<<< without a label is not a heredoc");
+});
+
+test("tokenizer: PHP modes, tags and edge cases", () => {
+  // A file with only HTML has no code at all.
+  const html = tokenizePhp("<p>if (x) { return; }</p>\n");
+  assert.ok(html.flat().every((t) => t.kind === "plain"), "no php tag, so everything is plain");
+  // A tag has to be <?php followed by white space, or <?=.
+  assert.equal(kindOfWord(tokenizePhp("<?phpx if\n"), "if"), "plain", "<?phpx is not a tag");
+  assert.equal(kindOfWord(tokenizePhp("<?PHP if (1) {}"), "if"), "keyword", "the tag ignores case");
+  assert.equal(kindOfWord(tokenizePhp("<?php\nif (1) {}"), "if"), "keyword", "a newline after the tag");
+  assert.equal(kindOfWord(tokenizePhp("<?php"), "<?php"), "preprocessor", "a tag at the end of the file");
+  assert.equal(kindOfWord(tokenizePhp("<?= $x ?>\nif"), "if"), "plain", "text after ?> is plain");
+  // ?> in a comment ends PHP, but not in a block comment or a string.
+  const hash = tokenizePhp("<?php # note ?> if (x)\n<?php if (y);");
+  assert.equal(kindOfWord(hash.slice(0, 1), "if"), "plain", "?> inside a # comment ends php");
+  assert.equal(kindOfWord(hash.slice(1), "if"), "keyword", "a new tag starts php again");
+  assert.equal(kindOfWord(tokenizePhp("<?php /* ?> */ if (x);"), "if"), "keyword", "?> in a block comment");
+  assert.equal(kindOfWord(tokenizePhp("<?php $s = '?>'; if (x);"), "if"), "keyword", "?> in a string");
+  assert.equal(kindOf(tokenizePhp("<?php // a\nif (x);"), "a"), "comment");
+  assert.equal(kindOfWord(tokenizePhp("<?php // a\nif (x);"), "if"), "keyword", "a // comment ends at the line end");
+  assert.equal(kindOfWord(tokenizePhp("<?php #[A]\nif (x);"), "if"), "keyword");
+  assert.equal(kindOfWord(tokenizePhp("<?php #[A(['x', \"]\"])] class B {}"), "class"), "keyword", "brackets inside an attribute's strings");
+  // Strings span lines.
+  assert.equal(kindOfWord(tokenizePhp("<?php $a = 'one\ntwo\nthree'; if (x);"), "if"), "keyword", "code after a three-line string");
+  assert.equal(tokenizePhp("<?php $a = \"one\ntwo\"; $b = 1;").length, 2);
+  // Heredoc label forms and a closing marker followed by more code.
+  assert.equal(kindOf(tokenizePhp("<?php f(<<<EOT\n  text\n  EOT, 2);"), "text"), "string", "a marker followed by a comma");
+  assert.equal(kindOfWord(tokenizePhp("<?php f(<<<EOT\n  text\n  EOT, IF);"), "IF"), "keyword");
+  assert.equal(kindOf(tokenizePhp("<?php $a = <<< 'X'\ntext $v\nX;"), "text $v"), "string", "spaces before the nowdoc label");
+});
+
+test("tokenizer: unfinished PHP doesn't swallow or lose text", () => {
+  for (const source of ["<?php", "<?", "<?=", "?>", "<?php '", "<?php \"", "<?php `", "<?php \"{$a", "<?php \"{$a[\"", "<?php \"$", "<?php \"\\", "<?php '\\", "<?php /*", "<?php //", "<?php #", "<?php #[", "<?php #[A('", "<?php <<<", "<?php <<<EOT", "<?php <<<EOT\nbody", "<?php <<<'EOT'\nbody", "<?php <<<EOT\n$a {$b", "<?php 0x", "<?php 1e", "<?php 1e+", "<?php 1.", "<?php .", "<?php $", "<?php $$", "<?php \\", "<?php \\\\a", "<?php a\\", "中文 <?php '中' 😀", "<?php $😀 = 1;", ""]) {
+    assert.equal(tokenizePhp(source).map(joinLine).join("\n"), source, JSON.stringify(source));
+  }
+  assert.equal(kindOfWord(tokenizePhp("<?php $a = \"{$b\nif (x);"), "if"), "string", "an unclosed { hole doesn't swallow the file, the string runs on");
+  assert.equal(tokenizePhp("<?php $a = <<<EOT\nbody\nmore").length, 3, "an unclosed heredoc keeps its lines");
+});
+
 test("tokenizer: Python comments, strings, numbers, keywords and decorators", () => {
   const py = tokenizePython(fixture("basic.py"));
   assert.equal(kindOf(py, "A small weather log"), "string", "docstring");
@@ -730,8 +865,13 @@ test("languages: picked by extension or VS Code language id, with .h treated as 
   assert.equal(languageForFile("MAIN.GO"), "go");
   assert.equal(languageForFile("go.mod"), undefined);
   assert.equal(languageForVscodeId("go"), "go");
-  assert.equal(LANGUAGE_NAMES, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C# and Go");
-  assert.equal(LANGUAGE_NAMES_OR, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C# or Go");
+  assert.equal(languageForFile("index.php"), "php");
+  assert.equal(languageForFile("INDEX.PHP"), "php");
+  assert.equal(languageForFile("a.phtml"), undefined);
+  assert.equal(languageForFile("composer.json"), undefined);
+  assert.equal(languageForVscodeId("php"), "php");
+  assert.equal(LANGUAGE_NAMES, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go and PHP");
+  assert.equal(LANGUAGE_NAMES_OR, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go or PHP");
 });
 
 test("layout: tabs expand to the next tab stop and control characters become visible", () => {
@@ -776,10 +916,10 @@ test("options: defaults, clamping and page sizes", () => {
 });
 
 test("files: supported extensions, excluded folders and PDF names", () => {
-  for (const name of ["a.c", "a.cpp", "a.cc", "a.cxx", "a.h", "a.hpp", "a.hh", "a.hxx", "A.CPP", "A.C", "a.py", "a.pyw", "A.PY", "a.css", "A.CSS", "a.html", "a.htm", "A.HTML", "a.js", "a.mjs", "a.cjs", "A.JS", "a.ts", "a.mts", "a.cts", "A.TS", "a.jsx", "a.tsx", "A.TSX", "a.rs", "A.RS", "a.java", "A.JAVA", "a.cs", "A.CS", "a.go", "A.GO"]) {
+  for (const name of ["a.c", "a.cpp", "a.cc", "a.cxx", "a.h", "a.hpp", "a.hh", "a.hxx", "A.CPP", "A.C", "a.py", "a.pyw", "A.PY", "a.css", "A.CSS", "a.html", "a.htm", "A.HTML", "a.js", "a.mjs", "a.cjs", "A.JS", "a.ts", "a.mts", "a.cts", "A.TS", "a.jsx", "a.tsx", "A.TSX", "a.rs", "A.RS", "a.java", "A.JAVA", "a.cs", "A.CS", "a.go", "A.GO", "a.php", "A.PHP"]) {
     assert.ok(isSupportedSource(name), name);
   }
-  for (const name of ["a.ts.map", "a.tsbuildinfo", "a.js.map", "js", "cpp", "c", "py", "css", "a.scss", "a.css.map", "html", "a.html.bak", "a.xhtml", "a.cpp.bak", "a.c.bak", "a.pyc", "a.rs.bk", "rs", "a.class", "a.jar", "java", "a.csproj", "a.sln", "a.dll", "cs", "a.mod", "a.sum", "go", "notes.txt"]) {
+  for (const name of ["a.ts.map", "a.tsbuildinfo", "a.js.map", "js", "cpp", "c", "py", "css", "a.scss", "a.css.map", "html", "a.html.bak", "a.xhtml", "a.cpp.bak", "a.c.bak", "a.pyc", "a.rs.bk", "rs", "a.class", "a.jar", "java", "a.csproj", "a.sln", "a.dll", "cs", "a.mod", "a.sum", "go", "a.phtml", "a.php.bak", "a.inc", "php", "notes.txt"]) {
     assert.ok(!isSupportedSource(name), name);
   }
   for (const name of [".git", ".vscode", "node_modules", "build", "dist", "cmake-build-debug", "Debug", "__pycache__", "venv", ".venv", "target", "out", "bin", ".gradle", "obj", "vendor"]) {
