@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.20.0
+- Added MATLAB export (`.m`). Every `.m` file is treated as MATLAB.
+- Folder export now skips `slprj` and `codegen` folders.
+
 ## 1.19.0
 - Added R export (`.r`, `.R`).
 - Folder export now skips `renv` and `packrat` folders.

@@ -511,6 +511,31 @@ test("1t. exports an R file, alone and combined with Lua", async () => {
   assert.ok(combined.pdf.text.includes("#!/usr/bin/env lua"));
 });
 
+test("1u. exports a MATLAB file, alone and combined with R", async () => {
+  const source = fixture("basic.m");
+  const { pdf } = await exportSections("basic_m.pdf", [file("basic.m", source)]);
+  assert.ok(pdf.pages[0]!.lines[0]!.startsWith("basic.m"), "file name in the header");
+  for (const expected of [
+    "function total = total_weight(weights, extra)",
+    "function [low, high] = spread(values)",
+    "voltage = 3 + 2i;",
+    'label = "She said ""hi"" % not a comment";',
+    "flipped = M';",
+    "mixed = [name' 'x'];",
+    "square = @(x) x.^2;",
+    "A nested block comment.",
+  ]) {
+    assert.ok(pdf.text.includes(expected), `missing: ${expected}`);
+  }
+
+  const combined = await exportSections("mixed_m_r.pdf", [
+    { ...file("basic.m", source), language: "matlab" },
+    { ...file("basic.r", fixture("basic.r")), language: "r" },
+  ]);
+  assert.deepEqual(combined.pdf.outline, ["basic.m", "basic.r"], "one bookmark per file");
+  assert.ok(combined.pdf.text.includes("#!/usr/bin/env Rscript"));
+});
+
 test("2. exports comments and strings exactly", async () => {
   const { pdf } = await exportSections("comments_strings.pdf", [file("comments_strings.cpp", fixture("comments_strings.cpp"))]);
   for (const expected of [

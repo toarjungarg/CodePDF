@@ -57,6 +57,7 @@ put("loaves.rb", readFileSync(join(fixtures, "basic.rb")));
 put("dough.dart", readFileSync(join(fixtures, "basic.dart")));
 put("rolls.lua",readFileSync(join(fixtures, "basic.lua")));
 put("Scones.R", readFileSync(join(fixtures, "basic.r")));
+put("pastry.m", readFileSync(join(fixtures, "basic.m")));
 for (const name of ["comments_strings.cpp", "unicode.cpp", "long_lines.cpp"]) {
   cpSync(join(fixtures, name), join(project, name));
 }
@@ -85,6 +86,8 @@ put("lua_modules/share/lua/dep.lua", "-- LuaRocks dependency copy: must be skipp
 put("renv/library/dep.R", "# renv package library copy: must be skipped\n");
 put("packrat/lib/dep.R", "# packrat package library copy: must be skipped\n");
 put(".Rproj.user/cache.R", "# RStudio project folder (hidden): must be skipped\n");
+put("slprj/sim/cache.m", "% Simulink build folder: must be skipped\n");
+put("codegen/lib/gen.m", "% MATLAB Coder build folder: must be skipped\n");
 put("notes.txt","Not source code.\n");
 
 // 2. Test PDFs, made with CodePDF's own (compiled) engine.

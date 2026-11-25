@@ -21,6 +21,7 @@ import { tokenizeRuby } from "../src/export/rubyTokenizer";
 import { tokenizeDart } from "../src/export/dartTokenizer";
 import { tokenizeLua } from "../src/export/luaTokenizer";
 import { tokenizeR } from "../src/export/rTokenizer";
+import { tokenizeMatlab } from "../src/export/matlabTokenizer";
 import type { TokenKind, TokenLine } from "../src/export/tokens";
 import { languageForFile, languageForVscodeId, LANGUAGE_NAMES, LANGUAGE_NAMES_OR } from "../src/export/languages";
 import { columnWidth, expandLine, layoutLine } from "../src/export/layout";
@@ -55,11 +56,11 @@ const kindOfWord = (lines: TokenLine[], word: string): TokenKind | undefined => 
 };
 
 test("tokenizer: joining tokens gives back every fixture exactly", () => {
-  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py", "basic.css", "basic.html", "basic.js", "basic.ts", "basic.jsx", "basic.tsx", "basic.rs", "basic.java", "basic.cs", "basic.go", "basic.php", "basic.sql", "basic.sh", "basic.kt", "basic.swift", "basic.rb", "basic.dart", "basic.lua", "basic.r"]) {
+  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py", "basic.css", "basic.html", "basic.js", "basic.ts", "basic.jsx", "basic.tsx", "basic.rs", "basic.java", "basic.cs", "basic.go", "basic.php", "basic.sql", "basic.sh", "basic.kt", "basic.swift", "basic.rb", "basic.dart", "basic.lua", "basic.r", "basic.m"]) {
     const source = fixture(name).replace(/\r\n?/g, "\n");
     for (const lines of [
       tokenizeCpp(source), tokenizeC(source), tokenizePython(source), tokenizeCss(source), tokenizeHtml(source), tokenizeJavaScript(source),
-      tokenizeTs(source), tokenizeJsx(source), tokenizeTsx(source), tokenizeRust(source), tokenizeJava(source), tokenizeCSharp(source), tokenizeGo(source), tokenizePhp(source), tokenizeSql(source), tokenizeShell(source), tokenizeKotlin(source), tokenizeSwift(source), tokenizeRuby(source), tokenizeDart(source), tokenizeLua(source), tokenizeR(source),
+      tokenizeTs(source), tokenizeJsx(source), tokenizeTsx(source), tokenizeRust(source), tokenizeJava(source), tokenizeCSharp(source), tokenizeGo(source), tokenizePhp(source), tokenizeSql(source), tokenizeShell(source), tokenizeKotlin(source), tokenizeSwift(source), tokenizeRuby(source), tokenizeDart(source), tokenizeLua(source), tokenizeR(source), tokenizeMatlab(source),
     ]) {
       assert.equal(lines.map(joinLine).join("\n"), source, `${name} changed during tokenizing`);
     }
@@ -2381,6 +2382,239 @@ test("tokenizer: R tricky cases", () => {
   assert.equal(tokenizeR(deep).map((l) => l.map((t) => t.text).join("")).join("\n"), deep, "200 raw string openers");
 });
 
+test("tokenizer: MATLAB comments, strings, transposes, numbers, names and keywords", () => {
+  const source = fixture("basic.m");
+  const sourceLines = source.split("\n");
+  const m = tokenizeMatlab(source);
+  assert.equal(m.length, sourceLines.length, "one token line per source line");
+  // One source line as kind:text pieces joined with |, found by a piece of its text.
+  const line = (text: string): string => {
+    const index = sourceLines.findIndex((l) => l.includes(text));
+    assert.ok(index !== -1, `no line with ${text}`);
+    return m[index]!.map((t) => `${t.kind}:${t.text}`).join("|");
+  };
+
+  // Comments and block comments, nested ones included.
+  assert.equal(line("A small bakery helper"), "comment:% A small bakery helper. The words function and 'quotes' in this comment stay comments.");
+  for (const text of ["This block comment", "but it is all comment", "A nested block", "Still comment here"]) {
+    assert.equal(line(text), `comment:${text}${sourceLines.find((l) => l.includes(text))!.slice(text.length)}`, `${text} is inside the block comment`);
+  }
+  assert.deepEqual(m.slice(2, 10).map((l) => l.map((t) => t.kind).join("|")), Array(8).fill("comment"), "the nested block comment is one comment");
+  assert.equal(line("MAX_LOAVES"), "plain:MAX_LOAVES = |number:1000|plain:;", "code after the block comment is code again");
+
+  // Numbers.
+  assert.equal(line("mask ="), "plain:mask = |number:0x1F|plain:;");
+  assert.equal(line("bits ="), "plain:bits = |number:0b101|plain:;");
+  assert.equal(line("small ="), "plain:small = |number:0xFFu8|plain:;");
+  assert.equal(line("ratio ="), "plain:ratio = |number:1.5e-3|plain:;");
+  assert.equal(line("half ="), "plain:half = |number:.5|plain:;");
+  assert.equal(line("nine ="), "plain:nine = |number:9.|plain:;");
+  assert.equal(line("voltage ="), "plain:voltage = |number:3|plain: + |number:2i|plain:;");
+  assert.equal(line("phase ="), "plain:phase = |number:2.5j|plain:;");
+  assert.equal(line("doubled ="), "plain:doubled = |number:1|plain:.*|number:2|plain:;", "the dot in 1.*2 belongs to the operator");
+  assert.equal(line("inverse ="), "plain:inverse = |number:1|plain:./x;");
+
+  // Constants.
+  assert.equal(line("limit ="), "plain:limit = |keyword:Inf|plain:;");
+  assert.equal(line("missing ="), "plain:missing = |keyword:NaN|plain:;");
+
+  // Strings: doubled quotes, a % inside a string, an unfinished string.
+  assert.equal(line("name ="), "plain:name = |string:'Rye loaf'|plain:;");
+  assert.equal(line("quote ="), "plain:quote = |string:'it''s warm'|plain:;");
+  assert.equal(line("label ="), 'plain:label = |string:"She said ""hi"" % not a comment"|plain:;');
+  assert.equal(line("percent ="), "plain:percent = |string:'% not a comment either'|plain:;");
+  assert.equal(line("broken ="), "plain:broken = |string:'no end");
+  assert.equal(m[sourceLines.findIndex((l) => l.startsWith("function total"))]![0]!.kind, "keyword", "the unfinished string ends at its line");
+
+  // Transpose or string.
+  assert.equal(line("flipped ="), "plain:flipped = M';");
+  assert.equal(line("column ="), "plain:column = [|number:1|plain: |number:2|plain: |number:3|plain:]';");
+  assert.equal(line("last ="), "plain:last = weights(|keyword:end|plain:)';");
+  assert.equal(line("both ="), "plain:both = M'*M';", "two transposes, not a string between them");
+  assert.equal(line("twice ="), "plain:twice = M'';", "a transpose of a transpose");
+  assert.equal(line("plain_dot ="), "plain:plain_dot = M.';");
+  assert.equal(line("words ="), "plain:words = [|string:'rye'|plain: |string:'wheat'|plain:];", "a space before the quote makes it a string");
+  assert.equal(line("mixed ="), "plain:mixed = [name' |string:'x'|plain:];");
+  assert.equal(line("cells ="), "plain:cells = {|string:'a'|plain:, |string:'b'|plain:, |string:\"c\"|plain:};");
+  assert.equal(line("tail ="), "plain:tail = names{|keyword:end|plain:}';");
+
+  // Function lines: the names stay plain, even a built-in name.
+  assert.equal(line("total_weight(weights"), "keyword:function|plain: total = total_weight(weights, extra)");
+  assert.equal(line("[low, high]"), "keyword:function|plain: [low, high] = spread(values)");
+  assert.equal(line("function disp"), "keyword:function|plain: disp(obj)");
+  assert.equal(line("fprintf('%d"), "plain:  |keyword:fprintf|plain:(|string:'%d loaves\\n'|plain:, obj.count);");
+
+  // Control flow, built-ins and member names.
+  assert.equal(line("isempty(weights)"), "plain:  |keyword:if|plain: |keyword:isempty|plain:(weights)");
+  assert.equal(line("elseif"), "plain:  |keyword:elseif|plain: |keyword:numel|plain:(weights) == |number:1");
+  assert.equal(line("for i ="), "keyword:for|plain: i = |number:1|plain::|number:3");
+  assert.equal(line("continue"), "plain:  |keyword:if|plain: i == |number:2|plain:, |keyword:continue|plain:; |keyword:end");
+  assert.equal(line("while true"), "keyword:while|plain: |keyword:true");
+  assert.equal(line("case {"), "plain:  |keyword:case|plain: {|string:'wheat'|plain:, |string:'spelt'|plain:}");
+  assert.equal(line("otherwise"), "plain:  |keyword:otherwise");
+  assert.equal(line("catch err"), "keyword:catch|plain: err");
+  assert.equal(line("err.message"), "plain:  |keyword:disp|plain:(err.message);");
+  assert.equal(line("s.end"), "plain:s.end = |number:5|plain:;", "a word after a dot is a name");
+  assert.equal(line("s.size"), "plain:s.size = |number:6|plain:;");
+  assert.equal(line("size = 4"), "plain:size = |number:4|plain:;", "a built-in that is not called is plain");
+  assert.equal(line("square ="), "plain:square = @(x) x.^|number:2|plain:;");
+  assert.equal(line("arrayfun"), "plain:result = |keyword:arrayfun|plain:(@(k) k*|number:2|plain:, |number:1|plain::|number:5|plain:);");
+
+  // Continuation lines.
+  assert.equal(line("1 + 2 + ..."), "plain:total = |number:1|plain: + |number:2|plain: + |comment:...");
+  assert.equal(line("this part is a comment"), "plain:total = |number:1|plain: + |number:2|plain: |comment:... this part is a comment, 'quotes' and all");
+  assert.equal(line("3 + 4"), "plain:        |number:3|plain: + |number:4|plain:;");
+
+  // Class sections.
+  assert.equal(line("classdef"), "keyword:classdef|plain: Loaf < handle");
+  assert.equal(line("properties"), "plain:  |keyword:properties|plain: (Access = public)");
+  assert.equal(line("methods"), "plain:  |keyword:methods");
+  assert.equal(line("function obj = Loaf"), "plain:    |keyword:function|plain: obj = Loaf(w)");
+});
+
+test("tokenizer: MATLAB tricky cases", () => {
+  // Every token as kind:text, joined with |, and a " // " marks the start of a new line.
+  const kinds = (source: string): string => tokenizeMatlab(source).map((l) => l.map((t) => `${t.kind}:${t.text}`).join("|")).join(" // ");
+
+  // Comments and block comments.
+  assert.equal(kinds("x % note"), "plain:x |comment:% note");
+  assert.equal(kinds("x = 'a % b' % c"), "plain:x = |string:'a % b'|plain: |comment:% c", "a % inside a string is not a comment");
+  assert.equal(kinds("%{\nhi\n%}\nx"), "comment:%{ // comment:hi // comment:%} // plain:x");
+  assert.equal(kinds("  %{  \nhi\n  %}  \nx"), "plain:  |comment:%{   // comment:hi // comment:  %}   // plain:x", "spaces around %{ and %} are fine");
+  assert.equal(kinds("%{ not a block\nx"), "comment:%{ not a block // plain:x", "%{ with text after it is a one line comment");
+  assert.equal(kinds("x = 1; %{\ny"), "plain:x = |number:1|plain:; |comment:%{ // plain:y", "%{ after code is a one line comment");
+  assert.equal(kinds("%{\n%{\nin\n%}\nstill\n%}\nx"), "comment:%{ // comment:%{ // comment:in // comment:%} // comment:still // comment:%} // plain:x", "block comments nest");
+  assert.equal(kinds("%{\nnever closed\nx = 1"), "comment:%{ // comment:never closed // comment:x = 1", "an unclosed block comment runs to the end");
+  assert.equal(kinds("%{\na %} b\n%}\nx"), "comment:%{ // comment:a %} b // comment:%} // plain:x", "a %} with other text on its line does not close it");
+  assert.equal(kinds("%}\nx"), "comment:%} // plain:x", "a lone %} is a one line comment");
+  assert.equal(kinds("%%{\nx"), "comment:%%{ // plain:x", "%%{ is a one line comment");
+  assert.equal(kinds("% 'a\nx"), "comment:% 'a // plain:x", "a quote inside a comment is not a string");
+
+  // Continuation.
+  assert.equal(kinds("a = [1 ... c\n2]"), "plain:a = [|number:1|plain: |comment:... c // number:2|plain:]");
+  assert.equal(kinds("a ..."), "plain:a |comment:...");
+  assert.equal(kinds("a = 'x...y'"), "plain:a = |string:'x...y'", "... inside a string is part of the string");
+  assert.equal(kinds("x...\ny"), "plain:x|comment:... // plain:y");
+  assert.equal(kinds("function f(a, ... c\nb)"), "keyword:function|plain: f(a, |comment:... c // plain:b)");
+  assert.equal(kinds("function [a, ...\nb] = f"), "keyword:function|plain: [a, |comment:... // plain:b] = f", "a function line can continue on the next line");
+
+  // Strings.
+  assert.equal(kinds("'a''b'"), "string:'a''b'");
+  assert.equal(kinds("'''"), "string:'''");
+  assert.equal(kinds("''"), "string:''", "an empty string");
+  assert.equal(kinds('"a""b"'), 'string:"a""b"');
+  assert.equal(kinds('"a\\"'), 'string:"a\\"', "a backslash is not an escape");
+  assert.equal(kinds("'a\\n'"), "string:'a\\n'");
+  assert.equal(kinds("'abc"), "string:'abc", "an unfinished string runs to the end");
+  assert.equal(kinds("'abc\nx"), "string:'abc // plain:x", "an unfinished string stops at the line break");
+  assert.equal(kinds('"abc\nx'), 'string:"abc // plain:x');
+  assert.equal(kinds("'it''s' x"), "string:'it''s'|plain: x");
+  assert.equal(kinds("disp('a')"), "keyword:disp|plain:(|string:'a'|plain:)");
+
+  // Transpose or string.
+  assert.equal(kinds("x'"), "plain:x'");
+  assert.equal(kinds("x' y'"), "plain:x' y'");
+  assert.equal(kinds("x'*y"), "plain:x'*y");
+  assert.equal(kinds("x '"), "plain:x |string:'", "a space before the quote makes it a string");
+  assert.equal(kinds("x 'a'"), "plain:x |string:'a'");
+  assert.equal(kinds("x_1'"), "plain:x_1'");
+  assert.equal(kinds("2'"), "number:2|plain:'");
+  assert.equal(kinds("2.5'"), "number:2.5|plain:'");
+  assert.equal(kinds("2.'"), "number:2|plain:.'", "2.' is a 2 and then the .' operator");
+  assert.equal(kinds("x.'"), "plain:x.'");
+  assert.equal(kinds("x.''"), "plain:x.''", "a transpose after .' is a transpose");
+  assert.equal(kinds("(a)'"), "plain:(a)'");
+  assert.equal(kinds("[1 2]'"), "plain:[|number:1|plain: |number:2|plain:]'");
+  assert.equal(kinds("{1}'"), "plain:{|number:1|plain:}'");
+  assert.equal(kinds("x'''"), "plain:x'''", "three transposes");
+  assert.equal(kinds("x''y"), "plain:x''y");
+  assert.equal(kinds("= 'a'"), "plain:= |string:'a'");
+  assert.equal(kinds("('a')"), "plain:(|string:'a'|plain:)");
+  assert.equal(kinds("['a' 'b']"), "plain:[|string:'a'|plain: |string:'b'|plain:]");
+  assert.equal(kinds("['a''b']"), "plain:[|string:'a''b'|plain:]", "a doubled quote is inside the string");
+  assert.equal(kinds(",'a'"), "plain:,|string:'a'");
+  assert.equal(kinds("x(end)'"), "plain:x(|keyword:end|plain:)'");
+  assert.equal(kinds("x(end')"), "plain:x(|keyword:end|plain:')", "end inside brackets is an index, so ' after it is a transpose");
+  assert.equal(kinds("end'a'"), "keyword:end|string:'a'", "an end outside brackets is a keyword, so ' after it starts a string");
+  assert.equal(kinds("case'a'"), "keyword:case|string:'a'", "a quote right after a keyword is a string");
+  assert.equal(kinds("return'x'"), "keyword:return|string:'x'");
+  assert.equal(kinds("pi'"), "keyword:pi|plain:'");
+  assert.equal(kinds("zeros(2)'"), "keyword:zeros|plain:(|number:2|plain:)'");
+  assert.equal(kinds('"a"\''), "string:\"a\"'", "a quote after a double quoted string starts a string");
+  assert.equal(kinds("s.name'"), "plain:s.name'");
+  assert.equal(kinds("x'; y = 'b'"), "plain:x'; y = |string:'b'");
+
+  // Numbers.
+  assert.equal(kinds("1 1.5 .5 1. 1e3 1E-3 1e+3"), "number:1|plain: |number:1.5|plain: |number:.5|plain: |number:1.|plain: |number:1e3|plain: |number:1E-3|plain: |number:1e+3");
+  assert.equal(kinds("0x1F 0XAB 0b101 0B11"), "number:0x1F|plain: |number:0XAB|plain: |number:0b101|plain: |number:0B11");
+  assert.equal(kinds("0xFFu8 0x1s16 0b1u64"), "number:0xFFu8|plain: |number:0x1s16|plain: |number:0b1u64");
+  assert.equal(kinds("0xFFu7"), "number:0xFF|plain:u7", "u7 is not a number ending");
+  assert.equal(kinds("3i 2.5j 1e3i .5i"), "number:3i|plain: |number:2.5j|plain: |number:1e3i|plain: |number:.5i");
+  assert.equal(kinds("3ix"), "number:3|plain:ix", "an i followed by more letters is not an imaginary ending");
+  assert.equal(kinds("1e-"), "number:1|plain:e-", "an exponent without digits is not part of the number");
+  assert.equal(kinds("0x"), "number:0|plain:x");
+  assert.equal(kinds("0b2"), "number:0|plain:b2", "b2 is not binary digits, so this is a 0 and a name");
+  assert.equal(kinds("1:3"), "number:1|plain::|number:3");
+  assert.equal(kinds("1.*2 1./2 1.^2 1.\\2"), "number:1|plain:.*|number:2|plain: |number:1|plain:./|number:2|plain: |number:1|plain:.^|number:2|plain: |number:1|plain:.\\|number:2");
+  assert.equal(kinds("x.*.5"), "plain:x.*|number:.5");
+  assert.equal(kinds("1...\n2"), "number:1|comment:... // number:2");
+  assert.equal(kinds("A(1,:)"), "plain:A(|number:1|plain:,:)");
+
+  // Names and member access.
+  assert.equal(kinds("café = 1"), "plain:café = |number:1");
+  assert.equal(kinds("if1 = 1"), "plain:if1 = |number:1", "a name that starts with a keyword is not a keyword");
+  assert.equal(kinds("end_ = 1"), "plain:end_ = |number:1");
+  assert.equal(kinds("s.if"), "plain:s.if", "a keyword after a dot is a name");
+  assert.equal(kinds("s.end"), "plain:s.end");
+  assert.equal(kinds("s.pi"), "plain:s.pi");
+  assert.equal(kinds("s.zeros(1)"), "plain:s.zeros(|number:1|plain:)", "a built-in after a dot is a name");
+  assert.equal(kinds("s.(name)"), "plain:s.(name)");
+  assert.equal(kinds("s.a.b"), "plain:s.a.b");
+  assert.equal(kinds("s.\nif"), "plain:s. // plain:if", "a name on the next line after a dot is still a member");
+  assert.equal(kinds("s.a\nif"), "plain:s.a // keyword:if");
+
+  // Keywords, constants and built-ins.
+  assert.equal(kinds("if x, y, end"), "keyword:if|plain: x, y, |keyword:end");
+  assert.equal(kinds("for k = 1:n end"), "keyword:for|plain: k = |number:1|plain::n |keyword:end");
+  assert.equal(kinds("parfor spmd global persistent"), "keyword:parfor|plain: |keyword:spmd|plain: |keyword:global|plain: |keyword:persistent");
+  assert.equal(kinds("true false pi Inf NaN NaT eps"), "keyword:true|plain: |keyword:false|plain: |keyword:pi|plain: |keyword:Inf|plain: |keyword:NaN|plain: |keyword:NaT|plain: |keyword:eps");
+  assert.equal(kinds("i j inf nan True"), "plain:i j inf nan True", "i, j and the wrong letter case are plain");
+  assert.equal(kinds("zeros(3)"), "keyword:zeros|plain:(|number:3|plain:)");
+  assert.equal(kinds("zeros (3)"), "plain:zeros (|number:3|plain:)", "a built-in needs its bracket right after it");
+  assert.equal(kinds("zeros"), "plain:zeros");
+  assert.equal(kinds("zeros = 1"), "plain:zeros = |number:1");
+  assert.equal(kinds("zeros2(1)"), "plain:zeros2(|number:1|plain:)", "a longer name is not the built-in");
+  assert.equal(kinds("x = @sin"), "plain:x = @sin");
+
+  // Function lines.
+  assert.equal(kinds("function f"), "keyword:function|plain: f");
+  assert.equal(kinds("function out = f(a)"), "keyword:function|plain: out = f(a)");
+  assert.equal(kinds("function [a, b] = f(zeros)"), "keyword:function|plain: [a, b] = f(zeros)");
+  assert.equal(kinds("function zeros(a)"), "keyword:function|plain: zeros(a)", "a function can be named like a built-in");
+  assert.equal(kinds("function r = f(a)\nr = size(a);"), "keyword:function|plain: r = f(a) // plain:r = |keyword:size|plain:(a);");
+  assert.equal(kinds("function f\nsize(a)"), "keyword:function|plain: f // keyword:size|plain:(a)", "the function line ends at the line break");
+  assert.equal(kinds("function v = get.Prop(obj)"), "keyword:function|plain: v = get.Prop(obj)");
+
+  // Class sections.
+  assert.equal(kinds("classdef A\nproperties\nx\nend\nmethods (Static)\nend\nend"), "keyword:classdef|plain: A // keyword:properties // plain:x // keyword:end // keyword:methods|plain: (Static) // keyword:end // keyword:end");
+  assert.equal(kinds("classdef A\n  events % notes\n  enumeration\n"), "keyword:classdef|plain: A // plain:  |keyword:events|plain: |comment:% notes // plain:  |keyword:enumeration // ");
+  assert.equal(kinds("properties\nx"), "plain:properties // plain:x", "no classdef, so properties is a name");
+  assert.equal(kinds("classdef A\nx = properties\ny = methods(1)"), "keyword:classdef|plain: A // plain:x = properties // plain:y = methods(|number:1|plain:)", "only a word alone at the start of a line counts");
+  assert.equal(kinds("classdef A\nmethods = 1"), "keyword:classdef|plain: A // plain:methods = |number:1");
+  assert.equal(kinds("arguments\n  x\nend"), "keyword:arguments // plain:  x // keyword:end");
+  assert.equal(kinds("arguments (Repeating)"), "plain:arguments (Repeating)", "arguments only counts when alone on its line");
+  assert.equal(kinds("x = arguments"), "plain:x = arguments");
+
+  // Odd characters are plain and never lost.
+  assert.equal(kinds("x = '😀'"), "plain:x = |string:'😀'");
+  assert.equal(kinds("x = 😀"), "plain:x = 😀");
+  assert.equal(kinds("x = a.*b + c.^2 - d./e & f | ~g"), "plain:x = a.*b + c.^|number:2|plain: - d./e & f | ~g");
+  assert.equal(kinds(""), "");
+  assert.equal(kinds("\r\nx"), "plain:\r // plain:x");
+  const deep = `${"%{\n".repeat(200)}x`;
+  assert.equal(tokenizeMatlab(deep).map((l) => l.map((t) => t.text).join("")).join("\n"), deep, "200 block comment openers");
+});
+
 test("tokenizer: Python comments, strings, numbers, keywords and decorators", () => {
   const py = tokenizePython(fixture("basic.py"));
   assert.equal(kindOf(py, "A small weather log"), "string", "docstring");
@@ -2588,8 +2822,17 @@ test("languages: picked by extension or VS Code language id, with .h treated as 
   assert.equal(languageForFile("model.Rproj"), undefined);
   assert.equal(languageForFile("r"), undefined);
   assert.equal(languageForVscodeId("r"), "r");
-  assert.equal(LANGUAGE_NAMES, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua and R");
-  assert.equal(LANGUAGE_NAMES_OR, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua or R");
+  assert.equal(languageForFile("sim.m"), "matlab");
+  assert.equal(languageForFile("SIM.M"), "matlab", "a capital .M is MATLAB too");
+  assert.equal(languageForFile("sim.m.bak"), undefined);
+  assert.equal(languageForFile("sim.mat"), undefined);
+  assert.equal(languageForFile("sim.mlx"), undefined);
+  assert.equal(languageForFile("sim.mm"), undefined);
+  assert.equal(languageForFile("m"), undefined);
+  assert.equal(languageForVscodeId("matlab"), "matlab");
+  assert.equal(languageForVscodeId("objective-c"), undefined, "Objective-C is not supported");
+  assert.equal(LANGUAGE_NAMES, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R and MATLAB");
+  assert.equal(LANGUAGE_NAMES_OR, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R or MATLAB");
 });
 
 test("layout: tabs expand to the next tab stop and control characters become visible", () => {
@@ -2634,13 +2877,13 @@ test("options: defaults, clamping and page sizes", () => {
 });
 
 test("files: supported extensions, excluded folders and PDF names", () => {
-  for (const name of ["a.c", "a.cpp", "a.cc", "a.cxx", "a.h", "a.hpp", "a.hh", "a.hxx", "A.CPP", "A.C", "a.py", "a.pyw", "A.PY", "a.css", "A.CSS", "a.html", "a.htm", "A.HTML", "a.js", "a.mjs", "a.cjs", "A.JS", "a.ts", "a.mts", "a.cts", "A.TS", "a.jsx", "a.tsx", "A.TSX", "a.rs", "A.RS", "a.java", "A.JAVA", "a.cs", "A.CS", "a.go", "A.GO", "a.php", "A.PHP", "a.rb", "A.RB", "a.dart", "A.DART", "a.lua", "A.LUA", "a.r", "a.R", "A.R"]) {
+  for (const name of ["a.c", "a.cpp", "a.cc", "a.cxx", "a.h", "a.hpp", "a.hh", "a.hxx", "A.CPP", "A.C", "a.py", "a.pyw", "A.PY", "a.css", "A.CSS", "a.html", "a.htm", "A.HTML", "a.js", "a.mjs", "a.cjs", "A.JS", "a.ts", "a.mts", "a.cts", "A.TS", "a.jsx", "a.tsx", "A.TSX", "a.rs", "A.RS", "a.java", "A.JAVA", "a.cs", "A.CS", "a.go", "A.GO", "a.php", "A.PHP", "a.rb", "A.RB", "a.dart", "A.DART", "a.lua", "A.LUA", "a.r", "a.R", "A.R", "a.m", "A.M"]) {
     assert.ok(isSupportedSource(name), name);
   }
-  for (const name of ["a.ts.map", "a.tsbuildinfo", "a.js.map", "js", "cpp", "c", "py", "css", "a.scss", "a.css.map", "html", "a.html.bak", "a.xhtml", "a.cpp.bak", "a.c.bak", "a.pyc", "a.rs.bk", "rs", "a.class", "a.jar", "java", "a.csproj", "a.sln", "a.dll", "cs", "a.mod", "a.sum", "go", "a.phtml", "a.php.bak", "a.inc", "php", "a.erb", "a.rbi", "rb", "a.dart.bak", "dart", "a.lua.bak", "a.luac", "lua", "a.r.bak", "a.rmd", "a.Rproj", "a.rds", "r", "pubspec.yaml", "notes.txt"]) {
+  for (const name of ["a.ts.map", "a.tsbuildinfo", "a.js.map", "js", "cpp", "c", "py", "css", "a.scss", "a.css.map", "html", "a.html.bak", "a.xhtml", "a.cpp.bak", "a.c.bak", "a.pyc", "a.rs.bk", "rs", "a.class", "a.jar", "java", "a.csproj", "a.sln", "a.dll", "cs", "a.mod", "a.sum", "go", "a.phtml", "a.php.bak", "a.inc", "php", "a.erb", "a.rbi", "rb", "a.dart.bak", "dart", "a.lua.bak", "a.luac", "lua", "a.r.bak", "a.rmd", "a.Rproj", "a.rds", "r", "a.m.bak", "a.mat", "a.mlx", "a.mm", "m", "pubspec.yaml", "notes.txt"]) {
     assert.ok(!isSupportedSource(name), name);
   }
-  for (const name of [".git", ".vscode", "node_modules", "build", "dist", "cmake-build-debug", "Debug", "__pycache__", "venv", ".venv", "target", "out", "bin", ".gradle", "obj", "vendor", "Pods", "DerivedData", "Carthage", ".build", ".bundle", "vendor", ".dart_tool", "lua_modules", "renv", "packrat", "Renv"]) {
+  for (const name of [".git", ".vscode", "node_modules", "build", "dist", "cmake-build-debug", "Debug", "__pycache__", "venv", ".venv", "target", "out", "bin", ".gradle", "obj", "vendor", "Pods", "DerivedData", "Carthage", ".build", ".bundle", "vendor", ".dart_tool", "lua_modules", "renv", "packrat", "Renv", "slprj", "codegen", "Codegen"]) {
     assert.ok(isExcludedFolder(name), name);
   }
   assert.ok(!isExcludedFolder("src"));
