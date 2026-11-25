@@ -26,13 +26,14 @@ import { tokenizeVerilog } from "../src/export/verilogTokenizer";
 import { tokenizeVhdl } from "../src/export/vhdlTokenizer";
 import { tokenizeAsm } from "../src/export/asmTokenizer";
 import { tokenizeLatex } from "../src/export/latexTokenizer";
+import { tokenizeJson } from "../src/export/jsonTokenizer";
 import type { TokenKind, TokenLine } from "../src/export/tokens";
 import { languageForFile, languageForVscodeId, LANGUAGES, LANGUAGE_NAMES, LANGUAGE_NAMES_OR } from "../src/export/languages";
 import { columnWidth, expandLine, layoutLine } from "../src/export/layout";
 import { DEFAULT_OPTIONS, normalizeOptions, pageSize } from "../src/export/options";
 import { parseFontFamilyList, resolveFonts } from "../src/export/fonts";
 import {
-  batchPdfNames, isExcludedFolder, isSupportedSource, pdfNameFor, scanFolder, selectionPdfName, sortForExport,
+  batchPdfNames, isExcludedFolder, isGeneratedFile, isSupportedSource, pdfNameFor, scanFolder, selectionPdfName, sortForExport,
   type DirEntry,
 } from "../src/files";
 import { readFileSync } from "node:fs";
@@ -61,11 +62,11 @@ const kindOfWord = (lines: TokenLine[], word: string): TokenKind | undefined => 
 };
 
 test("tokenizer: joining tokens gives back every fixture exactly", () => {
-  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py", "basic.css", "basic.html", "basic.js", "basic.ts", "basic.jsx", "basic.tsx", "basic.rs", "basic.java", "basic.cs", "basic.go", "basic.php", "basic.sql", "basic.sh", "basic.kt", "basic.swift", "basic.rb", "basic.dart", "basic.lua", "basic.r", "basic.m", "basic.ino", "basic.sv", "basic.vhd", "basic.s", "basic.tex"]) {
+  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py", "basic.css", "basic.html", "basic.js", "basic.ts", "basic.jsx", "basic.tsx", "basic.rs", "basic.java", "basic.cs", "basic.go", "basic.php", "basic.sql", "basic.sh", "basic.kt", "basic.swift", "basic.rb", "basic.dart", "basic.lua", "basic.r", "basic.m", "basic.ino", "basic.sv", "basic.vhd", "basic.s", "basic.tex", "basic.json"]) {
     const source = fixture(name).replace(/\r\n?/g, "\n");
     for (const lines of [
       tokenizeCpp(source), tokenizeC(source), tokenizePython(source), tokenizeCss(source), tokenizeHtml(source), tokenizeJavaScript(source),
-      tokenizeTs(source), tokenizeJsx(source), tokenizeTsx(source), tokenizeRust(source), tokenizeJava(source), tokenizeCSharp(source), tokenizeGo(source), tokenizePhp(source), tokenizeSql(source), tokenizeShell(source), tokenizeKotlin(source), tokenizeSwift(source), tokenizeRuby(source), tokenizeDart(source), tokenizeLua(source), tokenizeR(source), tokenizeMatlab(source), tokenizeVerilog(source), tokenizeVhdl(source), tokenizeAsm(source), tokenizeLatex(source),
+      tokenizeTs(source), tokenizeJsx(source), tokenizeTsx(source), tokenizeRust(source), tokenizeJava(source), tokenizeCSharp(source), tokenizeGo(source), tokenizePhp(source), tokenizeSql(source), tokenizeShell(source), tokenizeKotlin(source), tokenizeSwift(source), tokenizeRuby(source), tokenizeDart(source), tokenizeLua(source), tokenizeR(source), tokenizeMatlab(source), tokenizeVerilog(source), tokenizeVhdl(source), tokenizeAsm(source), tokenizeLatex(source), tokenizeJson(source),
     ]) {
       assert.equal(lines.map(joinLine).join("\n"), source, `${name} changed during tokenizing`);
     }
@@ -2777,7 +2778,7 @@ test("languages: picked by extension or VS Code language id, with .h treated as 
   assert.equal(languageForFile("index.php"), "php");
   assert.equal(languageForFile("INDEX.PHP"), "php");
   assert.equal(languageForFile("a.phtml"), undefined);
-  assert.equal(languageForFile("composer.json"), undefined);
+  assert.equal(languageForFile("composer.lock"), undefined);
   assert.equal(languageForVscodeId("php"), "php");
   assert.equal(languageForFile("schema.sql"), "sql");
   assert.equal(languageForFile("SCHEMA.SQL"), "sql");
@@ -2890,8 +2891,19 @@ test("languages: picked by extension or VS Code language id, with .h treated as 
   assert.equal(languageForVscodeId("bibtex"), undefined);
   assert.equal(languageForVscodeId(undefined), undefined);
   assert.equal(LANGUAGES.latex.label, "LaTeX");
-  assert.equal(LANGUAGE_NAMES, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL, Assembly and LaTeX");
-  assert.equal(LANGUAGE_NAMES_OR, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL, Assembly or LaTeX");
+  assert.equal(LANGUAGE_NAMES, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL, Assembly, LaTeX and JSON");
+  assert.equal(LANGUAGE_NAMES_OR, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL, Assembly, LaTeX or JSON");
+  for (const name of ["config.json", "CONFIG.JSON", "tsconfig.json", "settings.jsonc", "Data.JSONC"]) {
+    assert.equal(languageForFile(name), "json", name);
+  }
+  for (const name of ["config.json5", "config.jsonl", "config.json.bak", "config.geojson", "json", "jsonc", "config.jso"]) {
+    assert.equal(languageForFile(name), undefined, name);
+  }
+  assert.equal(languageForVscodeId("json"), "json", "VS Code's id for .json files");
+  assert.equal(languageForVscodeId("jsonc"), "json", "VS Code's id for tsconfig.json, settings.json and .jsonc files");
+  assert.equal(languageForVscodeId("jsonl"), undefined);
+  assert.equal(languageForVscodeId("json5"), undefined);
+  assert.equal(LANGUAGES.json.label, "JSON");
 });
 
 test("tokenizer: Arduino sketches use the C++ tokenizer for comments, preprocessor lines, strings and keywords", () => {
@@ -3646,6 +3658,127 @@ test("package.json: all five menu rules match .tex, .sty and .cls and no look-al
   }
 });
 
+test("tokenizer: JSON fixture colours", () => {
+  const source = fixture("basic.json");
+  const json = LANGUAGES[languageForFile("config.json")!].tokenize(source);
+  assert.equal(json.map(joinLine).join("\n"), source, "no text lost or changed");
+  assert.equal(kindOf(json, "// A made-up settings file"), "comment");
+  assert.equal(kindOf(json, "\"name\""), "type", "a key");
+  assert.equal(kindOf(json, "\"bread-timer\""), "string", "a value");
+  assert.equal(kindOf(json, "\"oven\""), "type", "a key whose value is an object");
+  assert.equal(kindOf(json, "-12.5"), "number");
+  assert.equal(kindOf(json, "1.2E-3"), "number");
+  assert.equal(kindOf(json, "1e10"), "number");
+  assert.equal(kindOf(json, "-0"), "number");
+  assert.equal(kindOf(json, "false"), "keyword");
+  assert.equal(kindOf(json, "null"), "keyword");
+  assert.equal(kindOf(json, "\"bake \\\"slow\\\" \\\\ crème é\""), "string", "escaped quotes and backslashes stay inside the string");
+  assert.equal(kindOf(json, "/* Where the app looks"), "comment", "a block comment over two lines");
+  assert.equal(kindOf(json, "one URL per line. */"), "comment");
+  assert.equal(kindOf(json, "\"http://bakery.example/recipes\""), "string", "// inside a string is not a comment");
+  assert.equal(kindOf(json, "\"oops"), "string", "a string with no closing quote ends at the line break");
+  assert.equal(kindOf(json, "\"tags\""), "type", "the line after the broken string is read normally");
+  assert.equal(joinLine(json[json.length - 2]!), "}", "and so is the closing brace");
+});
+
+test("tokenizer: JSON tricky cases", () => {
+  // Every token as kind:text, joined with |, and a " // " marks the start of a new line.
+  const kinds = (source: string): string => tokenizeJson(source).map((l) => l.map((t) => `${t.kind}:${t.text}`).join("|")).join(" // ");
+
+  // Keys and values.
+  assert.equal(kinds("{\"a\": 1}"), "plain:{|type:\"a\"|plain:: |number:1|plain:}");
+  assert.equal(kinds("\"a\" \t : 1"), "type:\"a\"|plain: \t : |number:1", "spaces before the colon");
+  assert.equal(kinds("\"a\"\n: 1"), "string:\"a\" // plain:: |number:1", "a colon on the next line is not looked for");
+  assert.equal(kinds("[\"a\", \"b\"]"), "plain:[|string:\"a\"|plain:, |string:\"b\"|plain:]");
+  assert.equal(kinds("\"a:b\""), "string:\"a:b\"", "a colon inside a string");
+  assert.equal(kinds("\"\": 0"), "type:\"\"|plain:: |number:0", "an empty key");
+
+  // Strings.
+  assert.equal(kinds("\"a\\\"b\""), "string:\"a\\\"b\"", "an escaped quote");
+  assert.equal(kinds("\"a\\\\\" 1"), "string:\"a\\\\\"|plain: |number:1", "an escaped backslash right before the closing quote");
+  assert.equal(kinds("\"é\\u00e9😀\""), "string:\"é\\u00e9😀\"");
+  assert.equal(kinds("\"abc\n1"), "string:\"abc // number:1", "an open string stops at the line break");
+  assert.equal(kinds("\"abc\\\n1"), "string:\"abc\\ // number:1", "a backslash at the end of a line does not continue the string");
+  assert.equal(kinds("\"abc: 1"), "string:\"abc: 1", "an open string is never a key");
+  assert.equal(kinds("\"abc"), "string:\"abc");
+  assert.equal(kinds("\""), "string:\"");
+
+  // Numbers and words.
+  assert.equal(kinds("-1"), "number:-1");
+  assert.equal(kinds("0.5"), "number:0.5");
+  assert.equal(kinds("1e10"), "number:1e10");
+  assert.equal(kinds("1.2E-3"), "number:1.2E-3");
+  assert.equal(kinds("2e+5"), "number:2e+5");
+  assert.equal(kinds("-0"), "number:-0");
+  assert.equal(kinds("[1,-2]"), "plain:[|number:1|plain:,|number:-2|plain:]");
+  assert.equal(kinds("-"), "plain:-");
+  assert.equal(kinds("- 1"), "plain:- |number:1");
+  assert.equal(kinds("1."), "number:1|plain:.", "a dot with no digits after it is not part of the number");
+  assert.equal(kinds(".5"), "plain:.|number:5");
+  assert.equal(kinds("12ab"), "plain:12ab", "letters stuck to a number make it plain");
+  assert.equal(kinds("abc123"), "plain:abc123", "digits inside a word are not a number");
+  assert.equal(kinds("true,false,null"), "keyword:true|plain:,|keyword:false|plain:,|keyword:null");
+  assert.equal(kinds("trueish"), "plain:trueish");
+  assert.equal(kinds("True"), "plain:True", "the words are lower case only");
+  assert.equal(kinds("nulls"), "plain:nulls");
+  assert.equal(kinds("NaN"), "plain:NaN");
+
+  // Comments.
+  assert.equal(kinds("1 // x\n2"), "number:1|plain: |comment:// x // number:2");
+  assert.equal(kinds("/* a\nb */ 1"), "comment:/* a // comment:b */|plain: |number:1", "a block comment over lines");
+  assert.equal(kinds("/* a"), "comment:/* a", "a block comment with no end runs to the end of the file");
+  assert.equal(kinds("/**/1"), "comment:/**/|number:1");
+  assert.equal(kinds("/*/ 1"), "comment:/*/ 1", "/*/ does not close itself");
+  assert.equal(kinds("\"a // b\""), "string:\"a // b\"");
+  assert.equal(kinds("\"a /* b\" 1 */"), "string:\"a /* b\"|plain: |number:1|plain: */", "a /* inside a string starts nothing");
+  assert.equal(kinds("// \"a\": 1"), "comment:// \"a\": 1", "nothing inside a comment is read");
+  assert.equal(kinds("/ 1"), "plain:/ |number:1", "a single slash is plain");
+
+  // Anything invalid is plain text.
+  assert.equal(kinds("'a': 1"), "plain:'a': |number:1", "single quotes are not strings");
+  assert.equal(kinds("{a: b}"), "plain:{a: b}");
+  assert.equal(kinds("@#%"), "plain:@#%");
+  assert.equal(kinds("﻿{}"), "plain:﻿{}", "a byte order mark at the start");
+  assert.equal(kinds(""), "");
+  assert.equal(kinds("a\n\nb"), "plain:a //  // plain:b");
+});
+
+test("tokenizer: JSON keeps every character, even in broken code", () => {
+  for (const source of ["", "\"", "\"\\", "\"\\\"", "\\", "/", "//", "/*", "/**", "/*/", "*/", "-", "--1", "1e", "1e+", "1.e5", "0x1F", "{", "}", "[", "]", ":", ",", "\"a\":", "\"a\" :", "\"😀\"", "😀", "\"a\r\nb\"", "1 // x\r\n2", "\"a\\\r\nb\"", "@", "\u0000", "\"\u0000\""]) {
+    const lines = tokenizeJson(source);
+    assert.equal(lines.map(joinLine).join("\n"), source, `lost text for ${JSON.stringify(source)}`);
+  }
+  // A big file with an unclosed string on every line is still read in one go (no slow loops).
+  const big = "{\"a\": \"b\n\"c\": 1,\n/* x\n".repeat(2000);
+  assert.equal(tokenizeJson(big).map(joinLine).join("\n"), big);
+});
+
+test("languages: other languages do not read JSON rules and JSON does not read theirs", () => {
+  assert.equal(kindOf(tokenizeCpp("\"a\": 1"), "\"a\""), "string", "other languages have no keys");
+  assert.equal(kindOf(tokenizeLatex("true"), "true"), "plain");
+  assert.equal(kindOf(tokenizeJson("# hello there"), "# hello there"), "plain", "# is not a comment");
+  assert.equal(kindOf(tokenizeJson("% hello there"), "% hello there"), "plain");
+  assert.equal(kindOfWord(tokenizeJson("int return"), "return"), "plain", "C words are only plain words");
+  assert.equal(kindOfWord(tokenizeJson("null"), "null"), "keyword");
+  assert.ok(isSupportedSource("a.json") && isSupportedSource("a.jsonc") && isSupportedSource("A.JSON"));
+  assert.ok(!isSupportedSource("a.json5") && !isSupportedSource("a.jsonl") && !isSupportedSource("a.json.bak") && !isSupportedSource("a.geojson"));
+});
+
+test("package.json: all five menu rules match .json and .jsonc and no look-alike extensions", () => {
+  const manifest = JSON.parse(readFileSync(`${ROOT}/package.json`, "utf8")) as { contributes: { menus: Record<string, { when: string }[]> } };
+  const rules = Object.values(manifest.contributes.menus).flat().map((item) => item.when).filter((when) => when.includes("resourceExtname"));
+  assert.equal(rules.length, 5, "five menu rules use the extension list");
+  for (const when of rules) {
+    const regex = new RegExp(/resourceExtname =~ \/(.*)\/i/.exec(when)![1]!, "i");
+    for (const ext of [".json", ".jsonc", ".JSON", ".Jsonc", ".tex", ".cpp"]) {
+      assert.ok(regex.test(ext), `${ext} should match in: ${when}`);
+    }
+    for (const ext of [".json5", ".jsonl", ".jso", ".jsonc2", ".geojson", ".ejson", "json", ".json.bak"]) {
+      assert.ok(!regex.test(ext), `${ext} should not match in: ${when}`);
+    }
+  }
+});
+
 test("layout: tabs expand to the next tab stop and control characters become visible", () => {
   const [expanded] = [expandLine([{ kind: "plain", text: "\tx\ty\u0000" }], 4)];
   assert.equal(expanded.map((t) => t.text).join(""), "    x   y␀");
@@ -3743,6 +3876,31 @@ test("files: folder scan skips hidden files, dependency and build folders, and s
   const capped = await scanFolder<string>("", async (path) => tree[path] ?? [], (p, n) => (p ? `${p}/${n}` : n), 2);
   assert.equal(capped.files.length, 2);
   assert.equal(capped.truncated, true);
+});
+
+test("files: folder scan skips generated lock files by exact name but keeps other json files", async () => {
+  const tree: Record<string, DirEntry[]> = {
+    "": [
+      { name: "package.json", isFile: true, isDirectory: false },
+      { name: "package-lock.json", isFile: true, isDirectory: false },
+      { name: "npm-shrinkwrap.json", isFile: true, isDirectory: false },
+      { name: "Package-Lock.json", isFile: true, isDirectory: false },
+      { name: "package-lock.jsonc", isFile: true, isDirectory: false },
+      { name: "my-package-lock.json", isFile: true, isDirectory: false },
+      { name: "composer.lock", isFile: true, isDirectory: false },
+      { name: "app", isFile: false, isDirectory: true },
+    ],
+    app: [
+      { name: "package-lock.json", isFile: true, isDirectory: false },
+      { name: "config.jsonc", isFile: true, isDirectory: false },
+    ],
+  };
+  const scan = await scanFolder<string>("", async (path) => tree[path] ?? [], (path, name) => (path ? `${path}/${name}` : name));
+  assert.deepEqual(scan.files.map((f) => f.relativePath).sort(), ["Package-Lock.json", "app/config.jsonc", "my-package-lock.json", "package-lock.jsonc", "package.json"]);
+  assert.deepEqual(scan.skippedGeneratedFiles.sort(), ["app/package-lock.json", "npm-shrinkwrap.json", "package-lock.json"]);
+  assert.deepEqual(scan.skippedHiddenFiles, []);
+  assert.ok(isSupportedSource("package-lock.json"), "a lock file still exports when picked on its own");
+  assert.ok(isGeneratedFile("package-lock.json") && !isGeneratedFile("package.json") && !isGeneratedFile("Package-Lock.json"));
 });
 
 test("fonts: parses the editor font setting and finds the Mac's fonts", () => {

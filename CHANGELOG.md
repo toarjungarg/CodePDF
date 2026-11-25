@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.26.0
+- Added JSON export (`.json`, `.jsonc`).
+- Folder export now skips `package-lock.json` and `npm-shrinkwrap.json`.
+
 ## 1.25.0
 - Added LaTeX export (`.tex`, `.sty`, `.cls`).
 

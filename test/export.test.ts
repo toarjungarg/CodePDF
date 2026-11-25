@@ -669,6 +669,33 @@ test("1z. exports LaTeX files, alone and combined with an Assembly file", async 
   assert.ok(combined.pdf.text.includes("main:"));
 });
 
+test("1aa. exports JSON files, alone and combined with a LaTeX file", async () => {
+  const source = fixture("basic.json");
+  const { pdf } = await exportSections("basic_json.pdf", [{ ...file("basic.json", source), language: "json" }]);
+  assert.ok(pdf.pages[0]!.lines[0]!.startsWith("basic.json"), "file name in the header");
+  for (const expected of [
+    "// A made-up settings file for a pretend bakery app.",
+    "\"name\": \"bread-timer\",",
+    "\"debug\": false,",
+    "\"steps\": [1, 0.5, 1e10, -0],",
+    "\"mode\": \"bake \\\"slow\\\" \\\\ crème é\"",
+    "/* Where the app looks for recipes,",
+    "\"sources\": [\"http://bakery.example/recipes\", \"https://bakery.example/more\"],",
+    "\"note\": \"oops",
+  ]) {
+    assert.ok(pdf.text.includes(expected), `missing: ${expected}`);
+  }
+
+  const tex = "% A made-up note\n\\section{Bread}\n";
+  const combined = await exportSections("mixed_json_tex.pdf", [
+    { ...file("basic.json", source), language: "json" },
+    { ...file("note.tex", tex), language: "latex" },
+  ]);
+  assert.deepEqual(combined.pdf.outline, ["basic.json", "note.tex"], "one bookmark per file");
+  assert.ok(combined.pdf.text.includes("\"version\": 2,"));
+  assert.ok(combined.pdf.text.includes("\\section{Bread}"));
+});
+
 test("2. exports comments and strings exactly", async () => {
   const { pdf } = await exportSections("comments_strings.pdf", [file("comments_strings.cpp", fixture("comments_strings.cpp"))]);
   for (const expected of [

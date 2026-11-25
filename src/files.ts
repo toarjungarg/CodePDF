@@ -13,6 +13,13 @@ export const EXCLUDED_FOLDERS = new Set([
   "__pycache__", "venv", "vendor", "pods", "deriveddata", "carthage", "lua_modules", "renv", "packrat", "slprj", "codegen", "obj_dir", "xsim.dir", "incremental_db",
 ]);
 
+/**
+ * Files a tool writes for you (huge lists of package versions) that a folder export skips, matched by exact
+ * lowercase name. They are valid JSON, but thousands of lines of them would bury your own code.
+ * Exporting one of them on its own still works.
+ */
+export const GENERATED_FILES = new Set(["package-lock.json", "npm-shrinkwrap.json"]);
+
 /** A folder search stops after this many files, so a huge folder can't freeze VS Code. */
 export const MAX_FOLDER_FILES = 500;
 
@@ -38,6 +45,10 @@ export function isExcludedFolder(name: string): boolean {
   return isHidden(name) || EXCLUDED_FOLDERS.has(lower) || lower.startsWith("cmake-build-");
 }
 
+export function isGeneratedFile(name: string): boolean {
+  return GENERATED_FILES.has(name);
+}
+
 export interface DirEntry {
   name: string;
   isDirectory: boolean;
@@ -51,12 +62,14 @@ export interface FolderScan<T> {
   skippedFolders: string[];
   /** Hidden files that looked like sources but were skipped. */
   skippedHiddenFiles: string[];
+  /** Generated files (like package-lock.json) that were skipped. */
+  skippedGeneratedFiles: string[];
   /** True when the search stopped at MAX_FOLDER_FILES. */
   truncated: boolean;
 }
 
 /**
- * Searches a folder for supported sources, skipping hidden files, dependency folders and build folders.
+ * Searches a folder for supported sources, skipping hidden files, generated files, dependency folders and build folders.
  * Works with any location type (VS Code URIs in the extension, plain paths in tests).
  */
 export async function scanFolder<T>(
@@ -65,7 +78,7 @@ export async function scanFolder<T>(
   join: (location: T, name: string) => T,
   maxFiles: number = MAX_FOLDER_FILES,
 ): Promise<FolderScan<T>> {
-  const result: FolderScan<T> = { files: [], skippedFolders: [], skippedHiddenFiles: [], truncated: false };
+  const result: FolderScan<T> = { files: [], skippedFolders: [], skippedHiddenFiles: [], skippedGeneratedFiles: [], truncated: false };
 
   const visit = async (location: T, relative: string, depth: number): Promise<void> => {
     if (depth > 20) {
@@ -92,6 +105,8 @@ export async function scanFolder<T>(
       } else if (entry.isFile && isSupportedSource(entry.name)) {
         if (isHidden(entry.name)) {
           result.skippedHiddenFiles.push(path);
+        } else if (isGeneratedFile(entry.name)) {
+          result.skippedGeneratedFiles.push(path);
         } else if (result.files.length >= maxFiles) {
           result.truncated = true;
         } else {

@@ -1,0 +1,18 @@
+// A made-up settings file for a pretend bakery app.
+{
+  "name": "bread-timer",
+  "version": 2,
+  "debug": false,
+  "owner": null,
+  "oven": {
+    "temperature": -12.5,
+    "preheat": 1.2E-3,
+    "steps": [1, 0.5, 1e10, -0],
+    "mode": "bake \"slow\" \\ crème é"
+  },
+  /* Where the app looks for recipes,
+     one URL per line. */
+  "sources": ["http://bakery.example/recipes", "https://bakery.example/more"],
+  "tags": [],
+  "note": "oops
+}
