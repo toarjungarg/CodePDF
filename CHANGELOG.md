@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.19.0
+- Added R export (`.r`, `.R`).
+- Folder export now skips `renv` and `packrat` folders.
+
 ## 1.18.0
 - Added Lua export (`.lua`).
 - Folder export now skips `lua_modules` folders.

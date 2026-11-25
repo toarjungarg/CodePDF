@@ -15,6 +15,7 @@ import { tokenizeKotlin } from "./kotlinTokenizer";
 import { tokenizeLua } from "./luaTokenizer";
 import { tokenizePhp } from "./phpTokenizer";
 import { tokenizePython } from "./pythonTokenizer";
+import { tokenizeR } from "./rTokenizer";
 import { tokenizeRuby } from "./rubyTokenizer";
 import { tokenizeRust } from "./rustTokenizer";
 import { tokenizeShell } from "./shellTokenizer";
@@ -22,7 +23,7 @@ import { tokenizeSql } from "./sqlTokenizer";
 import { tokenizeSwift } from "./swiftTokenizer";
 import type { TokenLine } from "./tokens";
 
-export type LanguageId = "c" | "cpp" | "python" | "css" | "html" | "javascript" | "typescript" | "javascriptreact" | "typescriptreact" | "rust" | "java" | "csharp" | "go" | "php" | "sql" | "shell" | "kotlin" | "swift" | "ruby" | "dart" | "lua";
+export type LanguageId = "c" | "cpp" | "python" | "css" | "html" | "javascript" | "typescript" | "javascriptreact" | "typescriptreact" | "rust" | "java" | "csharp" | "go" | "php" | "sql" | "shell" | "kotlin" | "swift" | "ruby" | "dart" | "lua" | "r";
 
 interface Language {
   /** Shown in messages, e.g. "C++". */
@@ -167,6 +168,12 @@ export const LANGUAGES: Record<LanguageId, Language> = {
     vscodeId: "lua",
     tokenize: tokenizeLua,
   },
+  r: {
+    label: "R",
+    extensions: [".r"],
+    vscodeId: "r",
+    tokenize: tokenizeR,
+  },
 };
 
 const LANGUAGE_IDS = Object.keys(LANGUAGES) as LanguageId[];
@@ -179,10 +186,10 @@ function nameList(lastJoiner: string): string {
   return labels.length < 2 ? labels.join("") : `${labels.slice(0, -1).join(", ")} ${lastJoiner} ${labels[labels.length - 1]}`;
 }
 
-/** "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart and Lua", for messages. */
+/** "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua and R", for messages. */
 export const LANGUAGE_NAMES = nameList("and");
 
-/** "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart or Lua", for messages like "files that aren't ...". */
+/** "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua or R", for messages like "files that aren't ...". */
 export const LANGUAGE_NAMES_OR = nameList("or");
 
 function extensionOf(fileName: string): string {
@@ -196,7 +203,7 @@ export function languageForFile(fileName: string): LanguageId | undefined {
   return LANGUAGE_IDS.find((id) => LANGUAGES[id].extensions.includes(ext));
 }
 
-/** The language for VS Code's language id ("c", "cpp", "python", "typescriptreact", "rust", "java", "csharp", "go", "php", "sql", "shellscript", "kotlin", "swift", "ruby", "dart", "lua", ...), or undefined if unsupported. */
+/** The language for VS Code's language id ("c", "cpp", "python", "typescriptreact", "rust", "java", "csharp", "go", "php", "sql", "shellscript", "kotlin", "swift", "ruby", "dart", "lua", "r", ...), or undefined if unsupported. */
 export function languageForVscodeId(vscodeId: string | undefined): LanguageId | undefined {
   return LANGUAGE_IDS.find((id) => LANGUAGES[id].vscodeId === vscodeId);
 }
