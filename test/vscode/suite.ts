@@ -70,7 +70,7 @@ export async function run(): Promise<void> {
     await sleep(300);
   };
 
-  const sourceNames = ["main.cpp", "lab.c", "stats.py", "styles.css", "index.html", "recipe.js", "scale.ts", "card.jsx", "list.tsx", "pantry.rs", "Kitchen.java", "Cookbook.cs", "shelf.go", "larder.php", "bookshop.sql", "backup.sh", "Bakery.kt", "Oven.swift", "loaves.rb", "dough.dart", "rolls.lua", "Scones.R", "pastry.m", "toaster.ino", "util.h", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "src/extra.cpp"];
+  const sourceNames = ["main.cpp", "lab.c", "stats.py", "styles.css", "index.html", "recipe.js", "scale.ts", "card.jsx", "list.tsx", "pantry.rs", "Kitchen.java", "Cookbook.cs", "shelf.go", "larder.php", "bookshop.sql", "backup.sh", "Bakery.kt", "Oven.swift", "loaves.rb", "dough.dart", "rolls.lua", "Scones.R", "pastry.m", "toaster.ino", "timer.sv", "gates.v", "util.h", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "src/extra.cpp"];
   const sourcesBefore = new Map<string, Uint8Array>();
   for (const name of sourceNames) {
     sourcesBefore.set(name, await bytesOf(file(...name.split("/"))));
@@ -467,6 +467,20 @@ export async function run(): Promise<void> {
     return `${state.pagesCount} page(s), Arduino code searchable`;
   });
 
+  // Plain .sv and .v files work without a Verilog extension, since CodePDF picks the language from the file name.
+  await test("export: Export as PDF works for SystemVerilog (.sv) and Verilog (.v) files", async () => {
+    for (const [source, query] of [["timer.sv", "next_state"], ["gates.v", "assign"]] as const) {
+      await vscode.commands.executeCommand("codepdf.exportFile", file(source));
+      const pdf = file(source.replace(/\.s?v$/, ".pdf"));
+      check(await exists(pdf), `${pdf.fsPath} wasn't created`);
+      const state = await openPdf(pdf);
+      check(state.status === "loaded", `${source} export didn't open: ${state.error}`);
+      await viewer.sendAction(pdf, { action: "find", query });
+      await viewer.waitForState(pdf, (s) => (s.findMatches?.total ?? 0) > 0);
+    }
+    return "SystemVerilog and Verilog code searchable";
+  });
+
   await closeAll();
 
   await test("export: Export Selection as PDF exports only the highlighted lines", async () => {
@@ -502,10 +516,10 @@ export async function run(): Promise<void> {
     answers.save.push(out);
     await vscode.commands.executeCommand("codepdf.exportFolder", project);
     const labels = answers.pickedLabels.pop() ?? [];
-    for (const excluded of ["build/generated.cpp", "node_modules/dep/dep.cpp", "node_modules/dep/index.js", "node_modules/dep/index.d.ts", "dist/bundle.js", ".hidden.cpp", "__pycache__/cached.py", "venv/lib/site.py", "target/debug/build.rs", "out/production/Old.java", "obj/Debug/AssemblyInfo.cs", "vendor/dep/dep.go", "vendor/autoload.php", "Pods/Dep/Dep.swift", "DerivedData/Build/Gen.swift", "Carthage/Checkouts/Dep.swift", "vendor/bundle/ruby/gems/dep.rb", ".bundle/config.rb", ".dart_tool/gen/cache.dart", "lua_modules/share/lua/dep.lua", "renv/library/dep.R", "packrat/lib/dep.R", ".Rproj.user/cache.R", "slprj/sim/cache.m", "codegen/lib/gen.m"]) {
+    for (const excluded of ["build/generated.cpp", "node_modules/dep/dep.cpp", "node_modules/dep/index.js", "node_modules/dep/index.d.ts", "dist/bundle.js", ".hidden.cpp", "__pycache__/cached.py", "venv/lib/site.py", "target/debug/build.rs", "out/production/Old.java", "obj/Debug/AssemblyInfo.cs", "vendor/dep/dep.go", "vendor/autoload.php", "Pods/Dep/Dep.swift", "DerivedData/Build/Gen.swift", "Carthage/Checkouts/Dep.swift", "vendor/bundle/ruby/gems/dep.rb", ".bundle/config.rb", ".dart_tool/gen/cache.dart", "lua_modules/share/lua/dep.lua", "renv/library/dep.R", "packrat/lib/dep.R", ".Rproj.user/cache.R", "slprj/sim/cache.m", "codegen/lib/gen.m", "obj_dir/Vtop.v", "xsim.dir/sim/gen.sv", "incremental_db/gen.v"]) {
       check(!labels.includes(excluded), `${excluded} should have been skipped`);
     }
-    for (const included of ["main.cpp", "lab.c", "stats.py", "styles.css", "index.html", "recipe.js", "scale.ts", "card.jsx", "list.tsx", "pantry.rs", "Kitchen.java", "Cookbook.cs", "shelf.go", "larder.php", "bookshop.sql", "backup.sh", "Bakery.kt", "Oven.swift", "loaves.rb", "dough.dart", "rolls.lua", "Scones.R", "pastry.m", "toaster.ino", "util.h", "src/extra.cpp"]) {
+    for (const included of ["main.cpp", "lab.c", "stats.py", "styles.css", "index.html", "recipe.js", "scale.ts", "card.jsx", "list.tsx", "pantry.rs", "Kitchen.java", "Cookbook.cs", "shelf.go", "larder.php", "bookshop.sql", "backup.sh", "Bakery.kt", "Oven.swift", "loaves.rb", "dough.dart", "rolls.lua", "Scones.R", "pastry.m", "toaster.ino", "timer.sv", "gates.v", "util.h", "src/extra.cpp"]) {
       check(labels.includes(included), `${included} should be included`);
     }
     const state = await openPdf(out);

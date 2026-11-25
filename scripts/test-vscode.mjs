@@ -59,6 +59,8 @@ put("rolls.lua",readFileSync(join(fixtures, "basic.lua")));
 put("Scones.R", readFileSync(join(fixtures, "basic.r")));
 put("pastry.m", readFileSync(join(fixtures, "basic.m")));
 put("toaster.ino", readFileSync(join(fixtures, "basic.ino")));
+put("timer.sv", readFileSync(join(fixtures, "basic.sv")));
+put("gates.v", "// A made-up Verilog file\nmodule gates(input a, input b, output y);\n  assign y = a & b;\nendmodule\n");
 for (const name of ["comments_strings.cpp", "unicode.cpp", "long_lines.cpp"]) {
   cpSync(join(fixtures, name), join(project, name));
 }
@@ -89,6 +91,9 @@ put("packrat/lib/dep.R", "# packrat package library copy: must be skipped\n");
 put(".Rproj.user/cache.R", "# RStudio project folder (hidden): must be skipped\n");
 put("slprj/sim/cache.m", "% Simulink build folder: must be skipped\n");
 put("codegen/lib/gen.m", "% MATLAB Coder build folder: must be skipped\n");
+put("obj_dir/Vtop.v", "// Verilator output folder: must be skipped\n");
+put("xsim.dir/sim/gen.sv", "// Vivado simulator folder: must be skipped\n");
+put("incremental_db/gen.v", "// Quartus cache folder: must be skipped\n");
 put("notes.txt","Not source code.\n");
 
 // 2. Test PDFs, made with CodePDF's own (compiled) engine.

@@ -559,6 +559,34 @@ test("1v. exports an Arduino sketch, alone and combined with MATLAB", async () =
   assert.ok(combined.pdf.text.includes("function total = total_weight(weights, extra)"));
 });
 
+test("1w. exports SystemVerilog and Verilog files, alone and combined with an Arduino sketch", async () => {
+  const source = fixture("basic.sv");
+  const { pdf } = await exportSections("basic_sv.pdf", [{ ...file("basic.sv", source), language: "systemverilog" }]);
+  assert.ok(pdf.pages[0]!.lines[0]!.startsWith("basic.sv"), "file name in the header");
+  for (const expected of [
+    "`timescale 1ns/1ps",
+    "module toaster_timer #(",
+    "always_ff @(posedge clk or negedge rst_n) begin",
+    "always @(*) begin",
+    'parameter real DELAY_NS = 2.5e1',
+    "localparam logic [3:0] MASK = 4'b10_1x;",
+    'wire [3:0] \\bus+index = 4\'hF;',
+    "int pair[2] = '{1_000, 16'sd5};",
+    "endmodule",
+  ]) {
+    assert.ok(pdf.text.includes(expected), `missing: ${expected}`);
+  }
+
+  const verilog = "// A made-up gate\nmodule gates(input a, input b, output y);\n  assign y = a & b;\nendmodule\n";
+  const combined = await exportSections("mixed_v_ino.pdf", [
+    { ...file("gates.v", verilog), language: "verilog" },
+    { ...file("basic.ino", fixture("basic.ino")), language: "arduino" },
+  ]);
+  assert.deepEqual(combined.pdf.outline, ["gates.v", "basic.ino"], "one bookmark per file");
+  assert.ok(combined.pdf.text.includes("assign y = a & b;"));
+  assert.ok(combined.pdf.text.includes("#include <Servo.h>"));
+});
+
 test("2. exports comments and strings exactly", async () => {
   const { pdf } = await exportSections("comments_strings.pdf", [file("comments_strings.cpp", fixture("comments_strings.cpp"))]);
   for (const expected of [

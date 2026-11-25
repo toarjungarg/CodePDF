@@ -3,7 +3,7 @@
 A VS Code extension that does two things:
 
 1. Opens PDF files in a VS Code tab.
-2. Exports C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB and Arduino files as clean, printable PDFs.
+2. Exports C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog and SystemVerilog files as clean, printable PDFs.
 
 I built it for my own assignments. I wanted to read the assignment PDF next to my code, and then turn my `.cpp` files into PDFs I could upload, without leaving VS Code.
 
@@ -27,7 +27,7 @@ Open any `.pdf` file in VS Code and it shows up in a tab.
 
 Links inside a PDF never open by themselves. CodePDF asks first, and only opens web and email links.
 
-## Exporting C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB and Arduino to PDF
+## Exporting C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog and SystemVerilog to PDF
 
 Supported files:
 
@@ -54,19 +54,21 @@ Supported files:
 - R: `.r`
 - MATLAB: `.m`
 - Arduino: `.ino`
+- Verilog: `.v`, `.vh`
+- SystemVerilog: `.sv`, `.svh`
 
-`.h` files are coloured as C++, which also works for C headers. `.m` files are treated as MATLAB. `.ino` sketches are coloured as C++.
+`.h` files are coloured as C++, which also works for C headers. `.m` files are treated as MATLAB. `.ino` sketches are coloured as C++. `.v` files are treated as Verilog.
 
 With HTML, CSS and JavaScript, it supports traditional web dev.
 
-I'm adding more languages. Verilog / SystemVerilog is next.
+I'm adding more languages. VHDL is next.
 
 | Command | What it does |
 |---|---|
 | CodePDF: Export as PDF | Exports one file. `main.cpp` becomes `main.pdf` in the same folder. |
 | CodePDF: Export Selection as PDF | Exports only the lines you highlighted, with their real line numbers. |
 | CodePDF: Export Multiple Files | Combines the files you pick into one PDF. Each file starts on a new page. |
-| CodePDF: Export Folder as PDF | Combines every C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB and Arduino file in a folder into one PDF. |
+| CodePDF: Export Folder as PDF | Combines every C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog and SystemVerilog file in a folder into one PDF. |
 
 You can run them from the Command Palette, or by right-clicking a file or folder in the Explorer, or by right-clicking in the editor.
 
@@ -96,7 +98,7 @@ The PDFs have syntax colours, line numbers, a header with the file name and a fo
 
 ![Exporting the demo folder, where the file list shows build and the hidden file were skipped](images/export-folder.gif)
 
-The demos show C++ files, but everything works the same way for C, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB and Arduino.
+The demos show C++ files, but everything works the same way for C, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog and SystemVerilog.
 
 Some details worth knowing:
 
@@ -104,7 +106,7 @@ Some details worth knowing:
 - If the PDF already exists, CodePDF asks before replacing it.
 - If a file is open with unsaved changes, the export uses what is on screen and tells you so.
 - The PDF uses the same font as your editor (the `editor.fontFamily` setting), as long as it is a monospace font installed on your computer. Otherwise it uses the system's default monospace font.
-- Folder export skips hidden files and folders, and folders named `node_modules`, `build`, `builds`, `dist`, `out`, `bin`, `obj`, `debug`, `release`, `x64`, `x86`, `target`, `__pycache__`, `venv`, `vendor`, `pods`, `deriveddata`, `carthage`, `lua_modules`, `renv`, `packrat`, `slprj`, `codegen` or starting with `cmake-build-`. It shows you the file list before exporting, so you can untick anything.
+- Folder export skips hidden files and folders, and folders named `node_modules`, `build`, `builds`, `dist`, `out`, `bin`, `obj`, `debug`, `release`, `x64`, `x86`, `target`, `__pycache__`, `venv`, `vendor`, `pods`, `deriveddata`, `carthage`, `lua_modules`, `renv`, `packrat`, `slprj`, `codegen`, `obj_dir`, `xsim.dir`, `incremental_db` or starting with `cmake-build-`. It shows you the file list before exporting, so you can untick anything.
 - Folder export stops at 500 files and does not follow shortcuts (symlinks). Header files come first, then the rest in alphabetical order.
 - If you export `main.cpp` and `main.h` together as separate PDFs, they are named `main.cpp.pdf` and `main.h.pdf` so one does not overwrite the other.
 
@@ -159,7 +161,7 @@ Used only for building and testing, never shipped:
 | [@types/vscode](https://www.npmjs.com/package/@types/vscode) | 1.140.0 | Type descriptions for the VS Code API. |
 | [@vscode/vsce](https://www.npmjs.com/package/@vscode/vsce) | 4.1.0 | Packages the extension into a `.vsix` file. |
 
-The syntax colouring is written from scratch (`src/export/cFamilyTokenizer.ts` for C and C++, `src/export/pythonTokenizer.ts` for Python, `src/export/cssTokenizer.ts` for CSS, `src/export/htmlTokenizer.ts` for HTML, `src/export/javascriptTokenizer.ts` for JavaScript, TypeScript and React, `src/export/rustTokenizer.ts` for Rust, `src/export/javaTokenizer.ts` for Java, `src/export/csharpTokenizer.ts` for C#, `src/export/goTokenizer.ts` for Go, `src/export/phpTokenizer.ts` for PHP, `src/export/sqlTokenizer.ts` for SQL, `src/export/shellTokenizer.ts` for Shell / Bash, `src/export/kotlinTokenizer.ts` for Kotlin, `src/export/swiftTokenizer.ts` for Swift, `src/export/rubyTokenizer.ts` for Ruby, `src/export/dartTokenizer.ts` for Dart, `src/export/luaTokenizer.ts` for Lua, `src/export/rTokenizer.ts` for R, `src/export/matlabTokenizer.ts` for MATLAB; Arduino sketches use the C++ one), so there is no highlighting library.
+The syntax colouring is written from scratch (`src/export/cFamilyTokenizer.ts` for C and C++, `src/export/pythonTokenizer.ts` for Python, `src/export/cssTokenizer.ts` for CSS, `src/export/htmlTokenizer.ts` for HTML, `src/export/javascriptTokenizer.ts` for JavaScript, TypeScript and React, `src/export/rustTokenizer.ts` for Rust, `src/export/javaTokenizer.ts` for Java, `src/export/csharpTokenizer.ts` for C#, `src/export/goTokenizer.ts` for Go, `src/export/phpTokenizer.ts` for PHP, `src/export/sqlTokenizer.ts` for SQL, `src/export/shellTokenizer.ts` for Shell / Bash, `src/export/kotlinTokenizer.ts` for Kotlin, `src/export/swiftTokenizer.ts` for Swift, `src/export/rubyTokenizer.ts` for Ruby, `src/export/dartTokenizer.ts` for Dart, `src/export/luaTokenizer.ts` for Lua, `src/export/rTokenizer.ts` for R, `src/export/matlabTokenizer.ts` for MATLAB, `src/export/verilogTokenizer.ts` for Verilog and SystemVerilog; Arduino sketches use the C++ one), so there is no highlighting library.
 
 Install scripts are turned off for this project (`.npmrc`), and optional binary packages are not installed.
 
@@ -167,7 +169,7 @@ Known issue: `npm audit` reports a moderate issue in `minimatch` 10.2.6, which `
 
 ## Limitations
 
-- Syntax colouring is for C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB and Arduino only, and it is pattern-based rather than a full parser, so unusual macros can be coloured slightly wrong. The text itself is always exact.
+- Syntax colouring is for C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog and SystemVerilog only, and it is pattern-based rather than a full parser, so unusual macros can be coloured slightly wrong. The text itself is always exact.
 - In Python, `match`, `case` and `type` are only coloured as keywords when the statement fits on one line.
 - In JavaScript, a `/` right after `)` is read as division, so a regex there (like `if (ok) /a/.test(s)`) isn't coloured.
 - In TypeScript, type words like `string` and `number` are always coloured as types, even when used as a variable name.
@@ -186,6 +188,7 @@ Known issue: `npm audit` reports a moderate issue in `minimatch` 10.2.6, which `
 - In R, only `.r` and `.R` files are supported, so `.Rmd` notebooks and `.Rprofile` are not. Common built-in functions like `print`, `paste`, `library`, `c` and `sapply` are only coloured when they are called (a bracket follows), so a variable named `names` or `table` stays plain, and functions from packages (like `filter` from dplyr) are plain. A name right before `::` is coloured as a type (a package name), and a name after `$`, `@` or `::` is always plain. Backtick names (`` `my var` ``) are plain, even if they match a keyword. Every `%...%` operator (`%in%`, `%>%`, `%%`) is read as one piece, so it has to close on the same line. A number like `1L`, `2i` or `0x1F` is coloured as one number. The constants `TRUE`, `FALSE`, `NULL`, `Inf`, `NaN` and the `NA` family use the keyword colour, but `T` and `F` stay plain.
 - In MATLAB, only `.m` files are supported, so `.mlx` live scripts and `.mat` data files are not, and every `.m` file is read as MATLAB (Objective-C `.m` files are not supported). Command syntax (like `hold on` or `format long`) is not understood, so those words are plain. Common built-in functions like `zeros`, `size`, `disp`, `fprintf` and `plot` are only coloured when they are called (a bracket right after the name), so a variable named `size` or `max` stays plain, and the loop names `i` and `j` are plain too. A name after a dot (like `s.end` or `obj.size`) is always plain, and so are the names in a `function` line, even if they match a built-in. A `'` is read as a transpose right after a name, a number, a closing bracket or another transpose with no space in between, and as the start of a string everywhere else, so `a '` is a string, and a quote right after a keyword like `case` starts a string. An `end` inside brackets (like `x(end)'`) counts as an index, but an unclosed bracket can make a later `end` be read the wrong way. `properties`, `methods`, `events` and `enumeration` are only coloured as keywords when they are alone on a line in a file that has a `classdef`, and `arguments` only when it is alone on its line. A string stops at the end of its line, and backslashes are not escapes, as in MATLAB. A `%{` or `%}` has to be alone on its line to count as a block comment. The rest of a line after `...` is coloured as a comment.
 - In Arduino, only `.ino` sketches are supported (not the old `.pde`). They are coloured as C++, so Arduino names like `setup`, `loop`, `pinMode`, `digitalWrite`, `Serial`, `HIGH` and `LED_BUILTIN` are plain, not coloured as built-ins.
+- In Verilog and SystemVerilog, only `.v`, `.vh`, `.sv` and `.svh` files are supported, and every `.v` file is read as Verilog (Coq and V files are not supported). Words are coloured by a fixed list: data types like `wire`, `reg`, `logic` and `int` as types, and other reserved words as keywords, so a name that is not reserved (like a `typedef` name) stays plain, and so does a name right after a dot (`q.size`, `.clk`). Macro uses like `` `WIDTH `` are coloured like directives. A size and base with a gap before the value (`8'h FF`) is only coloured as one number when the value starts on the same line. A `(*` with no `*)` after it is plain, so `always @(*)` is never read as an attribute.
 - Since `.h` files are coloured as C++, a C header that uses a C++ word like `new` or `class` as a name shows that word coloured as a keyword.
 - Emoji are not supported in exported PDFs. They print as a placeholder symbol.
 - Characters your editor font does not have (for example Chinese, Japanese or Korean) are filled in from a system font.

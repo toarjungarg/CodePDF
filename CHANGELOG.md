@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.22.0
+- Added Verilog and SystemVerilog export (`.v`, `.vh`, `.sv`, `.svh`). Every `.v` file is treated as Verilog.
+- Folder export now skips `obj_dir`, `xsim.dir` and `incremental_db` folders.
+
 ## 1.21.0
 - Added Arduino export (`.ino`). Sketches are coloured as C++.
 
