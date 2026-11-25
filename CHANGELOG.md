@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.24.0
+- Added Assembly export (`.s`, `.S`, `.asm`).
+
 ## 1.23.0
 - Added VHDL export (`.vhd`, `.vhdl`).
 

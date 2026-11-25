@@ -24,6 +24,7 @@ import { tokenizeR } from "../src/export/rTokenizer";
 import { tokenizeMatlab } from "../src/export/matlabTokenizer";
 import { tokenizeVerilog } from "../src/export/verilogTokenizer";
 import { tokenizeVhdl } from "../src/export/vhdlTokenizer";
+import { tokenizeAsm } from "../src/export/asmTokenizer";
 import type { TokenKind, TokenLine } from "../src/export/tokens";
 import { languageForFile, languageForVscodeId, LANGUAGES, LANGUAGE_NAMES, LANGUAGE_NAMES_OR } from "../src/export/languages";
 import { columnWidth, expandLine, layoutLine } from "../src/export/layout";
@@ -58,11 +59,11 @@ const kindOfWord = (lines: TokenLine[], word: string): TokenKind | undefined => 
 };
 
 test("tokenizer: joining tokens gives back every fixture exactly", () => {
-  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py", "basic.css", "basic.html", "basic.js", "basic.ts", "basic.jsx", "basic.tsx", "basic.rs", "basic.java", "basic.cs", "basic.go", "basic.php", "basic.sql", "basic.sh", "basic.kt", "basic.swift", "basic.rb", "basic.dart", "basic.lua", "basic.r", "basic.m", "basic.ino", "basic.sv", "basic.vhd"]) {
+  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py", "basic.css", "basic.html", "basic.js", "basic.ts", "basic.jsx", "basic.tsx", "basic.rs", "basic.java", "basic.cs", "basic.go", "basic.php", "basic.sql", "basic.sh", "basic.kt", "basic.swift", "basic.rb", "basic.dart", "basic.lua", "basic.r", "basic.m", "basic.ino", "basic.sv", "basic.vhd", "basic.s"]) {
     const source = fixture(name).replace(/\r\n?/g, "\n");
     for (const lines of [
       tokenizeCpp(source), tokenizeC(source), tokenizePython(source), tokenizeCss(source), tokenizeHtml(source), tokenizeJavaScript(source),
-      tokenizeTs(source), tokenizeJsx(source), tokenizeTsx(source), tokenizeRust(source), tokenizeJava(source), tokenizeCSharp(source), tokenizeGo(source), tokenizePhp(source), tokenizeSql(source), tokenizeShell(source), tokenizeKotlin(source), tokenizeSwift(source), tokenizeRuby(source), tokenizeDart(source), tokenizeLua(source), tokenizeR(source), tokenizeMatlab(source), tokenizeVerilog(source), tokenizeVhdl(source),
+      tokenizeTs(source), tokenizeJsx(source), tokenizeTsx(source), tokenizeRust(source), tokenizeJava(source), tokenizeCSharp(source), tokenizeGo(source), tokenizePhp(source), tokenizeSql(source), tokenizeShell(source), tokenizeKotlin(source), tokenizeSwift(source), tokenizeRuby(source), tokenizeDart(source), tokenizeLua(source), tokenizeR(source), tokenizeMatlab(source), tokenizeVerilog(source), tokenizeVhdl(source), tokenizeAsm(source),
     ]) {
       assert.equal(lines.map(joinLine).join("\n"), source, `${name} changed during tokenizing`);
     }
@@ -2862,8 +2863,21 @@ test("languages: picked by extension or VS Code language id, with .h treated as 
   assert.equal(LANGUAGES.verilog.label, "Verilog");
   assert.equal(LANGUAGES.systemverilog.label, "SystemVerilog");
   assert.equal(LANGUAGES.vhdl.label, "VHDL");
-  assert.equal(LANGUAGE_NAMES, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog and VHDL");
-  assert.equal(LANGUAGE_NAMES_OR, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog or VHDL");
+  assert.equal(languageForFile("start.s"), "asm");
+  assert.equal(languageForFile("start.S"), "asm", "a capital .S (preprocessed assembly) is the same language");
+  assert.equal(languageForFile("START.ASM"), "asm");
+  assert.equal(languageForFile("boot.asm"), "asm");
+  assert.equal(languageForFile("start.s.bak"), undefined);
+  assert.equal(languageForFile("start.asm.bak"), undefined);
+  assert.equal(languageForFile("start.sh"), "shell", "a .sh file is still Shell");
+  assert.equal(languageForFile("start.sx"), undefined);
+  assert.equal(languageForFile("s"), undefined);
+  assert.equal(languageForFile("asm"), undefined);
+  assert.equal(languageForVscodeId("asm"), "asm");
+  assert.equal(languageForVscodeId("arm"), undefined);
+  assert.equal(LANGUAGES.asm.label, "Assembly");
+  assert.equal(LANGUAGE_NAMES, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL and Assembly");
+  assert.equal(LANGUAGE_NAMES_OR, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL or Assembly");
 });
 
 test("tokenizer: Arduino sketches use the C++ tokenizer for comments, preprocessor lines, strings and keywords", () => {
@@ -3236,6 +3250,200 @@ test("languages: other languages do not read VHDL words and VHDL does not read t
   assert.equal(kindOf(tokenizeVhdl("$display"), "$display"), "plain");
   assert.equal(kindOf(tokenizeVhdl("// hello there"), "// hello there"), "plain");
   assert.equal(kindOf(tokenizeVhdl("# hello there"), "# hello there"), "plain");
+});
+
+test("tokenizer: Assembly fixture colours", () => {
+  const source = fixture("basic.s");
+  const asm = LANGUAGES[languageForFile("start.s")!].tokenize(source);
+  assert.equal(asm.map(joinLine).join("\n"), source, "no text lost or changed");
+  assert.equal(kindOf(asm, "@ A made-up toaster"), "comment", "an ARM @ comment");
+  assert.equal(kindOf(asm, "Counts the seconds"), "comment", "a block comment over two lines");
+  assert.equal(kindOf(asm, "then stops the heater"), "comment");
+  assert.equal(kindOf(asm, "#include"), "preprocessor", "a # followed by include is a C preprocessor line");
+  assert.equal(kindOf(asm, "#define"), "preprocessor");
+  assert.equal(kindOf(asm, "// seconds left"), "comment");
+  assert.equal(kindOf(asm, "@ save the registers"), "comment");
+  assert.equal(kindOf(asm, ".syntax"), "preprocessor");
+  assert.equal(kindOf(asm, ".globl"), "preprocessor");
+  assert.equal(kindOf(asm, ".asciz"), "preprocessor");
+  assert.equal(kindOf(asm, "\"Toast is ready!\\n\""), "string");
+  assert.equal(kindOf(asm, "'T'"), "string", "a character literal");
+  assert.equal(kindOf(asm, "0xFF"), "number");
+  assert.equal(kindOf(asm, "0b1010"), "number");
+  assert.equal(kindOf(asm, "#-4"), "number", "an ARM immediate");
+  assert.equal(kindOf(asm, "#0x10"), "number");
+  assert.equal(kindOf(asm, "1f"), "number", "a local label reference");
+  assert.equal(kindOfWord(asm, "push"), "keyword");
+  assert.equal(kindOfWord(asm, "subs"), "keyword");
+  assert.equal(kindOfWord(asm, "bne"), "keyword");
+  assert.equal(kindOfWord(asm, "svc"), "keyword");
+  assert.equal(kindOfWord(asm, "r4"), "type", "a register");
+  assert.equal(kindOfWord(asm, "lr"), "type");
+  assert.equal(kindOfWord(asm, "pc"), "type");
+  assert.equal(kindOfWord(asm, "sp"), "type");
+  assert.equal(kindOfWord(asm, "main"), "plain", "a label name is plain");
+  assert.equal(kindOfWord(asm, "msg"), "plain");
+  assert.equal(kindOfWord(asm, "function"), "plain", "%function and @function are plain");
+});
+
+test("tokenizer: Assembly tricky cases", () => {
+  // Every token as kind:text, joined with |, and a " // " marks the start of a new line.
+  const kinds = (source: string): string => tokenizeAsm(source).map((l) => l.map((t) => `${t.kind}:${t.text}`).join("|")).join(" // ");
+
+  // Comments.
+  assert.equal(kinds("nop ; hi"), "keyword:nop|plain: |comment:; hi");
+  assert.equal(kinds("nop // hi"), "keyword:nop|plain: |comment:// hi");
+  assert.equal(kinds("/* a */ nop"), "comment:/* a */|plain: |keyword:nop");
+  assert.equal(kinds("/* a\nb */ nop"), "comment:/* a // comment:b */|plain: |keyword:nop", "a block comment over lines, then an instruction");
+  assert.equal(kinds("/* never closed\nnop"), "comment:/* never closed // comment:nop", "an unclosed block comment runs to the end");
+  assert.equal(kinds("mov r0, r1 /* x */ ; y"), "keyword:mov|plain: |type:r0|plain:, |type:r1|plain: |comment:/* x */|plain: |comment:; y");
+  assert.equal(kinds("mov r0, a / b"), "keyword:mov|plain: |type:r0|plain:, a / b", "one slash is not a comment");
+
+  // The # sign: comment, ARM immediate or C preprocessor.
+  assert.equal(kinds("# whole line"), "comment:# whole line");
+  assert.equal(kinds("  # indented"), "plain:  |comment:# indented");
+  assert.equal(kinds("#!shell"), "comment:#!shell", "a # with an unknown word is a comment");
+  assert.equal(kinds("mov r0, #5"), "keyword:mov|plain: |type:r0|plain:, |number:#5", "# before a digit after a comma is a number");
+  assert.equal(kinds("mov r0, #0x10"), "keyword:mov|plain: |type:r0|plain:, |number:#0x10");
+  assert.equal(kinds("ldr r0, [r1, #-4]"), "keyword:ldr|plain: |type:r0|plain:, [|type:r1|plain:, |number:#-4|plain:]");
+  assert.equal(kinds("ldr r0, [r1,#4]!"), "keyword:ldr|plain: |type:r0|plain:, [|type:r1|plain:,|number:#4|plain:]!");
+  assert.equal(kinds("svc #0"), "keyword:svc|plain: |number:#0", "# right after the instruction name, before a digit");
+  assert.equal(kinds("mov r0, #SECONDS"), "keyword:mov|plain: |type:r0|plain:, #SECONDS", "#name is an immediate, so no comment");
+  assert.equal(kinds("add a0, a0, 1 # add one"), "keyword:add|plain: |type:a0|plain:, |type:a0|plain:, |number:1|plain: |comment:# add one", "# after a number is a comment");
+  assert.equal(kinds("mov r0, r1 #5"), "keyword:mov|plain: |type:r0|plain:, |type:r1|plain: |comment:#5", "# after a register is a comment");
+  assert.equal(kinds("ret #done"), "keyword:ret|plain: |comment:#done", "# and a word right after the name is a comment");
+  assert.equal(kinds("nop # note"), "keyword:nop|plain: |comment:# note");
+  assert.equal(kinds("mov r0, # note"), "keyword:mov|plain: |type:r0|plain:, |comment:# note", "# and a space is always a comment");
+  assert.equal(kinds("main: # note"), "plain:main: |comment:# note");
+  assert.equal(kinds("#include <x.h>"), "preprocessor:#include|plain: <x.h>");
+  assert.equal(kinds('#include "x.h"'), 'preprocessor:#include|plain: |string:"x.h"');
+  assert.equal(kinds("#define N 5"), "preprocessor:#define|plain: N |number:5");
+  assert.equal(kinds("  #endif"), "plain:  |preprocessor:#endif");
+  assert.equal(kinds("#ifdef DEBUG // x"), "preprocessor:#ifdef|plain: DEBUG |comment:// x");
+  assert.equal(kinds("# define x"), "comment:# define x", "a space after the # makes it a comment");
+  assert.equal(kinds("#includes"), "comment:#includes", "only whole preprocessor words count");
+  assert.equal(kinds("#define MOVE mov r0, r1"), "preprocessor:#define|plain: MOVE mov |type:r0|plain:, |type:r1", "after a preprocessor word no word is read as the instruction name");
+
+  // The @ sign.
+  assert.equal(kinds("@ start of line"), "comment:@ start of line");
+  assert.equal(kinds("mov r0, r1 @ note"), "keyword:mov|plain: |type:r0|plain:, |type:r1|plain: |comment:@ note");
+  assert.equal(kinds(".type f, @function"), "preprocessor:.type|plain: f, @function", "@function after a comma is not a comment");
+  assert.equal(kinds('.section .text, "ax", @progbits'), 'preprocessor:.section|plain: .text, |string:"ax"|plain:, @progbits');
+  assert.equal(kinds(".type f, %function"), "preprocessor:.type|plain: f, %function");
+  assert.equal(kinds("call foo@PLT"), "keyword:call|plain: foo@PLT", "a relocation name keeps its @");
+  assert.equal(kinds("mov rax, [rip + x@GOTPCREL]").includes("comment"), false);
+  assert.equal(kinds("mov r0, r1@note").includes("comment"), false, "an @ with no space before it is not a comment");
+
+  // Labels.
+  assert.equal(kinds("main:"), "plain:main:");
+  assert.equal(kinds(".Lloop:"), "plain:.Lloop:");
+  assert.equal(kinds("1:"), "plain:1:");
+  assert.equal(kinds("1: b 1b"), "plain:1: |keyword:b|plain: |number:1b", "a numeric local label and a reference to it");
+  assert.equal(kinds("_start: mov eax, 1"), "plain:_start: |keyword:mov|plain: |type:eax|plain:, |number:1");
+  assert.equal(kinds("a: b: nop"), "plain:a: b: |keyword:nop", "two labels in a row");
+  assert.equal(kinds("$L1:"), "plain:$L1:", "a MIPS style label");
+  assert.equal(kinds("mov r0, x:"), "keyword:mov|plain: |type:r0|plain:, x:", "a colon later in the line is not a label");
+
+  // Directives.
+  assert.equal(kinds(".text"), "preprocessor:.text");
+  assert.equal(kinds("  .globl main"), "plain:  |preprocessor:.globl|plain: main");
+  assert.equal(kinds("section .text"), "preprocessor:section|plain: .text");
+  assert.equal(kinds("SECTION .DATA"), "preprocessor:SECTION|plain: .DATA", "case does not matter");
+  assert.equal(kinds("global _start"), "preprocessor:global|plain: _start");
+  assert.equal(kinds("extern puts"), "preprocessor:extern|plain: puts");
+  assert.equal(kinds("[bits 32]"), "plain:[|preprocessor:bits|plain: |number:32|plain:]");
+  assert.equal(kinds('msg db "hi", 0'), 'plain:msg |preprocessor:db|plain: |string:"hi"|plain:, |number:0', "a name before db is a label with no colon");
+  assert.equal(kinds("len equ $ - msg"), "plain:len |preprocessor:equ|plain: $ - msg");
+  assert.equal(kinds("buf resb 64"), "plain:buf |preprocessor:resb|plain: |number:64");
+  assert.equal(kinds("  dd 1, 2"), "plain:  |preprocessor:dd|plain: |number:1|plain:, |number:2");
+  assert.equal(kinds("times 510-($-$$) db 0"), "preprocessor:times|plain: |number:510|plain:-($-$$) |preprocessor:db|plain: |number:0");
+  assert.equal(kinds("%define X 5"), "preprocessor:%define|plain: X |number:5");
+  assert.equal(kinds("%macro m 1"), "preprocessor:%macro|plain: m |number:1");
+  assert.equal(kinds("rep movsb"), "keyword:rep|plain: |keyword:movsb", "a prefix does not hide the instruction");
+  assert.equal(kinds("lock cmpxchg [x], eax"), "keyword:lock|plain: |keyword:cmpxchg|plain: [x], |type:eax");
+  assert.equal(kinds("."), "plain:.", "a lone dot is not a directive");
+
+  // Registers.
+  assert.equal(kinds("mov %rax, %rbx"), "keyword:mov|plain: |type:%rax|plain:, |type:%rbx");
+  assert.equal(kinds("mov RAX, Eax"), "keyword:mov|plain: |type:RAX|plain:, |type:Eax", "case does not matter");
+  assert.equal(kinds("mov eax, [rbp-8]"), "keyword:mov|plain: |type:eax|plain:, [|type:rbp|plain:-|number:8|plain:]");
+  assert.equal(kinds("mov r8d, r15"), "keyword:mov|plain: |type:r8d|plain:, |type:r15");
+  assert.equal(kinds("mov r99, r16"), "keyword:mov|plain: r99, |type:r16", "r99 is not a register");
+  assert.equal(kinds("movaps xmm0, xmm15"), "keyword:movaps|plain: |type:xmm0|plain:, |type:xmm15");
+  assert.equal(kinds("mov x0, w30"), "keyword:mov|plain: |type:x0|plain:, |type:w30");
+  assert.equal(kinds("addi sp, sp, -16"), "keyword:addi|plain: |type:sp|plain:, |type:sp|plain:, -|number:16");
+  assert.equal(kinds("add a0, t1, s11"), "keyword:add|plain: |type:a0|plain:, |type:t1|plain:, |type:s11");
+  assert.equal(kinds("jalr zero, ra"), "keyword:jalr|plain: |type:zero|plain:, |type:ra");
+  assert.equal(kinds("lw $t0, 4($sp)"), "keyword:lw|plain: |type:$t0|plain:, |number:4|plain:(|type:$sp|plain:)");
+  assert.equal(kinds("move $a0, $zero"), "keyword:move|plain: |type:$a0|plain:, |type:$zero");
+  assert.equal(kinds("move $a0, $at"), "keyword:move|plain: |type:$a0|plain:, |type:$at");
+  assert.equal(kinds("ld1 {v0.16b}, [x0]"), "keyword:ld1|plain: {|type:v0|plain:.16b}, [|type:x0|plain:]", "a register with a suffix after the dot");
+  assert.equal(kinds("mov r0, foo"), "keyword:mov|plain: |type:r0|plain:, foo", "a name is plain");
+  assert.equal(kinds("mov dword [x], 5"), "keyword:mov|plain: |type:dword|plain: [x], |number:5");
+  assert.equal(kinds("r0"), "keyword:r0", "the first word on a line is always the instruction name");
+
+  // Numbers.
+  assert.equal(kinds("mov eax, 0FFh"), "keyword:mov|plain: |type:eax|plain:, |number:0FFh", "a NASM hex number");
+  assert.equal(kinds("mov al, 1010b"), "keyword:mov|plain: |type:al|plain:, |number:1010b", "a NASM binary number");
+  assert.equal(kinds("mov al, 0b1010"), "keyword:mov|plain: |type:al|plain:, |number:0b1010");
+  assert.equal(kinds("mov al, 0xff"), "keyword:mov|plain: |type:al|plain:, |number:0xff");
+  assert.equal(kinds("dd 3.14, 1e-3, 2.5E+2"), "preprocessor:dd|plain: |number:3.14|plain:, |number:1e-3|plain:, |number:2.5E+2");
+  assert.equal(kinds("movl $42, %eax"), "keyword:movl|plain: |number:$42|plain:, |type:%eax", "an AT&T immediate");
+  assert.equal(kinds("addl $-4, %esp"), "keyword:addl|plain: |number:$-4|plain:, |type:%esp");
+  assert.equal(kinds("movl $0x10, 4(%rsp)"), "keyword:movl|plain: |number:$0x10|plain:, |number:4|plain:(|type:%rsp|plain:)");
+  assert.equal(kinds("movl $foo, %eax"), "keyword:movl|plain: $foo, |type:%eax", "a $ before a name is plain");
+  assert.equal(kinds("add $1, $2, $3"), "keyword:add|plain: |number:$1|plain:, |number:$2|plain:, |number:$3", "a $ and digits is always a number");
+  assert.equal(kinds("bne 2b"), "keyword:bne|plain: |number:2b");
+  assert.equal(kinds("mov r0, 0x1e+5"), "keyword:mov|plain: |type:r0|plain:, |number:0x1e|plain:+|number:5", "a hex number with an e is not an exponent");
+  assert.equal(kinds("mov r0, 1.x"), "keyword:mov|plain: |type:r0|plain:, |number:1|plain:.x", "a dot without a digit after it is not a fraction");
+
+  // Strings and characters.
+  assert.equal(kinds('.ascii "a\\"b"'), 'preprocessor:.ascii|plain: |string:"a\\"b"', "an escaped quote stays inside the string");
+  assert.equal(kinds('.ascii "a;b # c"'), 'preprocessor:.ascii|plain: |string:"a;b # c"', "comment signs inside a string are text");
+  assert.equal(kinds('.ascii "abc\nnop'), 'preprocessor:.ascii|plain: |string:"abc // keyword:nop', "an unclosed string stops at the end of the line");
+  assert.equal(kinds("db 'hello', 0"), "preprocessor:db|plain: |string:'hello'|plain:, |number:0");
+  assert.equal(kinds("mov r0, #'a'"), "keyword:mov|plain: |type:r0|plain:, |string:#'a'", "an immediate character is one token");
+  assert.equal(kinds("mov r0, #'a"), "keyword:mov|plain: |type:r0|plain:, |string:#'a", "GNU as allows a character with no closing quote");
+  assert.equal(kinds(".byte 'a, 'b'"), "preprocessor:.byte|plain: |string:'a|plain:, |string:'b'", "an unclosed 'a does not run into the next character");
+  assert.equal(kinds(".byte 'a'"), "preprocessor:.byte|plain: |string:'a'");
+  assert.equal(kinds(".byte ';'"), "preprocessor:.byte|plain: |string:';'", "a ; inside a character is text");
+  assert.equal(kinds(".byte '\\n'"), "preprocessor:.byte|plain: |string:'\\n'", "an escape is one character");
+  assert.equal(kinds(".byte '\\n"), "preprocessor:.byte|plain: |string:'\\n");
+  assert.equal(kinds(".byte '\\'', 1"), "preprocessor:.byte|plain: |string:'\\''|plain:, |number:1");
+  assert.equal(kinds("db 'hello', 0"), "preprocessor:db|plain: |string:'hello'|plain:, |number:0", "a NASM string with an even number of quotes");
+  assert.equal(kinds("db 'it', 0, 'a'"), "preprocessor:db|plain: |string:'it'|plain:, |number:0|plain:, |string:'a'", "two NASM strings");
+  assert.equal(kinds("db '\nnop"), "preprocessor:db|plain: |string:' // keyword:nop", "a lone quote at the end of a line");
+  assert.equal(kinds("db `a\\nb`"), "preprocessor:db|plain: |string:`a\\nb`", "a NASM backtick string");
+  assert.equal(kinds('nop ; "not a string'), 'keyword:nop|plain: |comment:; "not a string');
+  assert.equal(kinds('nop ; it\'s fine'), "keyword:nop|plain: |comment:; it's fine");
+
+  // Other.
+  assert.equal(kinds(""), "");
+  assert.equal(kinds("a\n\nb"), "keyword:a //  // keyword:b");
+  assert.equal(kinds("日本 r0"), "plain:日本 |type:r0", "a first word that is not a name is plain");
+  assert.equal(kinds("mov r0, '😀'"), "keyword:mov|plain: |type:r0|plain:, |string:'😀'");
+});
+
+test("tokenizer: Assembly keeps every character, even in broken code", () => {
+  for (const source of ["", "#", "# ", "@", ";", "/", "/*", "/* a", "//", "'", "''", "\"", "`", "$", "$$", "$-", "%", "%%", "%1", "[", "0x", "0b", "1e", "1e+", "1.", "#-", "#'", ".", "..", "a:", ":", "::", "label:\r\nnop", "\t#5\t", "mov r0, #", "mov r0, #\n", "@\n@", "😀", "mov 😀, #5", "foo@", "foo@PLT@", "x'\n'y", "\\", "#include", "#include\n#define"]) {
+    const lines = tokenizeAsm(source);
+    assert.equal(lines.map(joinLine).join("\n"), source, `lost text for ${JSON.stringify(source)}`);
+  }
+});
+
+test("languages: other languages do not read Assembly rules and Assembly does not read theirs", () => {
+  assert.equal(kindOfWord(tokenizeCpp("mov"), "mov"), "plain");
+  assert.equal(kindOf(tokenizeCpp("; hello there"), "; hello there"), "plain");
+  assert.equal(kindOf(tokenizeCpp("#include <x>"), "#include"), "preprocessor");
+  assert.equal(kindOf(tokenizePython("# hello there"), "# hello there"), "comment");
+  assert.equal(kindOf(tokenizeShell("# hello there"), "# hello there"), "comment");
+  assert.equal(kindOf(tokenizeVhdl("-- hello there"), "-- hello there"), "comment");
+  assert.equal(kindOf(tokenizeVerilog("// hello there"), "// hello there"), "comment");
+  assert.equal(kindOfWord(tokenizeVerilog("section"), "section"), "plain");
+  assert.equal(kindOfWord(tokenizeAsm("nop entity"), "entity"), "plain", "VHDL words are only plain words");
+  assert.equal(kindOf(tokenizeAsm("-- hello there"), "-- hello there"), "plain", "a -- is not a comment");
+  assert.ok(isSupportedSource("a.s") && isSupportedSource("A.S") && isSupportedSource("a.asm") && isSupportedSource("A.ASM"));
+  assert.ok(!isSupportedSource("a.s.bak") && !isSupportedSource("a.sx") && !isSupportedSource("a.inc") && !isSupportedSource("a.a51"));
 });
 
 test("layout: tabs expand to the next tab stop and control characters become visible", () => {

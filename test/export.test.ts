@@ -615,6 +615,33 @@ test("1x. exports VHDL files, alone and combined with a Verilog file", async () 
   assert.ok(combined.pdf.text.includes("assign y = a & b;"));
 });
 
+test("1y. exports Assembly files, alone and combined with a VHDL file", async () => {
+  const source = fixture("basic.s");
+  const { pdf } = await exportSections("basic_s.pdf", [{ ...file("basic.s", source), language: "asm" }]);
+  assert.ok(pdf.pages[0]!.lines[0]!.startsWith("basic.s"), "file name in the header");
+  for (const expected of [
+    "@ A made-up toaster countdown in ARM-style assembly.",
+    '#include "toaster.h"',
+    '.asciz "Toast is ready!\\n"',
+    "mov r4, #SECONDS // seconds left",
+    "ldr r1, [sp, #-4]",
+    "pop {r4, pc}",
+    ".type stop, @function",
+    "svc #0",
+  ]) {
+    assert.ok(pdf.text.includes(expected), `missing: ${expected}`);
+  }
+
+  const vhdl = "-- A made-up entity\nentity gates is\nend entity gates;\n";
+  const combined = await exportSections("mixed_s_vhd.pdf", [
+    { ...file("basic.s", source), language: "asm" },
+    { ...file("gates.vhd", vhdl), language: "vhdl" },
+  ]);
+  assert.deepEqual(combined.pdf.outline, ["basic.s", "gates.vhd"], "one bookmark per file");
+  assert.ok(combined.pdf.text.includes("main:"));
+  assert.ok(combined.pdf.text.includes("entity gates is"));
+});
+
 test("2. exports comments and strings exactly", async () => {
   const { pdf } = await exportSections("comments_strings.pdf", [file("comments_strings.cpp", fixture("comments_strings.cpp"))]);
   for (const expected of [

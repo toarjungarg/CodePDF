@@ -3,7 +3,7 @@
 A VS Code extension that does two things:
 
 1. Opens PDF files in a VS Code tab.
-2. Exports C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog and VHDL files as clean, printable PDFs.
+2. Exports C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL and Assembly files as clean, printable PDFs.
 
 I built it for my own assignments. I wanted to read the assignment PDF next to my code, and then turn my `.cpp` files into PDFs I could upload, without leaving VS Code.
 
@@ -27,7 +27,7 @@ Open any `.pdf` file in VS Code and it shows up in a tab.
 
 Links inside a PDF never open by themselves. CodePDF asks first, and only opens web and email links.
 
-## Exporting C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog and VHDL to PDF
+## Exporting C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL and Assembly to PDF
 
 Supported files:
 
@@ -57,19 +57,20 @@ Supported files:
 - Verilog: `.v`, `.vh`
 - SystemVerilog: `.sv`, `.svh`
 - VHDL: `.vhd`, `.vhdl`
+- Assembly: `.s`, `.S`, `.asm`
 
-`.h` files are coloured as C++, which also works for C headers. `.m` files are treated as MATLAB. `.ino` sketches are coloured as C++. `.v` files are treated as Verilog.
+`.h` files are coloured as C++, which also works for C headers. `.m` files are treated as MATLAB. `.ino` sketches are coloured as C++. `.v` files are treated as Verilog. Assembly files are coloured by one general set of rules, since the syntax changes with each chip (x86, ARM, RISC-V, MIPS and others).
 
 With HTML, CSS and JavaScript, it supports traditional web dev.
 
-I'm adding more languages. Assembly is next.
+I'm adding more languages. LaTeX is next.
 
 | Command | What it does |
 |---|---|
 | CodePDF: Export as PDF | Exports one file. `main.cpp` becomes `main.pdf` in the same folder. |
 | CodePDF: Export Selection as PDF | Exports only the lines you highlighted, with their real line numbers. |
 | CodePDF: Export Multiple Files | Combines the files you pick into one PDF. Each file starts on a new page. |
-| CodePDF: Export Folder as PDF | Combines every C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog and VHDL file in a folder into one PDF. |
+| CodePDF: Export Folder as PDF | Combines every C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL and Assembly file in a folder into one PDF. |
 
 You can run them from the Command Palette, or by right-clicking a file or folder in the Explorer, or by right-clicking in the editor.
 
@@ -99,7 +100,7 @@ The PDFs have syntax colours, line numbers, a header with the file name and a fo
 
 ![Exporting the demo folder, where the file list shows build and the hidden file were skipped](images/export-folder.gif)
 
-The demos show C++ files, but everything works the same way for C, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog and VHDL.
+The demos show C++ files, but everything works the same way for C, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL and Assembly.
 
 Some details worth knowing:
 
@@ -162,7 +163,7 @@ Used only for building and testing, never shipped:
 | [@types/vscode](https://www.npmjs.com/package/@types/vscode) | 1.140.0 | Type descriptions for the VS Code API. |
 | [@vscode/vsce](https://www.npmjs.com/package/@vscode/vsce) | 4.1.0 | Packages the extension into a `.vsix` file. |
 
-The syntax colouring is written from scratch (`src/export/cFamilyTokenizer.ts` for C and C++, `src/export/pythonTokenizer.ts` for Python, `src/export/cssTokenizer.ts` for CSS, `src/export/htmlTokenizer.ts` for HTML, `src/export/javascriptTokenizer.ts` for JavaScript, TypeScript and React, `src/export/rustTokenizer.ts` for Rust, `src/export/javaTokenizer.ts` for Java, `src/export/csharpTokenizer.ts` for C#, `src/export/goTokenizer.ts` for Go, `src/export/phpTokenizer.ts` for PHP, `src/export/sqlTokenizer.ts` for SQL, `src/export/shellTokenizer.ts` for Shell / Bash, `src/export/kotlinTokenizer.ts` for Kotlin, `src/export/swiftTokenizer.ts` for Swift, `src/export/rubyTokenizer.ts` for Ruby, `src/export/dartTokenizer.ts` for Dart, `src/export/luaTokenizer.ts` for Lua, `src/export/rTokenizer.ts` for R, `src/export/matlabTokenizer.ts` for MATLAB, `src/export/verilogTokenizer.ts` for Verilog and SystemVerilog, `src/export/vhdlTokenizer.ts` for VHDL; Arduino sketches use the C++ one), so there is no highlighting library.
+The syntax colouring is written from scratch (`src/export/cFamilyTokenizer.ts` for C and C++, `src/export/pythonTokenizer.ts` for Python, `src/export/cssTokenizer.ts` for CSS, `src/export/htmlTokenizer.ts` for HTML, `src/export/javascriptTokenizer.ts` for JavaScript, TypeScript and React, `src/export/rustTokenizer.ts` for Rust, `src/export/javaTokenizer.ts` for Java, `src/export/csharpTokenizer.ts` for C#, `src/export/goTokenizer.ts` for Go, `src/export/phpTokenizer.ts` for PHP, `src/export/sqlTokenizer.ts` for SQL, `src/export/shellTokenizer.ts` for Shell / Bash, `src/export/kotlinTokenizer.ts` for Kotlin, `src/export/swiftTokenizer.ts` for Swift, `src/export/rubyTokenizer.ts` for Ruby, `src/export/dartTokenizer.ts` for Dart, `src/export/luaTokenizer.ts` for Lua, `src/export/rTokenizer.ts` for R, `src/export/matlabTokenizer.ts` for MATLAB, `src/export/verilogTokenizer.ts` for Verilog and SystemVerilog, `src/export/vhdlTokenizer.ts` for VHDL, `src/export/asmTokenizer.ts` for Assembly; Arduino sketches use the C++ one), so there is no highlighting library.
 
 Install scripts are turned off for this project (`.npmrc`), and optional binary packages are not installed.
 
@@ -170,7 +171,7 @@ Known issue: `npm audit` reports a moderate issue in `minimatch` 10.2.6, which `
 
 ## Limitations
 
-- Syntax colouring is for C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog and VHDL only, and it is pattern-based rather than a full parser, so unusual macros can be coloured slightly wrong. The text itself is always exact.
+- Syntax colouring is for C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL and Assembly only, and it is pattern-based rather than a full parser, so unusual macros can be coloured slightly wrong. The text itself is always exact.
 - In Python, `match`, `case` and `type` are only coloured as keywords when the statement fits on one line.
 - In JavaScript, a `/` right after `)` is read as division, so a regex there (like `if (ok) /a/.test(s)`) isn't coloured.
 - In TypeScript, type words like `string` and `number` are always coloured as types, even when used as a variable name.
@@ -191,6 +192,7 @@ Known issue: `npm audit` reports a moderate issue in `minimatch` 10.2.6, which `
 - In Arduino, only `.ino` sketches are supported (not the old `.pde`). They are coloured as C++, so Arduino names like `setup`, `loop`, `pinMode`, `digitalWrite`, `Serial`, `HIGH` and `LED_BUILTIN` are plain, not coloured as built-ins.
 - In Verilog and SystemVerilog, only `.v`, `.vh`, `.sv` and `.svh` files are supported, and every `.v` file is read as Verilog (Coq and V files are not supported). Words are coloured by a fixed list: data types like `wire`, `reg`, `logic` and `int` as types, and other reserved words as keywords, so a name that is not reserved (like a `typedef` name) stays plain, and so does a name right after a dot (`q.size`, `.clk`). Macro uses like `` `WIDTH `` are coloured like directives. A size and base with a gap before the value (`8'h FF`) is only coloured as one number when the value starts on the same line. A `(*` with no `*)` after it is plain, so `always @(*)` is never read as an attribute.
 - In VHDL, only `.vhd` and `.vhdl` files are supported. Words are coloured by a fixed list and ignore upper or lower case: standard types like `std_logic`, `integer` and `unsigned` as types, and reserved words as keywords. Functions like `rising_edge` and `to_integer` and values like `true` or `'U'` have no special colour, and a name that is not reserved (like a type made with `type ... is`) stays plain. A character like `'1'` is only read as a character after something that cannot have an attribute, so a `'` after a name, a type or a closing bracket is always an attribute tick (`clk'event`), and the attribute name after it is plain. A `x"FF"` or `8x"FF"` bit string and a time like `10 ns` are coloured as one number. Based numbers that use `:` instead of `#` (like `16:FF:`) are not read as one number. Old `%` quote marks for strings are not supported, and a string or an extended identifier (like `\my signal\`) stops at the end of its line.
+- In Assembly, only `.s`, `.S` and `.asm` files are supported (not `.inc`, `.a51` or other names), and one set of rules reads every chip, so it guesses from the shape of each line instead of knowing the assembler. The first word on a line (after a label) is coloured as an instruction, words starting with a `.` and NASM words like `section`, `global`, `db` and `equ` as directives, and common x86, ARM, RISC-V and MIPS register names as types, with or without a `%` or `$` in front. A name with no colon before `db` or `equ` is read as a label, but any other label written without a colon is coloured as an instruction. Comments are `;`, `//`, `/* */`, and `#` or `@` after a space. A `#` after a comma, a bracket or an instruction name (like `mov r0, #5` or `svc #0`) is a number, and a `#` after a register or a number starts a comment, so `mov r0, r1 #note` is a comment, and so is `ret #done`. A `#` at the start of a line is a C preprocessor line when it is followed right away by a word like `include` or `define` (as in `.S` files), and a comment otherwise. An `@` starts a comment only after a space, and not after a comma (`.type f, @function`), so `r1@note` with no space is not a comment. A `$` followed by digits is read as a number (`$42`), so a MIPS register like `$0` is coloured as a number, while `$t0` and `$sp` are registers. Registers named like a variable (`a0`, `t1`, `x2`, `d3`) are coloured as registers wherever they are used. Strings and quoted characters stop at the end of their line.
 - Since `.h` files are coloured as C++, a C header that uses a C++ word like `new` or `class` as a name shows that word coloured as a keyword.
 - Emoji are not supported in exported PDFs. They print as a placeholder symbol.
 - Characters your editor font does not have (for example Chinese, Japanese or Korean) are filled in from a system font.
