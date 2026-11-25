@@ -13,6 +13,7 @@ import { tokenizeHtml } from "./htmlTokenizer";
 import { tokenizeJava } from "./javaTokenizer";
 import { tokenizeJavaScript } from "./javascriptTokenizer";
 import { tokenizeKotlin } from "./kotlinTokenizer";
+import { tokenizeLatex } from "./latexTokenizer";
 import { tokenizeLua } from "./luaTokenizer";
 import { tokenizeMatlab } from "./matlabTokenizer";
 import { tokenizePhp } from "./phpTokenizer";
@@ -27,7 +28,7 @@ import { tokenizeVerilog } from "./verilogTokenizer";
 import { tokenizeVhdl } from "./vhdlTokenizer";
 import type { TokenLine } from "./tokens";
 
-export type LanguageId = "c" | "cpp" | "python" | "css" | "html" | "javascript" | "typescript" | "javascriptreact" | "typescriptreact" | "rust" | "java" | "csharp" | "go" | "php" | "sql" | "shell" | "kotlin" | "swift" | "ruby" | "dart" | "lua" | "r" | "matlab" | "arduino" | "verilog" | "systemverilog" | "vhdl" | "asm";
+export type LanguageId = "c" | "cpp" | "python" | "css" | "html" | "javascript" | "typescript" | "javascriptreact" | "typescriptreact" | "rust" | "java" | "csharp" | "go" | "php" | "sql" | "shell" | "kotlin" | "swift" | "ruby" | "dart" | "lua" | "r" | "matlab" | "arduino" | "verilog" | "systemverilog" | "vhdl" | "asm" | "latex";
 
 interface Language {
   /** Shown in messages, e.g. "C++". */
@@ -36,6 +37,8 @@ interface Language {
   extensions: readonly string[];
   /** VS Code's id for the language, used for unsaved files and per-language editor settings. */
   vscodeId: string;
+  /** Other VS Code ids that mean the same language (LaTeX files can show up as "latex" or "tex"). */
+  otherVscodeIds?: readonly string[];
   tokenize(source: string): TokenLine[];
 }
 
@@ -225,6 +228,15 @@ export const LANGUAGES: Record<LanguageId, Language> = {
     vscodeId: "asm",
     tokenize: tokenizeAsm,
   },
+  // VS Code's built-in grammar gives .tex the id "latex" but .sty and .cls the id "tex", so both ids
+  // are accepted. That way unsaved files and per-language editor settings work for all three extensions.
+  latex: {
+    label: "LaTeX",
+    extensions: [".tex", ".sty", ".cls"],
+    vscodeId: "latex",
+    otherVscodeIds: ["tex"],
+    tokenize: tokenizeLatex,
+  },
 };
 
 const LANGUAGE_IDS = Object.keys(LANGUAGES) as LanguageId[];
@@ -237,10 +249,10 @@ function nameList(lastJoiner: string): string {
   return labels.length < 2 ? labels.join("") : `${labels.slice(0, -1).join(", ")} ${lastJoiner} ${labels[labels.length - 1]}`;
 }
 
-/** "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL and Assembly", for messages. */
+/** "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL, Assembly and LaTeX", for messages. */
 export const LANGUAGE_NAMES = nameList("and");
 
-/** "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL or Assembly", for messages like "files that aren't ...". */
+/** "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL, Assembly or LaTeX", for messages like "files that aren't ...". */
 export const LANGUAGE_NAMES_OR = nameList("or");
 
 function extensionOf(fileName: string): string {
@@ -254,9 +266,9 @@ export function languageForFile(fileName: string): LanguageId | undefined {
   return LANGUAGE_IDS.find((id) => LANGUAGES[id].extensions.includes(ext));
 }
 
-/** The language for VS Code's language id ("c", "cpp", "python", "typescriptreact", "rust", "java", "csharp", "go", "php", "sql", "shellscript", "kotlin", "swift", "ruby", "dart", "lua", "r", "matlab", "arduino", "verilog", "systemverilog", "vhdl", "asm", ...), or undefined if unsupported. */
+/** The language for VS Code's language id ("c", "cpp", "python", "typescriptreact", "rust", "java", "csharp", "go", "php", "sql", "shellscript", "kotlin", "swift", "ruby", "dart", "lua", "r", "matlab", "arduino", "verilog", "systemverilog", "vhdl", "asm", "latex", "tex", ...), or undefined if unsupported. */
 export function languageForVscodeId(vscodeId: string | undefined): LanguageId | undefined {
-  return LANGUAGE_IDS.find((id) => LANGUAGES[id].vscodeId === vscodeId);
+  return LANGUAGE_IDS.find((id) => LANGUAGES[id].vscodeId === vscodeId || (LANGUAGES[id].otherVscodeIds ?? []).includes(vscodeId ?? ""));
 }
 
 /** Colours source code in the given language. */

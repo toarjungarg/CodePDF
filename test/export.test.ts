@@ -642,6 +642,33 @@ test("1y. exports Assembly files, alone and combined with a VHDL file", async ()
   assert.ok(combined.pdf.text.includes("entity gates is"));
 });
 
+test("1z. exports LaTeX files, alone and combined with an Assembly file", async () => {
+  const source = fixture("basic.tex");
+  const { pdf } = await exportSections("basic_tex.pdf", [{ ...file("basic.tex", source), language: "latex" }]);
+  assert.ok(pdf.pages[0]!.lines[0]!.startsWith("basic.tex"), "file name in the header");
+  for (const expected of [
+    "% A made-up LaTeX note about baking bread.",
+    "\\documentclass[12pt]{article}",
+    "\\section{Baking 100\\% bread}",
+    "The price is \\$5 \\& tax, so it costs $x^2 + 3$ in total.",
+    "\\item Use \\verb|%not a comment| here.",
+    "% not a comment",
+    "\\notacommand $ stays plain",
+    "\\end{document}",
+  ]) {
+    assert.ok(pdf.text.includes(expected), `missing: ${expected}`);
+  }
+
+  const asm = "; A made-up routine\nmain:\n  nop\n";
+  const combined = await exportSections("mixed_tex_s.pdf", [
+    { ...file("basic.tex", source), language: "latex" },
+    { ...file("start.s", asm), language: "asm" },
+  ]);
+  assert.deepEqual(combined.pdf.outline, ["basic.tex", "start.s"], "one bookmark per file");
+  assert.ok(combined.pdf.text.includes("\\begin{document}"));
+  assert.ok(combined.pdf.text.includes("main:"));
+});
+
 test("2. exports comments and strings exactly", async () => {
   const { pdf } = await exportSections("comments_strings.pdf", [file("comments_strings.cpp", fixture("comments_strings.cpp"))]);
   for (const expected of [

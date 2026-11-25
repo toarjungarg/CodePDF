@@ -65,6 +65,9 @@ put("adder.vhdl", "-- A made-up VHDL file\nentity adder is\n  port (a, b : in bi
 put("toast.s", readFileSync(join(fixtures, "basic.s")));
 put("boot.asm", "; A made-up NASM file\nsection .text\nglobal start\nstart:\n  mov eax, 0FFh\n  ret\n");
 put("Entry.S", "#include \"entry.h\"\n.text\n.globl entry\nentry:\n  mov r0, #5 @ five\n  bx lr\n");
+put("bread.tex", readFileSync(join(fixtures, "basic.tex")));
+put("crumbs.sty", "% A made-up LaTeX package\n\\ProvidesPackage{crumbs}\n\\newcommand{\\crumb}{\\@ifnextchar[{\\crumbA}{\\crumbB}}\n");
+put("Report.cls", "% A made-up LaTeX class\n\\ProvidesClass{Report}\n\\LoadClass[12pt]{article}\n");
 put("gates.v","// A made-up Verilog file\nmodule gates(input a, input b, output y);\n  assign y = a & b;\nendmodule\n");
 for (const name of ["comments_strings.cpp", "unicode.cpp", "long_lines.cpp"]) {
   cpSync(join(fixtures, name), join(project, name));

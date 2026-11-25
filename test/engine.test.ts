@@ -25,6 +25,7 @@ import { tokenizeMatlab } from "../src/export/matlabTokenizer";
 import { tokenizeVerilog } from "../src/export/verilogTokenizer";
 import { tokenizeVhdl } from "../src/export/vhdlTokenizer";
 import { tokenizeAsm } from "../src/export/asmTokenizer";
+import { tokenizeLatex } from "../src/export/latexTokenizer";
 import type { TokenKind, TokenLine } from "../src/export/tokens";
 import { languageForFile, languageForVscodeId, LANGUAGES, LANGUAGE_NAMES, LANGUAGE_NAMES_OR } from "../src/export/languages";
 import { columnWidth, expandLine, layoutLine } from "../src/export/layout";
@@ -34,7 +35,8 @@ import {
   batchPdfNames, isExcludedFolder, isSupportedSource, pdfNameFor, scanFolder, selectionPdfName, sortForExport,
   type DirEntry,
 } from "../src/files";
-import { fixture } from "./helpers";
+import { readFileSync } from "node:fs";
+import { fixture, ROOT } from "./helpers";
 
 const joinLine = (line: TokenLine): string => line.map((t) => t.text).join("");
 const kindOf = (lines: TokenLine[], text: string): TokenKind | undefined => {
@@ -59,11 +61,11 @@ const kindOfWord = (lines: TokenLine[], word: string): TokenKind | undefined => 
 };
 
 test("tokenizer: joining tokens gives back every fixture exactly", () => {
-  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py", "basic.css", "basic.html", "basic.js", "basic.ts", "basic.jsx", "basic.tsx", "basic.rs", "basic.java", "basic.cs", "basic.go", "basic.php", "basic.sql", "basic.sh", "basic.kt", "basic.swift", "basic.rb", "basic.dart", "basic.lua", "basic.r", "basic.m", "basic.ino", "basic.sv", "basic.vhd", "basic.s"]) {
+  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py", "basic.css", "basic.html", "basic.js", "basic.ts", "basic.jsx", "basic.tsx", "basic.rs", "basic.java", "basic.cs", "basic.go", "basic.php", "basic.sql", "basic.sh", "basic.kt", "basic.swift", "basic.rb", "basic.dart", "basic.lua", "basic.r", "basic.m", "basic.ino", "basic.sv", "basic.vhd", "basic.s", "basic.tex"]) {
     const source = fixture(name).replace(/\r\n?/g, "\n");
     for (const lines of [
       tokenizeCpp(source), tokenizeC(source), tokenizePython(source), tokenizeCss(source), tokenizeHtml(source), tokenizeJavaScript(source),
-      tokenizeTs(source), tokenizeJsx(source), tokenizeTsx(source), tokenizeRust(source), tokenizeJava(source), tokenizeCSharp(source), tokenizeGo(source), tokenizePhp(source), tokenizeSql(source), tokenizeShell(source), tokenizeKotlin(source), tokenizeSwift(source), tokenizeRuby(source), tokenizeDart(source), tokenizeLua(source), tokenizeR(source), tokenizeMatlab(source), tokenizeVerilog(source), tokenizeVhdl(source), tokenizeAsm(source),
+      tokenizeTs(source), tokenizeJsx(source), tokenizeTsx(source), tokenizeRust(source), tokenizeJava(source), tokenizeCSharp(source), tokenizeGo(source), tokenizePhp(source), tokenizeSql(source), tokenizeShell(source), tokenizeKotlin(source), tokenizeSwift(source), tokenizeRuby(source), tokenizeDart(source), tokenizeLua(source), tokenizeR(source), tokenizeMatlab(source), tokenizeVerilog(source), tokenizeVhdl(source), tokenizeAsm(source), tokenizeLatex(source),
     ]) {
       assert.equal(lines.map(joinLine).join("\n"), source, `${name} changed during tokenizing`);
     }
@@ -2876,8 +2878,20 @@ test("languages: picked by extension or VS Code language id, with .h treated as 
   assert.equal(languageForVscodeId("asm"), "asm");
   assert.equal(languageForVscodeId("arm"), undefined);
   assert.equal(LANGUAGES.asm.label, "Assembly");
-  assert.equal(LANGUAGE_NAMES, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL and Assembly");
-  assert.equal(LANGUAGE_NAMES_OR, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL or Assembly");
+  for (const name of ["paper.tex", "PAPER.TEX", "style.sty", "report.cls", "Report.CLS"]) {
+    assert.equal(languageForFile(name), "latex", name);
+  }
+  for (const name of ["paper.tex.bak", "paper.text", "paper.tx", "style.st", "report.cl", "report.class", "paper.texi", "paper.aux", "paper.log", "paper.bib", "paper.bst", "tex", "sty", "cls"]) {
+    assert.equal(languageForFile(name), undefined, name);
+  }
+  assert.equal(languageForVscodeId("latex"), "latex", "VS Code's id for .tex files");
+  assert.equal(languageForVscodeId("tex"), "latex", "VS Code's id for .sty and .cls files");
+  assert.equal(languageForVscodeId("latex-expl3"), undefined);
+  assert.equal(languageForVscodeId("bibtex"), undefined);
+  assert.equal(languageForVscodeId(undefined), undefined);
+  assert.equal(LANGUAGES.latex.label, "LaTeX");
+  assert.equal(LANGUAGE_NAMES, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL, Assembly and LaTeX");
+  assert.equal(LANGUAGE_NAMES_OR, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL, Assembly or LaTeX");
 });
 
 test("tokenizer: Arduino sketches use the C++ tokenizer for comments, preprocessor lines, strings and keywords", () => {
@@ -3444,6 +3458,192 @@ test("languages: other languages do not read Assembly rules and Assembly does no
   assert.equal(kindOf(tokenizeAsm("-- hello there"), "-- hello there"), "plain", "a -- is not a comment");
   assert.ok(isSupportedSource("a.s") && isSupportedSource("A.S") && isSupportedSource("a.asm") && isSupportedSource("A.ASM"));
   assert.ok(!isSupportedSource("a.s.bak") && !isSupportedSource("a.sx") && !isSupportedSource("a.inc") && !isSupportedSource("a.a51"));
+});
+
+test("tokenizer: LaTeX fixture colours", () => {
+  const source = fixture("basic.tex");
+  const tex = LANGUAGES[languageForFile("paper.tex")!].tokenize(source);
+  assert.equal(tex.map(joinLine).join("\n"), source, "no text lost or changed");
+  assert.equal(kindOf(tex, "% A made-up LaTeX note"), "comment");
+  assert.equal(kindOf(tex, "% stir well"), "comment", "a comment after text on the same line");
+  assert.equal(kindOf(tex, "\\documentclass"), "keyword");
+  assert.equal(kindOf(tex, "12pt"), "number", "a number with its unit");
+  assert.equal(kindOf(tex, "\\usepackage"), "keyword");
+  assert.equal(kindOf(tex, "\\newcommand"), "keyword");
+  assert.equal(kindOf(tex, "\\loaf"), "keyword", "a command the file made up");
+  assert.equal(kindOf(tex, "#1"), "plain", "a macro parameter is not a number");
+  assert.equal(kindOf(tex, "\\begin"), "keyword");
+  assert.equal(kindOfWord(tex, "document"), "type", "an environment name");
+  assert.equal(kindOf(tex, "itemize"), "type");
+  assert.equal(kindOf(tex, "\\section"), "keyword");
+  assert.equal(kindOf(tex, "100"), "number");
+  assert.equal(kindOf(tex, "\\%"), "keyword", "an escaped percent sign is one token, not a comment");
+  assert.equal(kindOf(tex, "2.5cm"), "number");
+  assert.equal(kindOf(tex, "\\$"), "keyword", "an escaped dollar sign does not open math");
+  assert.equal(kindOf(tex, "\\&"), "keyword");
+  assert.equal(kindOf(tex, "$x^2 + 3$"), "string", "inline math");
+  assert.equal(kindOf(tex, "y = \\frac{a}{b}"), "string", "display math over several lines");
+  assert.equal(kindOf(tex, "% the ratio"), "comment", "a comment inside math");
+  assert.equal(kindOf(tex, "\\verb"), "keyword");
+  assert.equal(kindOf(tex, "|%not a comment|"), "plain", "\\verb text is plain");
+  assert.equal(kindOf(tex, "0.5"), "number");
+  assert.equal(kindOf(tex, "\\textwidth"), "keyword", "the command after a number is its own token");
+  assert.equal(kindOf(tex, "\\\\"), "keyword", "a line break command");
+  assert.equal(kindOf(tex, "% not a comment"), "plain", "verbatim text is plain");
+  assert.equal(kindOf(tex, "\\notacommand $ stays plain"), "plain", "no commands or math inside verbatim");
+});
+
+test("tokenizer: LaTeX tricky cases", () => {
+  // Every token as kind:text, joined with |, and a " // " marks the start of a new line.
+  const kinds = (source: string): string => tokenizeLatex(source).map((l) => l.map((t) => `${t.kind}:${t.text}`).join("|")).join(" // ");
+
+  // Comments and escaped percent signs.
+  assert.equal(kinds("a % b"), "plain:a |comment:% b");
+  assert.equal(kinds("% a\nb"), "comment:% a // plain:b");
+  assert.equal(kinds("50\\% off"), "number:50|keyword:\\%|plain: off", "\\% is not a comment");
+  assert.equal(kinds("a\\\\% x"), "plain:a|keyword:\\\\|comment:% x", "\\\\ is a line break, so the % after it is a comment");
+  assert.equal(kinds("\\\\\\% x"), "keyword:\\\\\\%|plain: x", "a line break and then an escaped percent sign");
+  assert.equal(kinds("% $x$ \\verb|a|"), "comment:% $x$ \\verb|a|", "nothing inside a comment is read");
+  assert.equal(kinds("% $x\n$y$"), "comment:% $x // string:$y$", "a $ in a comment does not open math");
+
+  // Commands and control symbols.
+  assert.equal(kinds("\\section*{A}"), "keyword:\\section|plain:*{A}");
+  assert.equal(kinds("\\@ifnextchar["), "keyword:\\@ifnextchar|plain:[", "an @ counts as a letter");
+  assert.equal(kinds("\\my@macro x"), "keyword:\\my@macro|plain: x");
+  assert.equal(kinds("\\foo2"), "keyword:\\foo|number:2", "digits end a command name");
+  assert.equal(kinds("\\{x\\}"), "keyword:\\{|plain:x|keyword:\\}");
+  assert.equal(kinds("a\\,b\\;c\\ d"), "plain:a|keyword:\\,|plain:b|keyword:\\;|plain:c|keyword:\\ |plain:d");
+  assert.equal(kinds("a\\&b"), "plain:a|keyword:\\&|plain:b");
+  assert.equal(kinds("\\😀x"), "keyword:\\😀|plain:x", "a control symbol can be a character outside the basic range");
+  assert.equal(kinds("a\\"), "plain:a|keyword:\\", "a backslash at the end of the file");
+  assert.equal(kinds("a\\\nb"), "plain:a|keyword:\\ // plain:b", "a backslash at the end of a line");
+  assert.equal(kinds("\\)"), "keyword:\\)", "a closing \\) with no opener is just a control symbol");
+
+  // Math.
+  assert.equal(kinds("a $b$ c"), "plain:a |string:$b$|plain: c");
+  assert.equal(kinds("$$x$$ y"), "string:$$x$$|plain: y");
+  assert.equal(kinds("\\(x\\) y"), "string:\\(x\\)|plain: y");
+  assert.equal(kinds("\\[x\\] y"), "string:\\[x\\]|plain: y");
+  assert.equal(kinds("\\$5 and $x$"), "keyword:\\$|number:5|plain: and |string:$x$", "\\$ in text does not open math");
+  assert.equal(kinds("$a\\$b$ c"), "string:$a\\$b$|plain: c", "\\$ inside math does not close it");
+  assert.equal(kinds("$a\\\\$ c"), "string:$a\\\\$|plain: c", "after a \\\\ the $ closes the math");
+  assert.equal(kinds("$$a$b$$ c"), "string:$$a$b$$|plain: c", "a single $ inside $$ does not close it");
+  assert.equal(kinds("$a$ $b$"), "string:$a$|plain: |string:$b$");
+  assert.equal(kinds("\\( a \\$ \\) b"), "string:\\( a \\$ \\)|plain: b");
+  assert.equal(kinds("\\[ a \\\\ b \\] c"), "string:\\[ a \\\\ b \\]|plain: c", "a line break inside math");
+  assert.equal(kinds("$a\nb$"), "string:$a // string:b$", "math over two lines");
+  assert.equal(kinds("$a % c\nb$"), "string:$a |comment:% c // string:b$", "a comment inside math ends at the line break");
+  assert.equal(kinds("$a \\% c$ d"), "string:$a \\% c$|plain: d", "\\% inside math is not a comment");
+  assert.equal(kinds("$a\n\nb"), "string:$a //  // plain:b", "a blank line ends math that was never closed");
+  assert.equal(kinds("$a\n  \n% real"), "string:$a // plain:   // comment:% real", "a line of only spaces counts as blank");
+  assert.equal(kinds("$$a\n\nb"), "string:$$a //  // plain:b");
+  assert.equal(kinds("\\[a\n\nb"), "string:\\[a //  // plain:b");
+  assert.equal(kinds("$a"), "string:$a", "math never closed at the end of the file");
+  assert.equal(kinds("\\[a"), "string:\\[a");
+  assert.equal(kinds("$"), "string:$");
+  assert.equal(kinds("$é$ 😀"), "string:$é$|plain: 😀");
+
+  // \verb.
+  assert.equal(kinds("\\verb|a%b| c"), "keyword:\\verb|plain:|a%b| c", "no comment inside \\verb");
+  assert.equal(kinds("\\verb+a $ \\b+ c"), "keyword:\\verb|plain:+a $ \\b+ c", "any character can be the delimiter");
+  assert.equal(kinds("\\verb*|a b|"), "keyword:\\verb*|plain:|a b|", "the starred form");
+  assert.equal(kinds("\\verb|a\nb|"), "keyword:\\verb|plain:|a // plain:b|", "the closing delimiter has to be on the same line");
+  assert.equal(kinds("\\verb|a"), "keyword:\\verb|plain:|a", "never closed, so only the command is coloured");
+  assert.equal(kinds("\\verb"), "keyword:\\verb");
+  assert.equal(kinds("\\verb x"), "keyword:\\verb|plain: x", "a space is not a delimiter");
+  assert.equal(kinds("\\verbatim|a|"), "keyword:\\verbatim|plain:|a|", "a different command that starts with verb");
+
+  // Verbatim environments.
+  assert.equal(
+    kinds("\\begin{verbatim}\n% x\n\\foo $\n\\end{verbatim} % real"),
+    "keyword:\\begin|plain:{|type:verbatim|plain:} // plain:% x // plain:\\foo $ // keyword:\\end|plain:{|type:verbatim|plain:} |comment:% real",
+    "the body is plain, then the \\end is read as normal",
+  );
+  assert.equal(kinds("\\begin{verbatim*}a%b\\end{verbatim*}"), "keyword:\\begin|plain:{|type:verbatim*|plain:}a%b|keyword:\\end|plain:{|type:verbatim*|plain:}");
+  assert.equal(
+    kinds("\\begin{lstlisting}[language=C]\nint x; % c\n\\end{lstlisting}"),
+    "keyword:\\begin|plain:{|type:lstlisting|plain:}[language=C] // plain:int x; % c // keyword:\\end|plain:{|type:lstlisting|plain:}",
+  );
+  assert.equal(kinds("\\begin{minted}{python}\n# x $\n\\end{minted}"), "keyword:\\begin|plain:{|type:minted|plain:}{python} // plain:# x $ // keyword:\\end|plain:{|type:minted|plain:}");
+  assert.equal(kinds("\\begin{comment}\n\\bad $\n\\end{comment}"), "keyword:\\begin|plain:{|type:comment|plain:} // plain:\\bad $ // keyword:\\end|plain:{|type:comment|plain:}");
+  assert.equal(kinds("\\begin{verbatim}\n\\end{itemize}\n\\end{verbatim}"), "keyword:\\begin|plain:{|type:verbatim|plain:} // plain:\\end{itemize} // keyword:\\end|plain:{|type:verbatim|plain:}", "a different \\end does not stop it");
+  assert.equal(kinds("\\begin{verbatim}\n% x\n$"), "keyword:\\begin|plain:{|type:verbatim|plain:} // plain:% x // plain:$", "never closed, so it runs to the end of the file");
+  assert.equal(kinds("\\begin {verbatim}x\\end {verbatim}"), "keyword:\\begin|plain: {|type:verbatim|plain:}x|keyword:\\end|plain: {|type:verbatim|plain:}", "spaces before the brace");
+  assert.equal(kinds("\\begin{Verbatim}\n% x"), "keyword:\\begin|plain:{|type:Verbatim|plain:} // comment:% x", "names are case-sensitive, so this is not verbatim");
+  assert.equal(kinds("\\end{verbatim}\n% x"), "keyword:\\end|plain:{|type:verbatim|plain:} // comment:% x", "an \\end alone starts nothing");
+
+  // Environments.
+  assert.equal(kinds("\\begin{itemize}\n% x"), "keyword:\\begin|plain:{|type:itemize|plain:} // comment:% x");
+  assert.equal(kinds("\\begin{align*}"), "keyword:\\begin|plain:{|type:align*|plain:}");
+  assert.equal(kinds("\\end{my-env_2}"), "keyword:\\end|plain:{|type:my-env_2|plain:}");
+  assert.equal(kinds("\\begin"), "keyword:\\begin");
+  assert.equal(kinds("\\begin{}"), "keyword:\\begin|plain:{}", "an empty name is not an environment");
+  assert.equal(kinds("\\begin{a b}"), "keyword:\\begin|plain:{a b}", "a name with a space is not an environment");
+  assert.equal(kinds("\\begin{a"), "keyword:\\begin|plain:{a");
+  assert.equal(kinds("\\beginx{a}"), "keyword:\\beginx|plain:{a}", "a different command that starts with begin");
+  assert.equal(kinds("\\newenvironment{box}"), "keyword:\\newenvironment|plain:{box}", "only \\begin and \\end name environments");
+
+  // Numbers and units.
+  assert.equal(kinds("12pt"), "number:12pt");
+  assert.equal(kinds("2.5cm"), "number:2.5cm");
+  assert.equal(kinds("0.5\\textwidth"), "number:0.5|keyword:\\textwidth", "the number and the command are separate");
+  assert.equal(kinds("1.5em"), "number:1.5em");
+  assert.equal(kinds(".5in"), "number:.5in");
+  assert.equal(kinds("3x"), "number:3|plain:x");
+  assert.equal(kinds("12points"), "number:12|plain:points", "a unit has to be a whole word");
+  assert.equal(kinds("1,5"), "number:1|plain:,|number:5");
+  assert.equal(kinds("2."), "number:2|plain:.");
+  assert.equal(kinds("[width=0.5\\linewidth]"), "plain:[width=|number:0.5|keyword:\\linewidth|plain:]");
+  assert.equal(kinds("fig1 table22"), "plain:fig1 table22", "digits inside a word are not numbers");
+  assert.equal(kinds("\\vspace{12pt}"), "keyword:\\vspace|plain:{|number:12pt|plain:}");
+
+  // Macro parameters, operators and brackets.
+  assert.equal(kinds("#1 and ##2"), "plain:#1 and ##2");
+  assert.equal(kinds("#"), "plain:#");
+  assert.equal(kinds("\\def\\a#1#2{x}"), "keyword:\\def\\a|plain:#1#2{x}");
+  assert.equal(kinds("a & b ~ c"), "plain:a & b ~ c");
+  assert.equal(kinds("{[()]}"), "plain:{[()]}");
+
+  // Other.
+  assert.equal(kinds(""), "");
+  assert.equal(kinds("a\n\nb"), "plain:a //  // plain:b");
+  assert.equal(kinds("é ü 日本"), "plain:é ü 日本");
+});
+
+test("tokenizer: LaTeX keeps every character, even in broken code", () => {
+  for (const source of ["", "\\", "\\\\", "%", "$", "$$", "$$$", "$$$$", "\\(", "\\[", "\\)", "\\]", "\\begin", "\\begin{", "\\begin{verbatim", "\\begin{verbatim}", "\\begin{verbatim}\\end", "\\begin{verbatim}\\end{verbatim", "\\end{", "\\verb", "\\verb|", "\\verb*", "\\verb||", "\\verb*|a", "#", "##", "0", ".", ".5", "1.", "1.5.", "\\😀", "😀", "$😀$", "a\r\nb", "$a\r\n\r\nb$", "\\@", "\\@@", "{", "}", "\\\n\n", "$\\", "$%", "$\\%", "\\[\\\\", "\\verb\n|"]) {
+    const lines = tokenizeLatex(source);
+    assert.equal(lines.map(joinLine).join("\n"), source, `lost text for ${JSON.stringify(source)}`);
+  }
+  // A big file with an unclosed $ every few lines is still read in one go (no slow loops).
+  const big = "a $b\n\nc \\begin{verbatim}\nx\n".repeat(2000);
+  assert.equal(tokenizeLatex(big).map(joinLine).join("\n"), big);
+});
+
+test("languages: other languages do not read LaTeX rules and LaTeX does not read theirs", () => {
+  assert.equal(kindOf(tokenizeCpp("% hello there"), "% hello there"), "plain");
+  assert.equal(kindOf(tokenizeAsm("\\section"), "\\section"), "plain");
+  assert.equal(kindOf(tokenizeLatex("// hello there"), "// hello there"), "plain", "// is not a comment");
+  assert.equal(kindOf(tokenizeLatex("# hello there"), "# hello there"), "plain");
+  assert.equal(kindOfWord(tokenizeLatex("int return"), "return"), "plain", "C words are only plain words");
+  assert.equal(kindOf(tokenizeLatex("\"a\""), "\"a\""), "plain", "a double quote does not start a string");
+  assert.ok(isSupportedSource("a.tex") && isSupportedSource("a.sty") && isSupportedSource("a.cls") && isSupportedSource("A.TEX"));
+  assert.ok(!isSupportedSource("a.tex.bak") && !isSupportedSource("a.text") && !isSupportedSource("a.bib") && !isSupportedSource("a.aux"));
+});
+
+test("package.json: all five menu rules match .tex, .sty and .cls and no look-alike extensions", () => {
+  const manifest = JSON.parse(readFileSync(`${ROOT}/package.json`, "utf8")) as { contributes: { menus: Record<string, { when: string }[]> } };
+  const rules = Object.values(manifest.contributes.menus).flat().map((item) => item.when).filter((when) => when.includes("resourceExtname"));
+  assert.equal(rules.length, 5, "five menu rules use the extension list");
+  for (const when of rules) {
+    const regex = new RegExp(/resourceExtname =~ \/(.*)\/i/.exec(when)![1]!, "i");
+    for (const ext of [".tex", ".sty", ".cls", ".TEX", ".Cls", ".cpp", ".s", ".asm", ".vhd"]) {
+      assert.ok(regex.test(ext), `${ext} should match in: ${when}`);
+    }
+    for (const ext of [".text", ".tx", ".te", ".st", ".sty2", ".cl", ".class", ".clsx", ".texi", ".stylus", ".aux", ".bib", ".log", "tex", ".tex.bak", ".xtex"]) {
+      assert.ok(!regex.test(ext), `${ext} should not match in: ${when}`);
+    }
+  }
 });
 
 test("layout: tabs expand to the next tab stop and control characters become visible", () => {

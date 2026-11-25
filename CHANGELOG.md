@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.25.0
+- Added LaTeX export (`.tex`, `.sty`, `.cls`).
+
 ## 1.24.0
 - Added Assembly export (`.s`, `.S`, `.asm`).
 
