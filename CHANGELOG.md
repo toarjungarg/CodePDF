@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.18.0
+- Added Lua export (`.lua`).
+- Folder export now skips `lua_modules` folders.
+
 ## 1.17.0
 - Added Dart export (`.dart`).
 

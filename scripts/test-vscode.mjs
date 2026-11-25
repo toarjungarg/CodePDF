@@ -55,6 +55,7 @@ put("Bakery.kt", readFileSync(join(fixtures, "basic.kt")));
 put("Oven.swift", readFileSync(join(fixtures, "basic.swift")));
 put("loaves.rb", readFileSync(join(fixtures, "basic.rb")));
 put("dough.dart", readFileSync(join(fixtures, "basic.dart")));
+put("rolls.lua",readFileSync(join(fixtures, "basic.lua")));
 for (const name of ["comments_strings.cpp", "unicode.cpp", "long_lines.cpp"]) {
   cpSync(join(fixtures, name), join(project, name));
 }
@@ -79,6 +80,7 @@ put("Carthage/Checkouts/Dep.swift", "// Carthage dependency copy: must be skippe
 put("vendor/bundle/ruby/gems/dep.rb", "# Bundler dependency copy: must be skipped\n");
 put(".bundle/config.rb", "# Bundler settings folder (hidden): must be skipped\n");
 put(".dart_tool/gen/cache.dart", "// Dart tool cache (hidden folder): must be skipped\n");
+put("lua_modules/share/lua/dep.lua", "-- LuaRocks dependency copy: must be skipped\n");
 put("notes.txt","Not source code.\n");
 
 // 2. Test PDFs, made with CodePDF's own (compiled) engine.

@@ -3,7 +3,7 @@
 A VS Code extension that does two things:
 
 1. Opens PDF files in a VS Code tab.
-2. Exports C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby and Dart files as clean, printable PDFs.
+2. Exports C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart and Lua files as clean, printable PDFs.
 
 I built it for my own assignments. I wanted to read the assignment PDF next to my code, and then turn my `.cpp` files into PDFs I could upload, without leaving VS Code.
 
@@ -27,7 +27,7 @@ Open any `.pdf` file in VS Code and it shows up in a tab.
 
 Links inside a PDF never open by themselves. CodePDF asks first, and only opens web and email links.
 
-## Exporting C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby and Dart to PDF
+## Exporting C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart and Lua to PDF
 
 Supported files:
 
@@ -50,19 +50,20 @@ Supported files:
 - Swift: `.swift`
 - Ruby: `.rb`
 - Dart: `.dart`
+- Lua: `.lua`
 
 `.h` files are coloured as C++, which also works for C headers.
 
 With HTML, CSS and JavaScript, it supports traditional web dev.
 
-I'm adding more languages. Lua is next.
+I'm adding more languages. R is next.
 
 | Command | What it does |
 |---|---|
 | CodePDF: Export as PDF | Exports one file. `main.cpp` becomes `main.pdf` in the same folder. |
 | CodePDF: Export Selection as PDF | Exports only the lines you highlighted, with their real line numbers. |
 | CodePDF: Export Multiple Files | Combines the files you pick into one PDF. Each file starts on a new page. |
-| CodePDF: Export Folder as PDF | Combines every C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby and Dart file in a folder into one PDF. |
+| CodePDF: Export Folder as PDF | Combines every C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart and Lua file in a folder into one PDF. |
 
 You can run them from the Command Palette, or by right-clicking a file or folder in the Explorer, or by right-clicking in the editor.
 
@@ -92,7 +93,7 @@ The PDFs have syntax colours, line numbers, a header with the file name and a fo
 
 ![Exporting the demo folder, where the file list shows build and the hidden file were skipped](images/export-folder.gif)
 
-The demos show C++ files, but everything works the same way for C, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby and Dart.
+The demos show C++ files, but everything works the same way for C, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart and Lua.
 
 Some details worth knowing:
 
@@ -100,7 +101,7 @@ Some details worth knowing:
 - If the PDF already exists, CodePDF asks before replacing it.
 - If a file is open with unsaved changes, the export uses what is on screen and tells you so.
 - The PDF uses the same font as your editor (the `editor.fontFamily` setting), as long as it is a monospace font installed on your computer. Otherwise it uses the system's default monospace font.
-- Folder export skips hidden files and folders, and folders named `node_modules`, `build`, `builds`, `dist`, `out`, `bin`, `obj`, `debug`, `release`, `x64`, `x86`, `target`, `__pycache__`, `venv`, `vendor`, `pods`, `deriveddata`, `carthage` or starting with `cmake-build-`. It shows you the file list before exporting, so you can untick anything.
+- Folder export skips hidden files and folders, and folders named `node_modules`, `build`, `builds`, `dist`, `out`, `bin`, `obj`, `debug`, `release`, `x64`, `x86`, `target`, `__pycache__`, `venv`, `vendor`, `pods`, `deriveddata`, `carthage`, `lua_modules` or starting with `cmake-build-`. It shows you the file list before exporting, so you can untick anything.
 - Folder export stops at 500 files and does not follow shortcuts (symlinks). Header files come first, then the rest in alphabetical order.
 - If you export `main.cpp` and `main.h` together as separate PDFs, they are named `main.cpp.pdf` and `main.h.pdf` so one does not overwrite the other.
 
@@ -155,7 +156,7 @@ Used only for building and testing, never shipped:
 | [@types/vscode](https://www.npmjs.com/package/@types/vscode) | 1.140.0 | Type descriptions for the VS Code API. |
 | [@vscode/vsce](https://www.npmjs.com/package/@vscode/vsce) | 4.1.0 | Packages the extension into a `.vsix` file. |
 
-The syntax colouring is written from scratch (`src/export/cFamilyTokenizer.ts` for C and C++, `src/export/pythonTokenizer.ts` for Python, `src/export/cssTokenizer.ts` for CSS, `src/export/htmlTokenizer.ts` for HTML, `src/export/javascriptTokenizer.ts` for JavaScript, TypeScript and React, `src/export/rustTokenizer.ts` for Rust, `src/export/javaTokenizer.ts` for Java, `src/export/csharpTokenizer.ts` for C#, `src/export/goTokenizer.ts` for Go, `src/export/phpTokenizer.ts` for PHP, `src/export/sqlTokenizer.ts` for SQL, `src/export/shellTokenizer.ts` for Shell / Bash, `src/export/kotlinTokenizer.ts` for Kotlin, `src/export/swiftTokenizer.ts` for Swift, `src/export/rubyTokenizer.ts` for Ruby, `src/export/dartTokenizer.ts` for Dart), so there is no highlighting library.
+The syntax colouring is written from scratch (`src/export/cFamilyTokenizer.ts` for C and C++, `src/export/pythonTokenizer.ts` for Python, `src/export/cssTokenizer.ts` for CSS, `src/export/htmlTokenizer.ts` for HTML, `src/export/javascriptTokenizer.ts` for JavaScript, TypeScript and React, `src/export/rustTokenizer.ts` for Rust, `src/export/javaTokenizer.ts` for Java, `src/export/csharpTokenizer.ts` for C#, `src/export/goTokenizer.ts` for Go, `src/export/phpTokenizer.ts` for PHP, `src/export/sqlTokenizer.ts` for SQL, `src/export/shellTokenizer.ts` for Shell / Bash, `src/export/kotlinTokenizer.ts` for Kotlin, `src/export/swiftTokenizer.ts` for Swift, `src/export/rubyTokenizer.ts` for Ruby, `src/export/dartTokenizer.ts` for Dart, `src/export/luaTokenizer.ts` for Lua), so there is no highlighting library.
 
 Install scripts are turned off for this project (`.npmrc`), and optional binary packages are not installed.
 
@@ -163,7 +164,7 @@ Known issue: `npm audit` reports a moderate issue in `minimatch` 10.2.6, which `
 
 ## Limitations
 
-- Syntax colouring is for C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby and Dart only, and it is pattern-based rather than a full parser, so unusual macros can be coloured slightly wrong. The text itself is always exact.
+- Syntax colouring is for C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart and Lua only, and it is pattern-based rather than a full parser, so unusual macros can be coloured slightly wrong. The text itself is always exact.
 - In Python, `match`, `case` and `type` are only coloured as keywords when the statement fits on one line.
 - In JavaScript, a `/` right after `)` is read as division, so a regex there (like `if (ok) /a/.test(s)`) isn't coloured.
 - In TypeScript, type words like `string` and `number` are always coloured as types, even when used as a variable name.
@@ -178,6 +179,7 @@ Known issue: `npm audit` reports a moderate issue in `minimatch` 10.2.6, which `
 - In Swift, a name is coloured as a type if it starts with a capital letter (`String`, `URL`, `Point`), so a capitalised constant is coloured as a type too. Words like `get`, `set`, `willSet`, `didSet`, `some`, `any`, `async`, `await`, `actor`, `final`, `lazy` and `open` are only coloured where they work as keywords, so a variable named `get` or `some` stays plain, but a modifier split from its declaration over two lines is not coloured. A keyword right after a dot (like `.default` or `.none`) is shown plain, except `.self` and `.init`. Inside a string, the `\(` and `)` around interpolated code are shown plain, and the code between them is coloured as code. Regex literals (`/.../` and `#/.../#`) are not recognised, so a `/` is always read as an operator and the pattern is coloured like normal code.
 - In Ruby, only `.rb` files are supported, so files like `Gemfile`, `Rakefile` and `.erb` templates are not. A name is coloured as a type if it starts with a capital letter, so constants like `MAX_SIZE` are coloured as types, and `@name`, `@@name` and `$name` variables get the same colour. Symbols (`:name`, `:+`) and hash labels (`name:`) use the number colour, and a quoted symbol like `:"two words"` is coloured as a string. A `/`, `%` or `<<` is only read as a regex, a `%w[]` style literal or a heredoc where a value can start (after an operator, a bracket, a comma, a keyword or at the start of a line, or after a method name with a space before it and none after it), so `a << b` and `a / b` stay plain. A regex right after a method name (like `split /,/`) is only coloured when its closing `/` is on the same line. A heredoc is only recognised when its closing tag really shows up on a line later in the file. Heredoc bodies are always one string colour, even when they contain `#{code}`, and `#@name` style interpolation is shown as plain string text. Words like `puts`, `require`, `include`, `attr_accessor`, `private` and `raise` are coloured as keywords, but other methods are not, and a keyword right after a dot (like `x.class`) or after `def` is shown plain. A `?a` character literal is only coloured where a value can start, and a ternary with no spaces (like `a ?b:c`) may be coloured slightly wrong.
 - In Dart, a name is coloured as a type if it starts with a capital letter (after any `_`) and has a lowercase letter somewhere (`String`, `Point`, `_State`), so a class named in capitals like `HTTP` stays plain. The built-in types `int`, `double`, `num`, `bool`, `dynamic` and `void` are coloured as keywords, like in the other languages. Words like `get`, `set`, `operator`, `late`, `required`, `sealed`, `base`, `interface`, `mixin`, `extension`, `on`, `show`, `hide`, `async`, `await`, `yield` and `when` are only coloured where they work as keywords, so a variable named `get` or `base` stays plain, but a modifier split from its declaration over two lines is not coloured. A word right after a dot (like `x.static` or `Foo.new`) and a named argument (like `required: true`) are shown plain. `async` is only coloured right after a `)`, and `when` only after a pattern, so a `when` guard that starts its own line is plain. Inside a string, `$name` and the `${` and `}` around interpolated code are shown plain, and the code between the braces is coloured as code. Symbols like `#name` and `#+` use the number colour. A number with an underscore, like `1_000`, is coloured as one number.
+- In Lua, only `.lua` files are supported. Built-in functions like `print`, `pairs`, `require` and `setmetatable` are only coloured when they are called (a bracket, a string or a table follows), and library names like `string`, `table` and `math` only when a dot follows, so a variable named `type` or `table` stays plain. A name right after a dot or colon (like `t.print` or `obj:type()`) is shown plain, and so are the names in a `local` list and after `local function`. Names are never coloured as types, apart from `_G`, `_ENV` and `_VERSION`. A label (`::continue::`) and the name after `goto` share one colour, and `<const>` and `<close>` are coloured only right after a `local` name.
 - Since `.h` files are coloured as C++, a C header that uses a C++ word like `new` or `class` as a name shows that word coloured as a keyword.
 - Emoji are not supported in exported PDFs. They print as a placeholder symbol.
 - Characters your editor font does not have (for example Chinese, Japanese or Korean) are filled in from a system font.
