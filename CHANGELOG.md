@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.10.0
+- Added Go export (`.go`).
+- Folder export now skips `vendor` folders.
+
 ## 1.9.0
 - Added C# export (`.cs`).
 

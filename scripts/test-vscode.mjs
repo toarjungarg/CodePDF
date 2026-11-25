@@ -47,6 +47,7 @@ put("list.tsx", readFileSync(join(fixtures, "basic.tsx")));
 put("pantry.rs", readFileSync(join(fixtures, "basic.rs")));
 put("Kitchen.java", readFileSync(join(fixtures, "basic.java")));
 put("Cookbook.cs", readFileSync(join(fixtures, "basic.cs")));
+put("shelf.go", readFileSync(join(fixtures, "basic.go")));
 for (const name of ["comments_strings.cpp", "unicode.cpp", "long_lines.cpp"]) {
   cpSync(join(fixtures, name), join(project, name));
 }
@@ -63,6 +64,7 @@ put("venv/lib/site.py", "# virtual environment: must be skipped\n");
 put("target/debug/build.rs", "// Cargo build output: must be skipped\n");
 put("out/production/Old.java", "// IntelliJ build output: must be skipped\n");
 put("obj/Debug/AssemblyInfo.cs", "// .NET build output: must be skipped\n");
+put("vendor/dep/dep.go", "// Go dependency copy: must be skipped\n");
 put("notes.txt", "Not source code.\n");
 
 // 2. Test PDFs, made with CodePDF's own (compiled) engine.

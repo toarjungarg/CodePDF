@@ -251,6 +251,30 @@ test("1j. exports a C# file, alone and combined with Java", async () => {
   assert.ok(combined.pdf.text.includes("pantry.forEach(System.out::println);"));
 });
 
+test("1k. exports a Go file, alone and combined with C#", async () => {
+  const source = fixture("basic.go");
+  const { pdf } = await exportSections("basic_go.pdf", [file("basic.go", source)]);
+  assert.ok(pdf.pages[0]!.lines[0]!.startsWith("basic.go"), "file name in the header");
+  for (const expected of [
+    "type Shelf struct {",
+    "quote := '\\''",
+    "raw := `C:\\recipes\\pancakes`",
+    'that spans three lines, with a "quote" and // not a comment',
+    "and a backslash \\n that is not an escape",
+    "mask := 0xF0 &^ 0x30",
+    "v, ok := <-ch",
+  ]) {
+    assert.ok(pdf.text.includes(expected), `missing: ${expected}`);
+  }
+
+  const combined = await exportSections("mixed_go_cs.pdf", [
+    { ...file("basic.go", source), language: "go" },
+    { ...file("basic.cs", fixture("basic.cs")), language: "csharp" },
+  ]);
+  assert.deepEqual(combined.pdf.outline, ["basic.go", "basic.cs"], "one bookmark per file");
+  assert.ok(combined.pdf.text.includes("public partial class Cookbook : IDish"));
+});
+
 test("2. exports comments and strings exactly", async () => {
   const { pdf } = await exportSections("comments_strings.pdf", [file("comments_strings.cpp", fixture("comments_strings.cpp"))]);
   for (const expected of [

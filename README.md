@@ -3,7 +3,7 @@
 A VS Code extension that does two things:
 
 1. Opens PDF files in a VS Code tab.
-2. Exports C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java and C# files as clean, printable PDFs.
+2. Exports C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C# and Go files as clean, printable PDFs.
 
 I built it for my own assignments. I wanted to read the assignment PDF next to my code, and then turn my `.cpp` files into PDFs I could upload, without leaving VS Code.
 
@@ -27,7 +27,7 @@ Open any `.pdf` file in VS Code and it shows up in a tab.
 
 Links inside a PDF never open by themselves. CodePDF asks first, and only opens web and email links.
 
-## Exporting C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java and C# to PDF
+## Exporting C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C# and Go to PDF
 
 Supported files:
 
@@ -42,19 +42,20 @@ Supported files:
 - Rust: `.rs`
 - Java: `.java`
 - C#: `.cs`
+- Go: `.go`
 
 `.h` files are coloured as C++, which also works for C headers.
 
 With HTML, CSS and JavaScript, it supports traditional web dev.
 
-I'm adding more languages. Go is next.
+I'm adding more languages. PHP is next.
 
 | Command | What it does |
 |---|---|
 | CodePDF: Export as PDF | Exports one file. `main.cpp` becomes `main.pdf` in the same folder. |
 | CodePDF: Export Selection as PDF | Exports only the lines you highlighted, with their real line numbers. |
 | CodePDF: Export Multiple Files | Combines the files you pick into one PDF. Each file starts on a new page. |
-| CodePDF: Export Folder as PDF | Combines every C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java and C# file in a folder into one PDF. |
+| CodePDF: Export Folder as PDF | Combines every C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C# and Go file in a folder into one PDF. |
 
 You can run them from the Command Palette, or by right-clicking a file or folder in the Explorer, or by right-clicking in the editor.
 
@@ -84,7 +85,7 @@ The PDFs have syntax colours, line numbers, a header with the file name and a fo
 
 ![Exporting the demo folder, where the file list shows build and the hidden file were skipped](images/export-folder.gif)
 
-The demos show C++ files, but everything works the same way for C, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java and C#.
+The demos show C++ files, but everything works the same way for C, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C# and Go.
 
 Some details worth knowing:
 
@@ -92,7 +93,7 @@ Some details worth knowing:
 - If the PDF already exists, CodePDF asks before replacing it.
 - If a file is open with unsaved changes, the export uses what is on screen and tells you so.
 - The PDF uses the same font as your editor (the `editor.fontFamily` setting), as long as it is a monospace font installed on your computer. Otherwise it uses the system's default monospace font.
-- Folder export skips hidden files and folders, and folders named `node_modules`, `build`, `builds`, `dist`, `out`, `bin`, `obj`, `debug`, `release`, `x64`, `x86`, `target`, `__pycache__`, `venv` or starting with `cmake-build-`. It shows you the file list before exporting, so you can untick anything.
+- Folder export skips hidden files and folders, and folders named `node_modules`, `build`, `builds`, `dist`, `out`, `bin`, `obj`, `debug`, `release`, `x64`, `x86`, `target`, `__pycache__`, `venv`, `vendor` or starting with `cmake-build-`. It shows you the file list before exporting, so you can untick anything.
 - Folder export stops at 500 files and does not follow shortcuts (symlinks). Header files come first, then the rest in alphabetical order.
 - If you export `main.cpp` and `main.h` together as separate PDFs, they are named `main.cpp.pdf` and `main.h.pdf` so one does not overwrite the other.
 
@@ -147,7 +148,7 @@ Used only for building and testing, never shipped:
 | [@types/vscode](https://www.npmjs.com/package/@types/vscode) | 1.140.0 | Type descriptions for the VS Code API. |
 | [@vscode/vsce](https://www.npmjs.com/package/@vscode/vsce) | 4.1.0 | Packages the extension into a `.vsix` file. |
 
-The syntax colouring is written from scratch (`src/export/cFamilyTokenizer.ts` for C and C++, `src/export/pythonTokenizer.ts` for Python, `src/export/cssTokenizer.ts` for CSS, `src/export/htmlTokenizer.ts` for HTML, `src/export/javascriptTokenizer.ts` for JavaScript, TypeScript and React, `src/export/rustTokenizer.ts` for Rust, `src/export/javaTokenizer.ts` for Java, `src/export/csharpTokenizer.ts` for C#), so there is no highlighting library.
+The syntax colouring is written from scratch (`src/export/cFamilyTokenizer.ts` for C and C++, `src/export/pythonTokenizer.ts` for Python, `src/export/cssTokenizer.ts` for CSS, `src/export/htmlTokenizer.ts` for HTML, `src/export/javascriptTokenizer.ts` for JavaScript, TypeScript and React, `src/export/rustTokenizer.ts` for Rust, `src/export/javaTokenizer.ts` for Java, `src/export/csharpTokenizer.ts` for C#, `src/export/goTokenizer.ts` for Go), so there is no highlighting library.
 
 Install scripts are turned off for this project (`.npmrc`), and optional binary packages are not installed.
 
@@ -155,13 +156,14 @@ Known issue: `npm audit` reports a moderate issue in `minimatch` 10.2.6, which `
 
 ## Limitations
 
-- Syntax colouring is for C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java and C# only, and it is pattern-based rather than a full parser, so unusual macros can be coloured slightly wrong. The text itself is always exact.
+- Syntax colouring is for C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C# and Go only, and it is pattern-based rather than a full parser, so unusual macros can be coloured slightly wrong. The text itself is always exact.
 - In Python, `match`, `case` and `type` are only coloured as keywords when the statement fits on one line.
 - In JavaScript, a `/` right after `)` is read as division, so a regex there (like `if (ok) /a/.test(s)`) isn't coloured.
 - In TypeScript, type words like `string` and `number` are always coloured as types, even when used as a variable name.
 - In Rust, only built-in types and common standard ones (like `String`, `Vec` and `Option`) are coloured as types. Your own structs and enums stay plain.
 - In Java, any name that starts with a capital letter and isn't in all capitals is coloured as a type, following Java's naming convention. A variable named like a class gets coloured too.
 - In C#, a name is coloured as a type if it's a common .NET type (like `List` or `Task`), a type declared in the same file, or the name right after `new`. Types from other files stay plain elsewhere.
+- In Go, a name is coloured as a type if it's a built-in type (like `int` or `error`) or a type declared with `type` in the same file. Types from other files and packages stay plain. Built-in functions like `len` and `max` are only coloured when they are called, so a variable named `max` stays plain.
 - Since `.h` files are coloured as C++, a C header that uses a C++ word like `new` or `class` as a name shows that word coloured as a keyword.
 - Emoji are not supported in exported PDFs. They print as a placeholder symbol.
 - Characters your editor font does not have (for example Chinese, Japanese or Korean) are filled in from a system font.
