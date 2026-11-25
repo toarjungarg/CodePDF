@@ -54,6 +54,7 @@ put("backup.sh", readFileSync(join(fixtures, "basic.sh")));
 put("Bakery.kt", readFileSync(join(fixtures, "basic.kt")));
 put("Oven.swift", readFileSync(join(fixtures, "basic.swift")));
 put("loaves.rb", readFileSync(join(fixtures, "basic.rb")));
+put("dough.dart", readFileSync(join(fixtures, "basic.dart")));
 for (const name of ["comments_strings.cpp", "unicode.cpp", "long_lines.cpp"]) {
   cpSync(join(fixtures, name), join(project, name));
 }
@@ -77,6 +78,7 @@ put("DerivedData/Build/Gen.swift", "// Xcode build output: must be skipped\n");
 put("Carthage/Checkouts/Dep.swift", "// Carthage dependency copy: must be skipped\n");
 put("vendor/bundle/ruby/gems/dep.rb", "# Bundler dependency copy: must be skipped\n");
 put(".bundle/config.rb", "# Bundler settings folder (hidden): must be skipped\n");
+put(".dart_tool/gen/cache.dart", "// Dart tool cache (hidden folder): must be skipped\n");
 put("notes.txt","Not source code.\n");
 
 // 2. Test PDFs, made with CodePDF's own (compiled) engine.

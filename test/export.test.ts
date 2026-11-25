@@ -437,6 +437,31 @@ test("1q. exports a Ruby file, alone and combined with Swift", async () => {
   assert.ok(combined.pdf.text.includes("#!/usr/bin/env ruby"));
 });
 
+test("1r. exports a Dart file, alone and combined with Ruby", async () => {
+  const source = fixture("basic.dart");
+  const { pdf } = await exportSections("basic_dart.pdf", [file("basic.dart", source)]);
+  assert.ok(pdf.pages[0]!.lines[0]!.startsWith("basic.dart"), "file name in the header");
+  for (const expected of [
+    "typedef Recipe = Map<String, List<int>>;",
+    "final list = [1, 2, ...?extras?.values, ...[3, 4]];",
+    "count ??= 0;",
+    "var raw = r'raw $kind \\n ${nothing}';",
+    "var nested = 'a ${n > 1 ? 'many ${kind.length}' : \"one\"} b';",
+    "bool operator ==(Object other) => other is Loaf && other._name == _name;",
+    "int n when n > 100 => 'big',",
+    "Iterable<int> evens() sync* {",
+  ]) {
+    assert.ok(pdf.text.includes(expected), `missing: ${expected}`);
+  }
+
+  const combined = await exportSections("mixed_dart_ruby.pdf", [
+    { ...file("basic.dart", source), language: "dart" },
+    { ...file("basic.rb", fixture("basic.rb")), language: "ruby" },
+  ]);
+  assert.deepEqual(combined.pdf.outline, ["basic.dart", "basic.rb"], "one bookmark per file");
+  assert.ok(combined.pdf.text.includes("#!/usr/bin/env dart"));
+});
+
 test("2. exports comments and strings exactly", async () => {
   const { pdf } = await exportSections("comments_strings.pdf", [file("comments_strings.cpp", fixture("comments_strings.cpp"))]);
   for (const expected of [

@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.17.0
+- Added Dart export (`.dart`).
+
 ## 1.16.0
 - Added Ruby export (`.rb`).
 

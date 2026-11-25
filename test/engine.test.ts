@@ -18,6 +18,7 @@ import { tokenizeShell } from "../src/export/shellTokenizer";
 import { tokenizeKotlin } from "../src/export/kotlinTokenizer";
 import { tokenizeSwift } from "../src/export/swiftTokenizer";
 import { tokenizeRuby } from "../src/export/rubyTokenizer";
+import { tokenizeDart } from "../src/export/dartTokenizer";
 import type { TokenKind, TokenLine } from "../src/export/tokens";
 import { languageForFile, languageForVscodeId, LANGUAGE_NAMES, LANGUAGE_NAMES_OR } from "../src/export/languages";
 import { columnWidth, expandLine, layoutLine } from "../src/export/layout";
@@ -52,11 +53,11 @@ const kindOfWord = (lines: TokenLine[], word: string): TokenKind | undefined => 
 };
 
 test("tokenizer: joining tokens gives back every fixture exactly", () => {
-  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py", "basic.css", "basic.html", "basic.js", "basic.ts", "basic.jsx", "basic.tsx", "basic.rs", "basic.java", "basic.cs", "basic.go", "basic.php", "basic.sql", "basic.sh", "basic.kt", "basic.swift", "basic.rb"]) {
+  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py", "basic.css", "basic.html", "basic.js", "basic.ts", "basic.jsx", "basic.tsx", "basic.rs", "basic.java", "basic.cs", "basic.go", "basic.php", "basic.sql", "basic.sh", "basic.kt", "basic.swift", "basic.rb", "basic.dart"]) {
     const source = fixture(name).replace(/\r\n?/g, "\n");
     for (const lines of [
       tokenizeCpp(source), tokenizeC(source), tokenizePython(source), tokenizeCss(source), tokenizeHtml(source), tokenizeJavaScript(source),
-      tokenizeTs(source), tokenizeJsx(source), tokenizeTsx(source), tokenizeRust(source), tokenizeJava(source), tokenizeCSharp(source), tokenizeGo(source), tokenizePhp(source), tokenizeSql(source), tokenizeShell(source), tokenizeKotlin(source), tokenizeSwift(source), tokenizeRuby(source),
+      tokenizeTs(source), tokenizeJsx(source), tokenizeTsx(source), tokenizeRust(source), tokenizeJava(source), tokenizeCSharp(source), tokenizeGo(source), tokenizePhp(source), tokenizeSql(source), tokenizeShell(source), tokenizeKotlin(source), tokenizeSwift(source), tokenizeRuby(source), tokenizeDart(source),
     ]) {
       assert.equal(lines.map(joinLine).join("\n"), source, `${name} changed during tokenizing`);
     }
@@ -1758,6 +1759,235 @@ test("tokenizer: Ruby tricky cases", () => {
   assert.equal(tokenizeRuby(deep).map(joinLine).join("\n"), deep, "100 levels of interpolation");
 });
 
+test("tokenizer: Dart comments, strings, interpolation, numbers, annotations and keywords", () => {
+  const source = fixture("basic.dart");
+  const sourceLines = source.split("\n");
+  const dart = tokenizeDart(source);
+  assert.equal(dart.length, sourceLines.length, "one token line per source line");
+  // One source line as kind:text pieces joined with |, found by a piece of its text.
+  const line = (text: string): string => {
+    const index = sourceLines.findIndex((l) => l.includes(text));
+    assert.ok(index !== -1, `no line with ${text}`);
+    return dart[index]!.map((t) => `${t.kind}:${t.text}`).join("|");
+  };
+  // The same, but for the line that is exactly this text.
+  const exact = (text: string): string => {
+    const index = sourceLines.findIndex((l) => l === text);
+    assert.ok(index !== -1, `no line that is ${text}`);
+    return dart[index]!.map((t) => `${t.kind}:${t.text}`).join("|");
+  };
+
+  // Comments.
+  assert.equal(line("#!/usr/bin/env"), "comment:#!/usr/bin/env dart");
+  assert.equal(line("/// A small oven"), 'comment:/// A small oven timer. This doc comment says class and "string" but stays a comment.');
+  assert.equal(line("One line comment"), "comment:// One line comment: void final if 'quotes'");
+  assert.equal(line("A block comment"), "comment:/* A block comment /* with a nested one */ that is still a comment */");
+
+  // Libraries, imports and combinators.
+  assert.equal(line("library bakery"), "keyword:library|plain: bakery;");
+  assert.equal(line("dart:async"), "keyword:import|plain: |string:'dart:async'|plain:;");
+  assert.equal(line("dart:math"), "keyword:import|plain: |string:'dart:math'|plain: |keyword:as|plain: math |keyword:show|plain: max, min;");
+  assert.equal(line("oven.dart"), "keyword:import|plain: |string:'package:oven/oven.dart'|plain: |keyword:hide|plain: |type:Broken|plain:;");
+  assert.equal(line("export 'src"), "keyword:export|plain: |string:'src/loaf.dart'|plain: |keyword:show|plain: |type:Loaf|plain:;");
+  assert.equal(line("part 'bakery"), "keyword:part|plain: |string:'bakery.g.dart'|plain:;");
+
+  // Numbers: hex, exponents, a leading dot, and digit separators.
+  assert.equal(line("maxLoaves"), "keyword:const|plain: maxLoaves = |number:1000|plain:;");
+  assert.equal(line("mask ="), "keyword:const|plain: mask = |number:0xFF|plain:;");
+  assert.equal(line("ratio ="), "keyword:const|plain: ratio = |number:1.5e-3|plain:;");
+  assert.equal(line("big ="), "keyword:const|plain: big = |number:2E10|plain:;");
+  assert.equal(line("half ="), "keyword:const|plain: half = |number:.5|plain:;");
+  assert.equal(line("spaced ="), "keyword:const|plain: spaced = |number:1_000|plain:;");
+  assert.equal(line("flag ="), "keyword:const|plain: flag = |keyword:true|plain:;");
+
+  // Declarations and contextual modifiers.
+  assert.equal(line("typedef Recipe"), "keyword:typedef|plain: |type:Recipe|plain: = |type:Map|plain:<|type:String|plain:, |type:List|plain:<|keyword:int|plain:>>;");
+  assert.equal(line("enum Heat"), "keyword:enum|plain: |type:Heat|plain: { low, medium, high }");
+  assert.equal(line("sealed class"), "keyword:sealed|plain: |keyword:class|plain: |type:Dough|plain: {");
+  assert.equal(line("base class"), "keyword:base|plain: |keyword:class|plain: |type:Rye|plain: |keyword:extends|plain: |type:Dough|plain: {");
+  assert.equal(line("interface class Starter"), "keyword:interface|plain: |keyword:class|plain: |type:Starter|plain: {}");
+  assert.equal(line("abstract interface"), "keyword:abstract|plain: |keyword:interface|plain: |keyword:class|plain: |type:Baked|plain: {");
+  assert.equal(line("mixin Slicer"), "keyword:mixin|plain: |type:Slicer|plain: |keyword:on|plain: |type:Baked|plain: {");
+  assert.equal(line("mixin class"), "keyword:mixin|plain: |keyword:class|plain: |type:Warmer|plain: {}");
+  assert.equal(line("extension LoafText"), "keyword:extension|plain: |type:LoafText|plain: |keyword:on|plain: |type:String|plain: {");
+  assert.equal(line("class Loaf extends"), "keyword:class|plain: |type:Loaf|plain: |keyword:extends|plain: |type:Dough|plain: |keyword:with|plain: |type:Slicer|plain: |keyword:implements|plain: |type:Baked|plain: {");
+  assert.equal(line("class _Counter"), "keyword:class|plain: |type:_Counter|plain:<|type:T|plain: |keyword:extends|plain: |keyword:num|plain:> {");
+  assert.equal(line("static int _count"), "plain:  |keyword:static|plain: |keyword:int|plain: _count = |number:0|plain:;");
+  assert.equal(line("late final"), "plain:  |keyword:late|plain: |keyword:final|plain: |keyword:int|plain: weight;");
+  assert.equal(line("int? _heat"), "plain:  |keyword:int|plain:? _heat;");
+  assert.equal(line("List<Map<String, int>> history"), "plain:  |type:List|plain:<|type:Map|plain:<|type:String|plain:, |keyword:int|plain:>> history = [];");
+  assert.equal(
+    line("Loaf(this._name"),
+    "plain:  |type:Loaf|plain:(|keyword:this|plain:._name, {|keyword:required|plain: |keyword:this|plain:.weight, |keyword:int|plain: heat = |number:200|plain:}) : _heat = heat {",
+  );
+  assert.equal(line("factory Loaf.plain"), "plain:  |keyword:factory|plain: |type:Loaf|plain:.plain() => |type:Loaf|plain:(|string:'plain'|plain:, weight: |number:500|plain:);");
+
+  // Getters, setters and operators.
+  assert.equal(line("String get name;"), "plain:  |type:String|plain: |keyword:get|plain: name;");
+  assert.equal(line("String get name =>"), "plain:  |type:String|plain: |keyword:get|plain: name => _name;");
+  assert.equal(line("set heat(int value);"), "plain:  |keyword:set|plain: heat(|keyword:int|plain: value);");
+  assert.equal(line("set heat(int value) =>"), "plain:  |keyword:set|plain: heat(|keyword:int|plain: value) => _heat = value;");
+  assert.equal(line("bool operator =="), "plain:  |keyword:bool|plain: |keyword:operator|plain: ==(|type:Object|plain: other) => other |keyword:is|plain: |type:Loaf|plain: && other._name == _name;");
+  assert.equal(line("int get hashCode"), "plain:  |keyword:int|plain: |keyword:get|plain: hashCode => _name.hashCode;");
+
+  // Annotations.
+  assert.equal(exact("  @override"), "plain:  |preprocessor:@override");
+  assert.equal(line("@Deprecated"), "plain:  |preprocessor:@Deprecated|plain:(|string:'Use bake instead'|plain:)");
+  assert.equal(line("@pragma"), "plain:  |preprocessor:@pragma|plain:(|string:'vm:prefer-inline'|plain:)");
+
+  // async, await, yield.
+  assert.equal(line("await Future.delayed"), "plain:    |keyword:await|plain: |type:Future|plain:.delayed(|keyword:const|plain: |type:Duration|plain:(seconds: |number:1|plain:));");
+  assert.equal(line("Future<String> bake"), "plain:  |type:Future|plain:<|type:String|plain:> bake() |keyword:async|plain: {");
+  assert.equal(line("Stream<int> counter"), "plain:  |type:Stream|plain:<|keyword:int|plain:> counter() |keyword:async|plain:* {");
+  assert.equal(line("yield i;"), "plain:      |keyword:yield|plain: i;");
+  assert.equal(line("yield* ["), "plain:    |keyword:yield|plain:* [|number:2|plain:, |number:4|plain:, |number:6|plain:];");
+  assert.equal(line("evens()"), "plain:  |type:Iterable|plain:<|keyword:int|plain:> evens() |keyword:sync|plain:* {");
+  assert.equal(line("void main()"), "keyword:void|plain: main() |keyword:async|plain: {");
+  assert.equal(line("print(await"), "plain:  print(|keyword:await|plain: loaf.bake());");
+
+  // ?. ?? ??= .. ...? and #symbols.
+  assert.equal(line("final name = loaf?.name"), "plain:  |keyword:final|plain: name = loaf?.name ?? |string:'none'|plain:;");
+  assert.equal(line("count ??= 0"), "plain:  count ??= |number:0|plain:;");
+  assert.equal(line("final list"), "plain:  |keyword:final|plain: list = [|number:1|plain:, |number:2|plain:, ...?extras?.values, ...[|number:3|plain:, |number:4|plain:]];");
+  assert.equal(line("..write(name)"), "plain:    ..write(name)");
+  assert.equal(line("sym ="), "plain:  |keyword:final|plain: sym = |number:#bake|plain:;");
+  assert.equal(line("qual ="), "plain:  |keyword:final|plain: qual = |number:#dart.core.int|plain:;");
+  assert.equal(line("op = #+"), "plain:  |keyword:final|plain: op = |number:#+|plain:;");
+
+  // Strings: escapes, $name, ${code} with nested braces and strings.
+  assert.equal(
+    line("var single"),
+    "plain:  |keyword:var|plain: single = |string:'It\\'s |plain:$kind|string: with |plain:${n + |number:1|plain:}|string: slices'|plain:;",
+  );
+  assert.equal(line("var quoted"), 'plain:  |keyword:var|plain: quoted = |string:"say \\"hi\\" to |plain:$kind|string:"|plain:;');
+  assert.equal(
+    line("var nested"),
+    "plain:  |keyword:var|plain: nested = |string:'a |plain:${n > |number:1|plain: ? |string:'many |plain:${kind.length}|string:'|plain: : |string:\"one\"|plain:}|string: b'|plain:;",
+  );
+  assert.equal(
+    line("var braces"),
+    "plain:  |keyword:var|plain: braces = |string:'map: |plain:${ {|string:'a'|plain:: |number:1|plain:}.length }|string: end'|plain:;",
+  );
+  assert.equal(line("var escaped"), "plain:  |keyword:var|plain: escaped = |string:'cost: \\$5 and \\${not code}'|plain:;", "an escaped $ is plain string text");
+
+  // Raw strings: no escapes, no interpolation.
+  assert.equal(line("var raw ="), "plain:  |keyword:var|plain: raw = |string:r'raw $kind \\n ${nothing}'|plain:;");
+  assert.equal(line("var rawDouble"), 'plain:  |keyword:var|plain: rawDouble = |string:r"also raw $kind \\t"|plain:;');
+  assert.equal(line("no $interpolation"), "string:no $interpolation here \\n", "a raw triple-quoted string");
+
+  // Triple-quoted strings span lines and still interpolate.
+  assert.equal(line("var multi ="), "plain:  |keyword:var|plain: multi = |string:'''");
+  assert.equal(line("Today's bake"), "string:Today's bake: |plain:$kind");
+  assert.equal(line("a \"quote\""), "string:  a \"quote\" and 'quotes' stay string text");
+  assert.equal(line("sum is"), "string:  sum is |plain:${n + n}");
+  assert.equal(exact("''';"), "string:'''|plain:;");
+  assert.equal(line("Heat: ${"), "string:Heat: |plain:${|type:Heat|plain:.high.name}");
+
+  // Pattern guards, on clauses and plain uses of contextual words.
+  assert.equal(line("int n when"), "plain:    |keyword:int|plain: n |keyword:when|plain: n > |number:100|plain: => |string:'big'|plain:,");
+  assert.equal(line("String s when"), "plain:    |type:String|plain: s |keyword:when|plain: s.isEmpty => |string:'empty'|plain:,");
+  assert.equal(line("on FormatException"), "plain:  } |keyword:on|plain: |type:FormatException|plain: |keyword:catch|plain: (e) {");
+  assert.equal(line("on Exception"), "plain:  } |keyword:on|plain: |type:Exception|plain: {");
+  assert.equal(line("var get = 1"), "plain:  |keyword:var|plain: get = |number:1|plain:;");
+  assert.equal(line("var base = 2"), "plain:  |keyword:var|plain: base = |number:2|plain:;");
+  assert.equal(line("var late = 3"), "plain:  |keyword:var|plain: late = |number:3|plain:;");
+  assert.equal(line("var async = 4"), "plain:  |keyword:var|plain: async = |number:4|plain:;");
+  assert.equal(line("var show ="), "plain:  |keyword:var|plain: show = get + base + late + async;");
+});
+
+test("tokenizer: Dart tricky cases", () => {
+  // Every token as kind:text, joined with |, and a " // " marks the start of a new line.
+  const kinds = (source: string): string => tokenizeDart(source).map((l) => l.map((t) => `${t.kind}:${t.text}`).join("|")).join(" // ");
+
+  // Comments nest, and an unclosed one runs to the end.
+  assert.equal(kinds("/* a /* b */ c */ var x"), "comment:/* a /* b */ c */|plain: |keyword:var|plain: x");
+  assert.equal(kinds("/* a /* b */ var x"), "comment:/* a /* b */ var x", "one level is still open");
+  assert.equal(kinds("/// doc // not\nx"), "comment:/// doc // not // plain:x");
+  assert.equal(kinds("x #! y"), "plain:x #! y", "#! only counts on the very first line");
+  assert.equal(kinds("#!/usr/bin/env dart\nvar x"), "comment:#!/usr/bin/env dart // keyword:var|plain: x");
+  const deepComment = `${"/*".repeat(200)}${"*/".repeat(200)} var x`;
+  assert.equal(kinds(deepComment), `comment:${"/*".repeat(200)}${"*/".repeat(200)}|plain: |keyword:var|plain: x`, "200 nested comments");
+
+  // Interpolation.
+  assert.equal(kinds("'a $b c'"), "string:'a |plain:$b|string: c'");
+  assert.equal(kinds("'a $b.c'"), "string:'a |plain:$b|string:.c'", "$name stops at the dot");
+  assert.equal(kinds("'a ${b + (c * 2)} d'"), "string:'a |plain:${b + (c * |number:2|plain:)}|string: d'");
+  assert.equal(kinds("'a ${f('}')} d'"), "string:'a |plain:${f(|string:'}'|plain:)}|string: d'", "a } inside a string inside ${ } does not close it");
+  assert.equal(kinds("'a ${f(r'}')} d'"), "string:'a |plain:${f(|string:r'}'|plain:)}|string: d'", "a raw string inside ${ }");
+  assert.equal(kinds("'x ${'y ${z} w'} v'"), "string:'x |plain:${|string:'y |plain:${z}|string: w'|plain:}|string: v'", "interpolation inside interpolation");
+  assert.equal(kinds("'\\$a $b'"), "string:'\\$a |plain:$b|string:'", "an escaped $ is text");
+  assert.equal(kinds("'cost $'"), "string:'cost $'", "a lone $ is text");
+  assert.equal(kinds("'$1 and ${}'"), "string:'$1 and |plain:${}|string:'", "a digit after $ is text, an empty ${} is allowed");
+  assert.equal(kinds("'a ${b' c"), "string:'a ${b'|plain: c", "a ${ that never closes is text");
+  assert.equal(kinds("'no end\nvar x"), "string:'no end // keyword:var|plain: x", "a one-line string ends at the line end");
+  assert.equal(kinds("'' + \"\""), "string:''|plain: + |string:\"\"", "empty strings");
+  assert.equal(kinds("\"it's\" 'say \"hi\"'"), "string:\"it's\"|plain: |string:'say \"hi\"'", "the other quote kind inside");
+
+  // Raw strings.
+  assert.equal(kinds("r'a\\' b"), "string:r'a\\'|plain: b", "a backslash does not escape in a raw string");
+  assert.equal(kinds("r'$a ${b}'"), "string:r'$a ${b}'", "no interpolation in a raw string");
+  assert.equal(kinds("r\"\"\"a\n$b\n\"\"\" x"), 'string:r"""a // string:$b // string:"""|plain: x', "raw triple-quoted, over lines");
+  assert.equal(kinds("bar'x'"), "plain:bar|string:'x'", "an r at the end of a name is not a raw prefix");
+  assert.equal(kinds("r = 'x'"), "plain:r = |string:'x'", "a variable named r");
+
+  // Triple-quoted strings.
+  assert.equal(kinds("'''a 'b' ''c'' d''' x"), "string:'''a 'b' ''c'' d'''|plain: x", "quotes inside, closed by the first three");
+  assert.equal(kinds("'''\nno end"), "string:''' // string:no end", "an unclosed triple-quoted string runs to the end");
+  assert.equal(kinds("'''a ${\n b\n} c''' x"), "string:'''a |plain:${ // plain: b // plain:}|string: c'''|plain: x", "a ${ } in a triple-quoted string can span lines");
+  assert.equal(kinds("'''\\''' x\n'''"), "string:'''\\''' x // string:'''", "an escaped quote does not close it");
+
+  // Annotations and symbols.
+  assert.equal(kinds("@override\nvoid f() {}"), "preprocessor:@override // keyword:void|plain: f() {}");
+  assert.equal(kinds("@pkg.Name(1)"), "preprocessor:@pkg.Name|plain:(|number:1|plain:)");
+  assert.equal(kinds("a @ b"), "plain:a @ b");
+  assert.equal(kinds("[#a, #b.c, #[]=, #==]"), "plain:[|number:#a|plain:, |number:#b.c|plain:, |number:#[]=|plain:, |number:#==|plain:]");
+  assert.equal(kinds("# x"), "plain:# x");
+
+  // Numbers.
+  assert.equal(kinds("0x1F + 1e10 + 1.5E-3"), "number:0x1F|plain: + |number:1e10|plain: + |number:1.5E-3");
+  assert.equal(kinds("1.abs()"), "number:1|plain:.abs()", "a dot without a digit after it is not part of the number");
+  assert.equal(kinds("1.5.toString()"), "number:1.5|plain:.toString()");
+  assert.equal(kinds("(.5, 0.5)"), "plain:(|number:.5|plain:, |number:0.5|plain:)");
+  assert.equal(kinds("a[0].b"), "plain:a[|number:0|plain:].b", "a dot after a bracket is a member access");
+  assert.equal(kinds("1_000_000"), "number:1_000_000");
+  assert.equal(kinds("1_a"), "number:1|plain:_a", "an underscore only counts before a digit");
+
+  // Spreads, cascades and member names.
+  assert.equal(kinds("[...this.items]"), "plain:[...|keyword:this|plain:.items]", "this after a spread is still a keyword");
+  assert.equal(kinds("[...?x]"), "plain:[...?x]");
+  assert.equal(kinds("a..add(1)..clear()"), "plain:a..add(|number:1|plain:)..clear()");
+  assert.equal(kinds("Foo.new()"), "type:Foo|plain:.new()", "a keyword after a dot is a name");
+  assert.equal(kinds("x?.default"), "plain:x?.default");
+  assert.equal(kinds("a is! B"), "plain:a |keyword:is|plain:! |type:B");
+  assert.equal(kinds("List<Map<String,int>> x"), "type:List|plain:<|type:Map|plain:<|type:String|plain:,|keyword:int|plain:>> x");
+  assert.equal(kinds("a ??= b ?? c"), "plain:a ??= b ?? c");
+  assert.equal(kinds("_Counter _name _HTTP HTTP T"), "type:_Counter|plain: _name _HTTP HTTP |type:T", "types by capital letter, constants in capitals left plain");
+
+  // Contextual words are plain when used as names.
+  assert.equal(kinds("int get length => 1;"), "keyword:int|plain: |keyword:get|plain: length => |number:1|plain:;");
+  assert.equal(kinds("get(x); set.add(1);"), "plain:get(x); set.add(|number:1|plain:);");
+  assert.equal(kinds("Set<int> set = {};"), "type:Set|plain:<|keyword:int|plain:> set = {};");
+  assert.equal(kinds("late int x; late = 1;"), "keyword:late|plain: |keyword:int|plain: x; late = |number:1|plain:;");
+  assert.equal(kinds("f(required: true, static: 1)"), "plain:f(required: |keyword:true|plain:, static: |number:1|plain:)", "named arguments are plain");
+  assert.equal(kinds("x.static + y.factory"), "plain:x.static + y.factory");
+  assert.equal(kinds("sealed = 1; sealed class A {}"), "plain:sealed = |number:1|plain:; |keyword:sealed|plain: |keyword:class|plain: |type:A|plain: {}");
+  assert.equal(kinds("base.x; base mixin M {}"), "plain:base.x; |keyword:base|plain: |keyword:mixin|plain: |type:M|plain: {}");
+  assert.equal(kinds("extension type Id(int v) {}"), "keyword:extension|plain: |keyword:type|plain: |type:Id|plain:(|keyword:int|plain: v) {}");
+  assert.equal(kinds("var on = 1;"), "keyword:var|plain: on = |number:1|plain:;");
+  assert.equal(kinds("try {} on Foo catch (e) {}"), "keyword:try|plain: {} |keyword:on|plain: |type:Foo|plain: |keyword:catch|plain: (e) {}");
+  assert.equal(kinds("show(x);"), "plain:show(x);");
+  assert.equal(kinds("part of 'a.dart';"), "keyword:part|plain: |keyword:of|plain: |string:'a.dart'|plain:;");
+  assert.equal(kinds("var part = 1; parts.of"), "keyword:var|plain: part = |number:1|plain:; parts.of");
+  assert.equal(kinds("bool operator <(Foo o) => true;"), "keyword:bool|plain: |keyword:operator|plain: <(|type:Foo|plain: o) => |keyword:true|plain:;");
+  assert.equal(kinds("var operator = 1;"), "keyword:var|plain: operator = |number:1|plain:;");
+  assert.equal(kinds("var await = 1; await foo();"), "keyword:var|plain: await = |number:1|plain:; |keyword:await|plain: foo();");
+  assert.equal(kinds("f() async {} g() async => 1; var async = 2;"), "plain:f() |keyword:async|plain: {} g() |keyword:async|plain: => |number:1|plain:; |keyword:var|plain: async = |number:2|plain:;");
+  assert.equal(kinds("case int x when x > 0:"), "keyword:case|plain: |keyword:int|plain: x |keyword:when|plain: x > |number:0|plain::");
+  assert.equal(kinds("when(a).thenReturn(1);"), "plain:when(a).thenReturn(|number:1|plain:);", "a call named when");
+  assert.equal(kinds("var r = when(a);"), "keyword:var|plain: r = when(a);");
+  assert.equal(kinds("void main() { when(x); }"), "keyword:void|plain: main() { when(x); }");
+});
+
 test("tokenizer: Python comments, strings, numbers, keywords and decorators", () => {
   const py = tokenizePython(fixture("basic.py"));
   assert.equal(kindOf(py, "A small weather log"), "string", "docstring");
@@ -1944,8 +2174,14 @@ test("languages: picked by extension or VS Code language id, with .h treated as 
   assert.equal(languageForFile("loaves.erb"), undefined);
   assert.equal(languageForFile("rb"), undefined);
   assert.equal(languageForVscodeId("ruby"), "ruby");
-  assert.equal(LANGUAGE_NAMES, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift and Ruby");
-  assert.equal(LANGUAGE_NAMES_OR, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift or Ruby");
+  assert.equal(languageForFile("dough.dart"), "dart");
+  assert.equal(languageForFile("DOUGH.DART"), "dart");
+  assert.equal(languageForFile("dough.dart.bak"), undefined);
+  assert.equal(languageForFile("dough.g.dart"), "dart");
+  assert.equal(languageForFile("dart"), undefined);
+  assert.equal(languageForVscodeId("dart"), "dart");
+  assert.equal(LANGUAGE_NAMES, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby and Dart");
+  assert.equal(LANGUAGE_NAMES_OR, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby or Dart");
 });
 
 test("layout: tabs expand to the next tab stop and control characters become visible", () => {
@@ -1990,13 +2226,13 @@ test("options: defaults, clamping and page sizes", () => {
 });
 
 test("files: supported extensions, excluded folders and PDF names", () => {
-  for (const name of ["a.c", "a.cpp", "a.cc", "a.cxx", "a.h", "a.hpp", "a.hh", "a.hxx", "A.CPP", "A.C", "a.py", "a.pyw", "A.PY", "a.css", "A.CSS", "a.html", "a.htm", "A.HTML", "a.js", "a.mjs", "a.cjs", "A.JS", "a.ts", "a.mts", "a.cts", "A.TS", "a.jsx", "a.tsx", "A.TSX", "a.rs", "A.RS", "a.java", "A.JAVA", "a.cs", "A.CS", "a.go", "A.GO", "a.php", "A.PHP", "a.rb", "A.RB"]) {
+  for (const name of ["a.c", "a.cpp", "a.cc", "a.cxx", "a.h", "a.hpp", "a.hh", "a.hxx", "A.CPP", "A.C", "a.py", "a.pyw", "A.PY", "a.css", "A.CSS", "a.html", "a.htm", "A.HTML", "a.js", "a.mjs", "a.cjs", "A.JS", "a.ts", "a.mts", "a.cts", "A.TS", "a.jsx", "a.tsx", "A.TSX", "a.rs", "A.RS", "a.java", "A.JAVA", "a.cs", "A.CS", "a.go", "A.GO", "a.php", "A.PHP", "a.rb", "A.RB", "a.dart", "A.DART"]) {
     assert.ok(isSupportedSource(name), name);
   }
-  for (const name of ["a.ts.map", "a.tsbuildinfo", "a.js.map", "js", "cpp", "c", "py", "css", "a.scss", "a.css.map", "html", "a.html.bak", "a.xhtml", "a.cpp.bak", "a.c.bak", "a.pyc", "a.rs.bk", "rs", "a.class", "a.jar", "java", "a.csproj", "a.sln", "a.dll", "cs", "a.mod", "a.sum", "go", "a.phtml", "a.php.bak", "a.inc", "php", "a.erb", "a.rbi", "rb", "notes.txt"]) {
+  for (const name of ["a.ts.map", "a.tsbuildinfo", "a.js.map", "js", "cpp", "c", "py", "css", "a.scss", "a.css.map", "html", "a.html.bak", "a.xhtml", "a.cpp.bak", "a.c.bak", "a.pyc", "a.rs.bk", "rs", "a.class", "a.jar", "java", "a.csproj", "a.sln", "a.dll", "cs", "a.mod", "a.sum", "go", "a.phtml", "a.php.bak", "a.inc", "php", "a.erb", "a.rbi", "rb", "a.dart.bak", "dart", "pubspec.yaml", "notes.txt"]) {
     assert.ok(!isSupportedSource(name), name);
   }
-  for (const name of [".git", ".vscode", "node_modules", "build", "dist", "cmake-build-debug", "Debug", "__pycache__", "venv", ".venv", "target", "out", "bin", ".gradle", "obj", "vendor", "Pods", "DerivedData", "Carthage", ".build", ".bundle", "vendor"]) {
+  for (const name of [".git", ".vscode", "node_modules", "build", "dist", "cmake-build-debug", "Debug", "__pycache__", "venv", ".venv", "target", "out", "bin", ".gradle", "obj", "vendor", "Pods", "DerivedData", "Carthage", ".build", ".bundle", "vendor", ".dart_tool"]) {
     assert.ok(isExcludedFolder(name), name);
   }
   assert.ok(!isExcludedFolder("src"));
