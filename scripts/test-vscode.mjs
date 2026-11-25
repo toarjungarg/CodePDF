@@ -50,6 +50,7 @@ put("Cookbook.cs", readFileSync(join(fixtures, "basic.cs")));
 put("shelf.go", readFileSync(join(fixtures, "basic.go")));
 put("pantry.php", readFileSync(join(fixtures, "basic.php")));
 put("bookshop.sql", readFileSync(join(fixtures, "basic.sql")));
+put("backup.sh", readFileSync(join(fixtures, "basic.sh")));
 for (const name of ["comments_strings.cpp", "unicode.cpp", "long_lines.cpp"]) {
   cpSync(join(fixtures, name), join(project, name));
 }

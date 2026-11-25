@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.13.0
+- Added Shell / Bash export (`.sh`, `.bash`).
+
 ## 1.12.0
 - Added SQL export (`.sql`).
 

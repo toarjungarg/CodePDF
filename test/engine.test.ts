@@ -14,6 +14,7 @@ import { tokenizeCSharp } from "../src/export/csharpTokenizer";
 import { tokenizeGo } from "../src/export/goTokenizer";
 import { tokenizePhp } from "../src/export/phpTokenizer";
 import { tokenizeSql } from "../src/export/sqlTokenizer";
+import { tokenizeShell } from "../src/export/shellTokenizer";
 import type { TokenKind, TokenLine } from "../src/export/tokens";
 import { languageForFile, languageForVscodeId, LANGUAGE_NAMES, LANGUAGE_NAMES_OR } from "../src/export/languages";
 import { columnWidth, expandLine, layoutLine } from "../src/export/layout";
@@ -48,11 +49,11 @@ const kindOfWord = (lines: TokenLine[], word: string): TokenKind | undefined => 
 };
 
 test("tokenizer: joining tokens gives back every fixture exactly", () => {
-  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py", "basic.css", "basic.html", "basic.js", "basic.ts", "basic.jsx", "basic.tsx", "basic.rs", "basic.java", "basic.cs", "basic.go", "basic.php", "basic.sql"]) {
+  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py", "basic.css", "basic.html", "basic.js", "basic.ts", "basic.jsx", "basic.tsx", "basic.rs", "basic.java", "basic.cs", "basic.go", "basic.php", "basic.sql", "basic.sh"]) {
     const source = fixture(name).replace(/\r\n?/g, "\n");
     for (const lines of [
       tokenizeCpp(source), tokenizeC(source), tokenizePython(source), tokenizeCss(source), tokenizeHtml(source), tokenizeJavaScript(source),
-      tokenizeTs(source), tokenizeJsx(source), tokenizeTsx(source), tokenizeRust(source), tokenizeJava(source), tokenizeCSharp(source), tokenizeGo(source), tokenizePhp(source), tokenizeSql(source),
+      tokenizeTs(source), tokenizeJsx(source), tokenizeTsx(source), tokenizeRust(source), tokenizeJava(source), tokenizeCSharp(source), tokenizeGo(source), tokenizePhp(source), tokenizeSql(source), tokenizeShell(source),
     ]) {
       assert.equal(lines.map(joinLine).join("\n"), source, `${name} changed during tokenizing`);
     }
@@ -848,6 +849,169 @@ test("tokenizer: SQL tricky cases", () => {
   }
 });
 
+test("tokenizer: Shell comments, strings, variables, heredocs, keywords and numbers", () => {
+  const source = fixture("basic.sh");
+  const sh = tokenizeShell(source);
+  const has = (text: string, kind: TokenKind): boolean => sh.flat().some((t) => t.text === text && t.kind === kind);
+  assert.equal(sh.length, source.split("\n").length, "one token line per source line");
+
+  // Comments: the shebang, whole-line and after code. Words inside them stay comment text.
+  assert.equal(kindOf(sh, "!/bin/bash"), "comment", "the shebang line");
+  assert.equal(kindOf(sh, "Made-up backup helper"), "comment");
+  assert.equal(kindOf(sh, "The words if then"), "comment");
+  assert.equal(kindOf(sh, "the folder to back up"), "comment", "# after code");
+  assert.equal(kindOf(sh, "A here-string is not a heredoc."), "comment");
+
+  // A # that is not at the start of a word is not a comment.
+  assert.equal(kindOf(sh, 'a#b '), "string", "a#b inside a string");
+  assert.ok(has("$#", "type"), "$# is a variable");
+  assert.ok(has("${#NOTES_DIR}", "type"), "${#var} is a variable");
+  assert.ok(has("${name#note_}", "type"), "${var#prefix} is a variable");
+  assert.ok(has("${NOTES_DIR##*/}", "type"), "${var##*/} is a variable");
+  assert.equal(kindOfWord(sh, "not"), "plain", "an escaped \\# and \\\" stay plain words");
+
+  // Single quotes have no escapes: a backslash before the closing quote does not stop it.
+  assert.ok(has("'ends with a backslash\\'", "string"), "'...\\' closes at the quote");
+  assert.ok(has("'Usage: backup.sh [dir]  (no $escapes or \\n in single quotes)'", "string"), "$ and \\n inside single quotes are text");
+  // $'...' honours backslashes, so the \' inside does not end it.
+  assert.ok(has("$'tab\\there and an escaped \\' quote'", "string"), "an ANSI-C string");
+
+  // Double quotes: escapes, variables, and quotes inside $( ) stay inside the outer string.
+  assert.ok(has('"He said \\"hi\\" to ', "string"), "\\\" does not end a double-quoted string");
+  assert.ok(has("$USER", "type"), "a variable inside a string");
+  assert.ok(has("${HOME}", "type"));
+  // stamp="$(echo "run on $(date +%F)")": string, $(, echo, inner string, $(date), string end.
+  assert.deepEqual(
+    sh[28]!.map((t) => t.kind),
+    ["plain", "string", "plain", "keyword", "plain", "string", "plain", "string", "plain", "string"],
+    "quotes inside $( ) inside a string",
+  );
+
+  // Heredocs: the tag, the body and the terminator are strings. A here-string is not one.
+  assert.equal(kindOf(sh, "Backup of "), "string", "heredoc body");
+  assert.equal(kindOf(sh, "if then fi # not a comment in here"), "string", "keywords and # inside a heredoc");
+  assert.equal(kindOf(sh, "\tQuoted tag: "), "string", "the <<-'END' body");
+  assert.equal(kindOf(sh, "\tEND"), "string", "the tab-stripped terminator");
+  assert.equal(kindOf(sh, "This heredoc is never closed"), "string", "an unclosed heredoc runs to the end");
+  assert.equal(kindOf(sh, 'echo "still inside"'), "string");
+  assert.equal(kindOfWord(sh, "wc"), "plain");
+  assert.equal(kindOfWord(sh, "echo"), "keyword");
+
+  // Keywords and builtins.
+  for (const word of ["set", "if", "then", "elif", "else", "fi", "for", "in", "do", "done", "while", "case", "esac", "local", "shift", "exit", "printf", "read", "continue", "true", "cp"]) {
+    const isKeyword = sh.flat().some((t) => t.kind === "keyword" && t.text.split(/[^\w$[\]:]+/).includes(word));
+    assert.equal(isKeyword, word !== "cp", `keyword ${word}`);
+  }
+  assert.ok(has("[[", "keyword") && has("]]", "keyword") && has("[", "keyword"), "test brackets");
+  assert.equal(kindOfWord(sh, "usage"), "plain", "function names are plain");
+
+  // Variables: $name, ${...} with a default, $(( )) arithmetic, and a lone $.
+  for (const variable of ["$NOTES_DIR", "$file", "$line", "$?", "$$", "$*", "$1", "${1:-./notes}", "$greeting", "$total", "$i"]) {
+    assert.ok(sh.flat().some((t) => t.kind === "type" && t.text === variable), `variable ${variable}`);
+  }
+
+  // Numbers.
+  for (const num of ["0", "1", "2"]) {
+    assert.ok(has(num, "number"), `number ${num}`);
+  }
+  // Plain: names, paths and options are never coloured.
+  for (const word of ["NOTES_DIR=", "KEEP=5", "-eu", "summary.txt"]) {
+    assert.ok(!sh.flat().some((t) => t.kind !== "plain" && t.text === word), `${word} stays plain`);
+  }
+});
+
+test("tokenizer: Shell tricky cases", () => {
+  // Every token as kind:text, joined with |, and a " // " marks the start of a new line.
+  const kinds = (source: string): string => tokenizeShell(source).map((line) => line.map((t) => `${t.kind}:${t.text}`).join("|")).join(" // ");
+  // Comments only start at the start of a word.
+  assert.equal(kinds("#!/bin/bash\necho hi # c"), "comment:#!/bin/bash // keyword:echo|plain: hi |comment:# c");
+  assert.equal(kinds("x # c\nx;# c\nx|#c\n(#c\nx&#c"), "plain:x |comment:# c // plain:x;|comment:# c // plain:x||comment:#c // plain:(|comment:#c // plain:x&|comment:#c");
+  assert.equal(kinds("x#y"), "plain:x#y", "a # in the middle of a word");
+  assert.equal(kinds("x#y $x#y"), "plain:x#y |type:$x|plain:#y", "a # right after a variable");
+  assert.equal(kinds('echo "a"#b'), 'keyword:echo|plain: |string:"a"|plain:#b', "a # right after a quote");
+  assert.equal(kinds("echo $# ${#a} ${a#p} ${a##*/} a#b \\# x"), "keyword:echo|plain: |type:$#|plain: |type:${#a}|plain: |type:${a#p}|plain: |type:${a##*/}|plain: a#b \\# x");
+  assert.equal(kinds("echo ${a:-{x}} ${b} # c"), "keyword:echo|plain: |type:${a:-{x}}|plain: |type:${b}|plain: |comment:# c", "nested braces");
+  assert.equal(kinds("echo \\# \\\" x # c"), "keyword:echo|plain: \\# \\\" x |comment:# c", "escaped # and quote outside quotes");
+  assert.equal(kinds("echo \\\\# x"), "keyword:echo|plain: \\\\# x", "an escaped backslash, then a # inside a word");
+
+  // Single quotes: no escapes at all. $'...' honours them.
+  assert.equal(kinds("echo 'a\\' x"), "keyword:echo|plain: |string:'a\\'|plain: x", "'a\\' ends at the second quote");
+  assert.equal(kinds("echo 'say \"hi\" $x # no' x"), "keyword:echo|plain: |string:'say \"hi\" $x # no'|plain: x");
+  assert.equal(kinds("echo $'a\\'b' x"), "keyword:echo|plain: |string:$'a\\'b'|plain: x", "$'..' keeps \\' inside");
+  assert.equal(kinds("echo $'a\\\\' x"), "keyword:echo|plain: |string:$'a\\\\'|plain: x", "$'..' with an escaped backslash");
+  assert.equal(kinds("echo 'one\ntwo' x"), "keyword:echo|plain: |string:'one // string:two'|plain: x", "strings span lines");
+
+  // Double quotes: escapes, variables and nested quotes.
+  assert.equal(kinds('echo "a \\" b" x'), 'keyword:echo|plain: |string:"a \\" b"|plain: x');
+  assert.equal(kinds('echo "a $x ${y:-"z"} b" x'), 'keyword:echo|plain: |string:"a |type:$x|string: |type:${y:-"z"}|string: b"|plain: x');
+  assert.equal(kinds("echo \"it's\" x"), "keyword:echo|plain: |string:\"it's\"|plain: x", "a single quote inside double quotes");
+  assert.equal(kinds('echo "$(echo "hi")" x'), 'keyword:echo|plain: |string:"|plain:$(|keyword:echo|plain: |string:"hi"|plain:)|string:"|plain: x', "nested quotes in $( )");
+  assert.equal(kinds('echo "a $(echo "b $(echo "c") d") e" f'), 'keyword:echo|plain: |string:"a |plain:$(|keyword:echo|plain: |string:"b |plain:$(|keyword:echo|plain: |string:"c"|plain:)|string: d"|plain:)|string: e"|plain: f', "$( ) inside $( ) inside a string");
+  assert.equal(kinds('echo "a `echo "b"` c" d'), 'keyword:echo|plain: |string:"a |plain:`|keyword:echo|plain: |string:"b"|plain:`|string: c"|plain: d', "backticks inside a string");
+  assert.equal(kinds('echo "a)" "b" x'), 'keyword:echo|plain: |string:"a)"|plain: |string:"b"|plain: x', "a ) inside a string");
+  assert.equal(kinds('echo "$(echo ")")" x'), 'keyword:echo|plain: |string:"|plain:$(|keyword:echo|plain: |string:")"|plain:)|string:"|plain: x', "a ) in a string inside $( )");
+  assert.equal(kinds('echo "unclosed\nstill" # c'), 'keyword:echo|plain: |string:"unclosed // string:still"|plain: |comment:# c', "strings span lines");
+  assert.equal(kinds('echo "$" "a$" $'), 'keyword:echo|plain: |string:"$"|plain: |string:"a$"|plain: $', "a lone $");
+
+  // Variables.
+  assert.equal(kinds("echo $@ $* $# $? $$ $! $0 $9 $- $_ $_a"), "keyword:echo|plain: |type:$@|plain: |type:$*|plain: |type:$#|plain: |type:$?|plain: |type:$$|plain: |type:$!|plain: |type:$0|plain: |type:$9|plain: |type:$-|plain: |type:$_|plain: |type:$_a");
+  assert.equal(kinds("echo ${a[@]} ${!a} ${#a[@]} ${a/x/y}"), "keyword:echo|plain: |type:${a[@]}|plain: |type:${!a}|plain: |type:${#a[@]}|plain: |type:${a/x/y}");
+  assert.equal(kinds("echo ${x"), "keyword:echo|plain: ${x", "an unclosed ${ stays plain");
+
+  // Heredocs.
+  assert.equal(kinds("cat <<EOF\nif $x\nEOF\necho after"), "plain:cat <<|string:EOF // string:if $x // string:EOF // keyword:echo|plain: after");
+  assert.equal(kinds("cat <<-EOF\n\tbody\n\tEOF\nx"), "plain:cat <<-|string:EOF // string:\tbody // string:\tEOF // plain:x", "<<- lets the terminator start with tabs");
+  assert.equal(kinds("cat <<EOF\n\tEOF\nEOF\nx"), "plain:cat <<|string:EOF // string:\tEOF // string:EOF // plain:x", "without -, an indented terminator is just text");
+  assert.equal(kinds("cat <<EOF\nEOF \nEOF2\nEOF\nx"), "plain:cat <<|string:EOF // string:EOF  // string:EOF2 // string:EOF // plain:x", "the terminator must be the whole line");
+  assert.equal(kinds("cat <<'EOF'\n$x\nEOF\nx"), "plain:cat <<|string:'EOF' // string:$x // string:EOF // plain:x", "<<'EOF'");
+  assert.equal(kinds('cat <<"EOF"\n$x\nEOF\nx'), 'plain:cat <<|string:"EOF" // string:$x // string:EOF // plain:x', '<<"EOF"');
+  assert.equal(kinds("cat <<\\EOF\nb\nEOF\nx"), "plain:cat <<|string:\\EOF // string:b // string:EOF // plain:x", "<<\\EOF");
+  assert.equal(kinds("cat <<EOF >out; echo hi\nbody\nEOF\necho x"), "plain:cat <<|string:EOF|plain: >out; |keyword:echo|plain: hi // string:body // string:EOF // keyword:echo|plain: x", "the rest of the command line is still code");
+  assert.equal(kinds("cat <<'A' <<\"B\"\n1\nA\n2\nB\nx"), "plain:cat <<|string:'A'|plain: <<|string:\"B\" // string:1 // string:A // string:2 // string:B // plain:x", "two heredocs on one line");
+  assert.equal(kinds("echo $(cat <<EOF\nbody\nEOF\n) x"), "keyword:echo|plain: $(cat <<|string:EOF // string:body // string:EOF // plain:) x", "a heredoc inside $( )");
+  assert.equal(kinds("cat <<EOF\nunclosed\nmore"), "plain:cat <<|string:EOF // string:unclosed // string:more", "an unclosed heredoc runs to the end");
+  assert.equal(tokenizeShell("cat <<EOF\nunclosed\nmore").length, 3, "an unclosed heredoc keeps its lines");
+  assert.equal(kinds("cat <<EOF"), "plain:cat <<|string:EOF", "a heredoc with no lines after it");
+  assert.equal(kinds('cat <<< "hi" # c'), 'plain:cat <<< |string:"hi"|plain: |comment:# c', "<<< is a here-string");
+  assert.equal(kinds("cat <<<$x\nif"), "plain:cat <<<|type:$x // keyword:if", "a here-string does not read a body");
+  assert.equal(kinds("x=$(( 1 << 3 ))\necho y"), "plain:x=$(( |number:1|plain: << |number:3|plain: )) // keyword:echo|plain: y", "<< inside $(( )) is a shift");
+  assert.equal(kinds("cat << 3\nx"), "plain:cat << |number:3 // plain:x", "<< without a word after it is not a heredoc");
+
+  // Keywords only where a command can start.
+  assert.equal(kinds("echo if then"), "keyword:echo|plain: if then");
+  assert.equal(kinds("for i in 1 2; do echo $i; done"), "keyword:for|plain: i |keyword:in|plain: |number:1|plain: |number:2|plain:; |keyword:do|plain: |keyword:echo|plain: |type:$i|plain:; |keyword:done");
+  assert.equal(kinds("echo in"), "keyword:echo|plain: in", "in is only a keyword in for and case");
+  assert.equal(kinds("if ! grep -q x f; then time ls; fi"), "keyword:if|plain: ! grep -q x f; |keyword:then|plain: |keyword:time|plain: ls; |keyword:fi");
+  assert.equal(kinds("if [ -f x ] || [[ -d y ]]; then"), "keyword:if|plain: |keyword:[|plain: -f x |keyword:]|plain: || |keyword:[[|plain: -d y |keyword:]]|plain:; |keyword:then");
+  assert.equal(kinds("local x=1\nexport Y=2\nreadonly Z\ndeclare -a arr\nreturn 0"), "keyword:local|plain: x=1 // keyword:export|plain: Y=2 // keyword:readonly|plain: Z // keyword:declare|plain: -a arr // keyword:return|plain: |number:0");
+  assert.equal(kinds("function f { echo hi; }\nf() { :; }"), "keyword:function|plain: f { |keyword:echo|plain: hi; } // plain:f() { |keyword::|plain:; }", "function definitions");
+  assert.equal(kinds("FOO=1 echo $@"), "plain:FOO=1 |keyword:echo|plain: |type:$@", "a command after an assignment");
+  assert.equal(kinds("a=(echo b)\nls"), "plain:a=(echo b) // plain:ls", "array values are not commands");
+  assert.equal(kinds("(cd x; echo y)\nls"), "plain:(|keyword:cd|plain: x; |keyword:echo|plain: y) // plain:ls", "a subshell");
+  assert.equal(kinds("echo `ls` x"), "keyword:echo|plain: `ls` x", "backticks");
+  assert.equal(kinds("for ((i = 0; i < 3; i++)); do echo $i; done"), "keyword:for|plain: ((i = |number:0|plain:; i < |number:3|plain:; i++)); |keyword:do|plain: |keyword:echo|plain: |type:$i|plain:; |keyword:done", "a C-style for loop");
+
+  // Numbers.
+  assert.equal(kinds("echo 1 2.5 0x1F abc1 1abc -5"), "keyword:echo|plain: |number:1|plain: |number:2.5|plain: |number:0x1F|plain: abc1 1abc -5", "only whole words are numbers");
+  assert.equal(kinds("ls 2>&1 >/dev/null"), "plain:ls 2>&1 >/dev/null", "a file number before > is not a number");
+
+  // case patterns and ;; clauses.
+  assert.equal(
+    kinds("case $x in\n  a|b) echo 1 ;;\n  (c) exit ;;\n  *.txt) : ;;\nesac\necho done"),
+    "keyword:case|plain: |type:$x|plain: |keyword:in // plain:  a|b) |keyword:echo|plain: |number:1|plain: ;; // plain:  (c) |keyword:exit|plain: ;; // plain:  *.txt) |keyword::|plain: ;; // keyword:esac // keyword:echo|plain: done",
+  );
+  assert.equal(kinds("case $x in\n  read) ;;\n  exit|shift) ;;\nesac\nread y"), "keyword:case|plain: |type:$x|plain: |keyword:in // plain:  read) ;; // plain:  exit|shift) ;; // keyword:esac // keyword:read|plain: y", "pattern words are not builtins");
+  assert.equal(kinds("case a in a) case b in b) echo 1;; esac;; c) echo 2;; esac\nls"), "keyword:case|plain: a |keyword:in|plain: a) |keyword:case|plain: b |keyword:in|plain: b) |keyword:echo|plain: |number:1|plain:;; |keyword:esac|plain:;; c) |keyword:echo|plain: |number:2|plain:;; |keyword:esac // plain:ls", "a case inside a case");
+  assert.equal(kinds("case $x in\n  a) echo \"a ) b\" ;;\n  # note\n  *) echo # c\n    ;;\nesac"), "keyword:case|plain: |type:$x|plain: |keyword:in // plain:  a) |keyword:echo|plain: |string:\"a ) b\"|plain: ;; // plain:  |comment:# note // plain:  *) |keyword:echo|plain: |comment:# c // plain:    ;; // keyword:esac", "a ) in a string, and comments between clauses");
+
+  // Unusual text never gets lost or changed, and deep nesting does not crash.
+  for (const source of ["", "'", "\"", "`", "$", "$(", "$((", "${", "${}", "$'", "$\"", "\\", "#", "<<", "<<-", "<<<", "<<EOF", "<<'EOF", "<<\\", "((", "))", "(", ")", ";;", ";&", "&>", "|&", "case", "case x in", "esac)", "中文 \"é\" $é 😀", "echo 😀 <<E\r\nE\r\n", "a\r\nb"]) {
+    assert.equal(tokenizeShell(source).map(joinLine).join("\n"), source, JSON.stringify(source));
+  }
+  const deep = "$(".repeat(200) + "echo hi" + ")".repeat(200);
+  assert.equal(tokenizeShell(deep).map(joinLine).join("\n"), deep, "200 levels of $( )");
+});
+
 test("tokenizer: Python comments, strings, numbers, keywords and decorators", () => {
   const py = tokenizePython(fixture("basic.py"));
   assert.equal(kindOf(py, "A small weather log"), "string", "docstring");
@@ -1012,8 +1176,13 @@ test("languages: picked by extension or VS Code language id, with .h treated as 
   assert.equal(languageForFile("data.sqlite"), undefined);
   assert.equal(languageForFile("query.mysql"), undefined);
   assert.equal(languageForVscodeId("sql"), "sql");
-  assert.equal(LANGUAGE_NAMES, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP and SQL");
-  assert.equal(LANGUAGE_NAMES_OR, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP or SQL");
+  assert.equal(languageForFile("backup.sh"), "shell");
+  assert.equal(languageForFile("SETUP.BASH"), "shell");
+  assert.equal(languageForFile("prompt.zsh"), undefined);
+  assert.equal(languageForFile("sh"), undefined);
+  assert.equal(languageForVscodeId("shellscript"), "shell");
+  assert.equal(LANGUAGE_NAMES, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL and Shell");
+  assert.equal(LANGUAGE_NAMES_OR, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL or Shell");
 });
 
 test("layout: tabs expand to the next tab stop and control characters become visible", () => {

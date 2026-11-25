@@ -329,6 +329,35 @@ test("1m. exports a SQL file, alone and combined with PHP", async () => {
   assert.ok(combined.pdf.text.includes("public function add(Item $item, int ...$more): static"));
 });
 
+test("1n. exports a Shell file, alone and combined with SQL", async () => {
+  const source = fixture("basic.sh");
+  const { pdf } = await exportSections("basic_sh.pdf", [file("basic.sh", source)]);
+  assert.ok(pdf.pages[0]!.lines[0]!.startsWith("basic.sh"), "file name in the header");
+  for (const expected of [
+    "#!/bin/bash",
+    "# the folder to back up",
+    "echo \"args: $# last: ${#NOTES_DIR} id: $$ status: $?\"",
+    "echo \\# not a comment, \\\"not a string\\\"",
+    "echo 'ends with a backslash\\'",
+    "stamp=\"$(echo \"run on $(date +%F)\")\"",
+    "for ((i = 0; i < KEEP; i++)); do",
+    "-h|--help)",
+    "cat <<-'END' > summary.txt",
+    "Quoted tag: $NOTES_DIR stays as it is.",
+    "wc -w <<< \"$greeting\"",
+    "echo \"still inside\"",
+  ]) {
+    assert.ok(pdf.text.includes(expected), `missing: ${expected}`);
+  }
+
+  const combined = await exportSections("mixed_sh_sql.pdf", [
+    { ...file("basic.sh", source), language: "shell" },
+    { ...file("basic.sql", fixture("basic.sql")), language: "sql" },
+  ]);
+  assert.deepEqual(combined.pdf.outline, ["basic.sh", "basic.sql"], "one bookmark per file");
+  assert.ok(combined.pdf.text.includes("CREATE FUNCTION shelf_count(shelf_id INT) RETURNS INT AS $$"));
+});
+
 test("2. exports comments and strings exactly", async () => {
   const { pdf } = await exportSections("comments_strings.pdf", [file("comments_strings.cpp", fixture("comments_strings.cpp"))]);
   for (const expected of [
