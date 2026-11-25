@@ -23,6 +23,7 @@ import { tokenizeLua } from "../src/export/luaTokenizer";
 import { tokenizeR } from "../src/export/rTokenizer";
 import { tokenizeMatlab } from "../src/export/matlabTokenizer";
 import { tokenizeVerilog } from "../src/export/verilogTokenizer";
+import { tokenizeVhdl } from "../src/export/vhdlTokenizer";
 import type { TokenKind, TokenLine } from "../src/export/tokens";
 import { languageForFile, languageForVscodeId, LANGUAGES, LANGUAGE_NAMES, LANGUAGE_NAMES_OR } from "../src/export/languages";
 import { columnWidth, expandLine, layoutLine } from "../src/export/layout";
@@ -57,11 +58,11 @@ const kindOfWord = (lines: TokenLine[], word: string): TokenKind | undefined => 
 };
 
 test("tokenizer: joining tokens gives back every fixture exactly", () => {
-  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py", "basic.css", "basic.html", "basic.js", "basic.ts", "basic.jsx", "basic.tsx", "basic.rs", "basic.java", "basic.cs", "basic.go", "basic.php", "basic.sql", "basic.sh", "basic.kt", "basic.swift", "basic.rb", "basic.dart", "basic.lua", "basic.r", "basic.m", "basic.ino", "basic.sv"]) {
+  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py", "basic.css", "basic.html", "basic.js", "basic.ts", "basic.jsx", "basic.tsx", "basic.rs", "basic.java", "basic.cs", "basic.go", "basic.php", "basic.sql", "basic.sh", "basic.kt", "basic.swift", "basic.rb", "basic.dart", "basic.lua", "basic.r", "basic.m", "basic.ino", "basic.sv", "basic.vhd"]) {
     const source = fixture(name).replace(/\r\n?/g, "\n");
     for (const lines of [
       tokenizeCpp(source), tokenizeC(source), tokenizePython(source), tokenizeCss(source), tokenizeHtml(source), tokenizeJavaScript(source),
-      tokenizeTs(source), tokenizeJsx(source), tokenizeTsx(source), tokenizeRust(source), tokenizeJava(source), tokenizeCSharp(source), tokenizeGo(source), tokenizePhp(source), tokenizeSql(source), tokenizeShell(source), tokenizeKotlin(source), tokenizeSwift(source), tokenizeRuby(source), tokenizeDart(source), tokenizeLua(source), tokenizeR(source), tokenizeMatlab(source), tokenizeVerilog(source),
+      tokenizeTs(source), tokenizeJsx(source), tokenizeTsx(source), tokenizeRust(source), tokenizeJava(source), tokenizeCSharp(source), tokenizeGo(source), tokenizePhp(source), tokenizeSql(source), tokenizeShell(source), tokenizeKotlin(source), tokenizeSwift(source), tokenizeRuby(source), tokenizeDart(source), tokenizeLua(source), tokenizeR(source), tokenizeMatlab(source), tokenizeVerilog(source), tokenizeVhdl(source),
     ]) {
       assert.equal(lines.map(joinLine).join("\n"), source, `${name} changed during tokenizing`);
     }
@@ -2845,18 +2846,24 @@ test("languages: picked by extension or VS Code language id, with .h treated as 
   assert.equal(languageForFile("pkg.svh"), "systemverilog");
   assert.equal(languageForFile("TOP.SV"), "systemverilog");
   assert.equal(languageForFile("top.v.bak"), undefined);
-  assert.equal(languageForFile("top.vhd"), undefined, "VHDL is not Verilog");
+  assert.equal(languageForFile("top.vhd"), "vhdl", "VHDL is not Verilog");
+  assert.equal(languageForFile("top.vhdl"), "vhdl");
+  assert.equal(languageForFile("TOP.VHD"), "vhdl");
+  assert.equal(languageForFile("top.vhd.bak"), undefined);
+  assert.equal(languageForFile("top.vho"), undefined, "ModelSim output files are not supported");
+  assert.equal(languageForFile("vhd"), undefined);
   assert.equal(languageForFile("top.vcd"), undefined);
   assert.equal(languageForFile("top.vo"), undefined, "Coq object files are not supported");
   assert.equal(languageForFile("v"), undefined);
   assert.equal(languageForFile("sv"), undefined);
   assert.equal(languageForVscodeId("verilog"), "verilog");
   assert.equal(languageForVscodeId("systemverilog"), "systemverilog");
-  assert.equal(languageForVscodeId("vhdl"), undefined);
+  assert.equal(languageForVscodeId("vhdl"), "vhdl");
   assert.equal(LANGUAGES.verilog.label, "Verilog");
   assert.equal(LANGUAGES.systemverilog.label, "SystemVerilog");
-  assert.equal(LANGUAGE_NAMES, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog and SystemVerilog");
-  assert.equal(LANGUAGE_NAMES_OR, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog or SystemVerilog");
+  assert.equal(LANGUAGES.vhdl.label, "VHDL");
+  assert.equal(LANGUAGE_NAMES, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog and VHDL");
+  assert.equal(LANGUAGE_NAMES_OR, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog or VHDL");
 });
 
 test("tokenizer: Arduino sketches use the C++ tokenizer for comments, preprocessor lines, strings and keywords", () => {
@@ -3046,6 +3053,191 @@ test("languages: the other languages are not changed by Verilog", () => {
   assert.equal(kindOfWord(tokenizeCpp("endmodule"), "endmodule"), "plain");
 });
 
+test("tokenizer: VHDL fixture colours", () => {
+  const source = fixture("basic.vhd");
+  const vhdl = LANGUAGES[languageForFile("top.vhd")!].tokenize(source);
+  assert.equal(vhdl.map(joinLine).join("\n"), source, "no text lost or changed");
+  assert.equal(kindOf(vhdl, "-- A made-up toaster timer"), "comment");
+  assert.equal(kindOf(vhdl, "Counts clock ticks"), "comment", "a block comment over two lines");
+  assert.equal(kindOf(vhdl, "The heater stays on"), "comment");
+  assert.equal(kindOf(vhdl, "x\"C8\""), "number", "a bit string is one number");
+  assert.equal(kindOf(vhdl, "b\"10_1X\""), "number");
+  assert.equal(kindOf(vhdl, "12X\"0FF\""), "number", "a VHDL-2008 sized bit string");
+  assert.equal(kindOf(vhdl, "16#FF#"), "number");
+  assert.equal(kindOf(vhdl, "2#1010_1010#"), "number");
+  assert.equal(kindOf(vhdl, "1_000"), "number");
+  assert.equal(kindOf(vhdl, "2.5e1"), "number");
+  assert.equal(kindOf(vhdl, "10 ns"), "number", "a time unit belongs to its number");
+  assert.equal(kindOf(vhdl, "'0'"), "string", "a character literal");
+  assert.equal(kindOf(vhdl, "\"Bad width: \"\"ticks\"\"\""), "string", "a doubled quote stays inside the string");
+  assert.equal(kindOfWord(vhdl, "entity"), "keyword");
+  assert.equal(kindOfWord(vhdl, "architecture"), "keyword");
+  assert.equal(kindOfWord(vhdl, "downto"), "keyword");
+  assert.equal(kindOfWord(vhdl, "others"), "keyword");
+  assert.equal(kindOfWord(vhdl, "generate"), "keyword");
+  assert.equal(kindOfWord(vhdl, "std_logic"), "type");
+  assert.equal(kindOfWord(vhdl, "std_logic_vector"), "type");
+  assert.equal(kindOfWord(vhdl, "unsigned"), "type");
+  assert.equal(kindOfWord(vhdl, "integer"), "type");
+  assert.equal(kindOfWord(vhdl, "rising_edge"), "plain", "rising_edge is a function, not a keyword");
+  assert.equal(kindOfWord(vhdl, "state_t"), "plain", "a name made by type ... is stays plain");
+  assert.equal(kindOf(vhdl, "\\bus+index\\"), "plain", "an extended identifier is plain");
+});
+
+test("tokenizer: VHDL tricky cases", () => {
+  // Every token as kind:text, joined with |, and a " // " marks the start of a new line.
+  const kinds = (source: string): string => tokenizeVhdl(source).map((l) => l.map((t) => `${t.kind}:${t.text}`).join("|")).join(" // ");
+
+  // Comments.
+  assert.equal(kinds("a -- b"), "plain:a |comment:-- b");
+  assert.equal(kinds("a /* b */ c"), "plain:a |comment:/* b */|plain: c");
+  assert.equal(kinds("/* a\nb */ c"), "comment:/* a // comment:b */|plain: c");
+  assert.equal(kinds("/* /* a */ b */"), "comment:/* /* a */|plain: b */", "block comments do not nest");
+  assert.equal(kinds("/* never closed\nx"), "comment:/* never closed // comment:x", "an unclosed block comment runs to the end");
+  assert.equal(kinds('a <= "x -- y";'), 'plain:a <= |string:"x -- y"|plain:;', "a -- inside a string is not a comment");
+  assert.equal(kinds("a--b"), "plain:a|comment:--b", "-- starts a comment even with no space");
+  assert.equal(kinds("a - b"), "plain:a - b", "one dash is a minus");
+  assert.equal(kinds("a / b"), "plain:a / b");
+  assert.equal(kinds("a /= b"), "plain:a /= b", "/= is an operator, not a comment");
+
+  // Case does not matter for keywords and types.
+  assert.equal(kinds("ENTITY Foo IS"), "keyword:ENTITY|plain: Foo |keyword:IS");
+  assert.equal(kinds("Begin"), "keyword:Begin");
+  assert.equal(kinds("STD_LOGIC_Vector"), "type:STD_LOGIC_Vector");
+  assert.equal(kinds("Signal x : Std_Logic;"), "keyword:Signal|plain: x : |type:Std_Logic|plain:;");
+  assert.equal(kinds("a Xor b NAND c"), "plain:a |keyword:Xor|plain: b |keyword:NAND|plain: c");
+  assert.equal(kinds("a sll 2 rol 1"), "plain:a |keyword:sll|plain: |number:2|plain: |keyword:rol|plain: |number:1");
+  assert.equal(kinds("a mod b rem c abs d"), "plain:a |keyword:mod|plain: b |keyword:rem|plain: c |keyword:abs|plain: d");
+  assert.equal(kinds("rising_edge(clk)"), "plain:rising_edge(clk)", "rising_edge is not a keyword");
+  assert.equal(kinds("port map (a => b)"), "keyword:port|plain: |keyword:map|plain: (a => b)");
+  assert.equal(kinds("in out inout buffer"), "keyword:in|plain: |keyword:out|plain: |keyword:inout|plain: |keyword:buffer");
+  assert.equal(kinds("x to y"), "plain:x |keyword:to|plain: y");
+  assert.equal(kinds("entity_name"), "plain:entity_name", "a word that only starts with a keyword is plain");
+  assert.equal(kinds("natural positive boolean signed"), "type:natural|plain: |type:positive|plain: |type:boolean|plain: |type:signed");
+
+  // Character literals.
+  assert.equal(kinds("x <= '0';"), "plain:x <= |string:'0'|plain:;");
+  assert.equal(kinds("x <= 'Z';"), "plain:x <= |string:'Z'|plain:;");
+  assert.equal(kinds("(others => '1')"), "plain:(|keyword:others|plain: => |string:'1'|plain:)", "a character after => is a literal");
+  assert.equal(kinds("when '1' =>"), "keyword:when|plain: |string:'1'|plain: =>", "a character after a keyword is a literal");
+  assert.equal(kinds("else '0'"), "keyword:else|plain: |string:'0'");
+  assert.equal(kinds("x <= ''';"), "plain:x <= |string:'''|plain:;", "''' is the character literal for a quote");
+  assert.equal(kinds("c = ''' and d"), "plain:c = |string:'''|plain: |keyword:and|plain: d");
+  assert.equal(kinds("x <= ' ';"), "plain:x <= |string:' '|plain:;", "a space character literal");
+  assert.equal(kinds("x = 'a' or y = 'b'"), "plain:x = |string:'a'|plain: |keyword:or|plain: y = |string:'b'");
+  assert.equal(kinds("('(')"), "plain:(|string:'('|plain:)", "a bracket character literal");
+
+  // Attribute ticks.
+  assert.equal(kinds("clk'event"), "plain:clk'event", "an attribute is not a character literal");
+  assert.equal(kinds("clk'event and clk = '1'"), "plain:clk'event |keyword:and|plain: clk = |string:'1'");
+  assert.equal(kinds("x'length"), "plain:x'length");
+  assert.equal(kinds("for i in a'range loop"), "keyword:for|plain: i |keyword:in|plain: a'range |keyword:loop", "range after a tick is plain");
+  assert.equal(kinds("a'reverse_range"), "plain:a'reverse_range");
+  assert.equal(kinds("data(3)'length"), "plain:data(|number:3|plain:)'length", "a tick after a closing bracket is an attribute");
+  assert.equal(kinds("v'high - v'low"), "plain:v'high - v'low");
+  assert.equal(kinds("clk'event and clk'last_value = '0'"), "plain:clk'event |keyword:and|plain: clk'last_value = |string:'0'");
+  assert.equal(kinds("integer'image(i)"), "type:integer|plain:'image(i)", "a type can have an attribute");
+  assert.equal(kinds("t'subtype"), "plain:t'subtype", "subtype after a tick is plain");
+  assert.equal(kinds("s'delayed(1 ns)'event"), "plain:s'delayed(|number:1 ns|plain:)'event");
+  assert.equal(kinds("a'(b)"), "plain:a'(b)");
+  assert.equal(kinds("Clk'Event"), "plain:Clk'Event");
+
+  // Qualified expressions.
+  assert.equal(kinds("std_logic'('1')"), "type:std_logic|plain:'(|string:'1'|plain:)", "a tick after a type, then a character literal");
+  assert.equal(kinds("unsigned'(x\"F\")"), "type:unsigned|plain:'(|number:x\"F\"|plain:)");
+  assert.equal(kinds("my_t'(a, b)"), "plain:my_t'(a, b)");
+  assert.equal(kinds("character'(''')"), "type:character|plain:'(|string:'''|plain:)", "a quote character inside a qualified expression");
+
+  // Strings.
+  assert.equal(kinds('"a""b" c'), 'string:"a""b"|plain: c', 'a doubled "" does not end the string');
+  assert.equal(kinds('""'), 'string:""', "an empty string");
+  assert.equal(kinds('"""" x'), 'string:""""|plain: x', 'a string holding one quote');
+  assert.equal(kinds('"a\\nb"'), 'string:"a\\nb"', "a backslash is not an escape");
+  assert.equal(kinds('"no end\nx'), 'string:"no end // plain:x', "a string ends at the line break");
+  assert.equal(kinds('report "a" & "b"'), 'keyword:report|plain: |string:"a"|plain: & |string:"b"');
+
+  // Bit strings.
+  assert.equal(kinds('x"FF"'), 'number:x"FF"');
+  assert.equal(kinds('X"ff"'), 'number:X"ff"', "the prefix can be upper case");
+  assert.equal(kinds('b"1010"'), 'number:b"1010"');
+  assert.equal(kinds('B"1010"'), 'number:B"1010"');
+  assert.equal(kinds('o"17"'), 'number:o"17"');
+  assert.equal(kinds('d"15"'), 'number:d"15"');
+  assert.equal(kinds('8x"FF"'), 'number:8x"FF"', "VHDL-2008 sized");
+  assert.equal(kinds('12UB"1_0"'), 'number:12UB"1_0"');
+  assert.equal(kinds('ux"FF"'), 'number:ux"FF"');
+  assert.equal(kinds('UX"F-Z"'), 'number:UX"F-Z"');
+  assert.equal(kinds('sx"F"'), 'number:sx"F"');
+  assert.equal(kinds('SB"01"'), 'number:SB"01"');
+  assert.equal(kinds('uo"7"'), 'number:uo"7"');
+  assert.equal(kinds('x"F" & x"0"'), 'number:x"F"|plain: & |number:x"0"');
+  assert.equal(kinds('x "FF"'), 'plain:x |string:"FF"', "a space makes it a name and a string");
+  assert.equal(kinds('ax"FF"'), 'plain:ax|string:"FF"', "a name that ends in x is not a bit string");
+  assert.equal(kinds('x"F\nG"'), 'number:x"F // plain:G|string:"', "a bit string ends at the line break");
+
+  // Numbers.
+  assert.equal(kinds("42"), "number:42");
+  assert.equal(kinds("1_000"), "number:1_000");
+  assert.equal(kinds("3.14"), "number:3.14");
+  assert.equal(kinds("1.0e-3"), "number:1.0e-3");
+  assert.equal(kinds("1E+6"), "number:1E+6");
+  assert.equal(kinds("2e3"), "number:2e3");
+  assert.equal(kinds("16#FF#"), "number:16#FF#");
+  assert.equal(kinds("2#1010_1010#"), "number:2#1010_1010#");
+  assert.equal(kinds("16#F.F#E2"), "number:16#F.F#E2");
+  assert.equal(kinds("8#77#"), "number:8#77#");
+  assert.equal(kinds("16#ff#"), "number:16#ff#");
+  assert.equal(kinds("a(7 downto 0)"), "plain:a(|number:7|plain: |keyword:downto|plain: |number:0|plain:)");
+  assert.equal(kinds("x := 16#FF"), "plain:x := |number:16|plain:#FF", "a based number with no closing # is not one number");
+  assert.equal(kinds("1e"), "number:1|plain:e", "an exponent needs digits");
+  assert.equal(kinds("10 ns"), "number:10 ns");
+  assert.equal(kinds("2.5 us"), "number:2.5 us");
+  assert.equal(kinds("100 ps"), "number:100 ps");
+  assert.equal(kinds("5 sec"), "number:5 sec");
+  assert.equal(kinds("wait for 20 NS;"), "keyword:wait|plain: |keyword:for|plain: |number:20 NS|plain:;");
+  assert.equal(kinds("10 nsx"), "number:10|plain: nsx", "a longer name is not a unit");
+  assert.equal(kinds("x(1) + 1"), "plain:x(|number:1|plain:) + |number:1");
+
+  // Extended identifiers.
+  assert.equal(kinds("\\foo bar\\"), "plain:\\foo bar\\");
+  assert.equal(kinds("signal \\a end\\ : bit;"), "keyword:signal|plain: \\a end\\ : |type:bit|plain:;", "a keyword inside \\...\\ stays plain");
+  assert.equal(kinds("\\a\\\\b\\ x"), "plain:\\a\\\\b\\ x", "a doubled backslash is inside the name");
+  assert.equal(kinds("\\a -- b\\"), "plain:\\a -- b\\", "-- inside an extended identifier is not a comment");
+  assert.equal(kinds("\\never closed\nx"), "plain:\\never closed // plain:x", "an extended identifier ends at the line break");
+  assert.equal(kinds("\\a\\'length"), "plain:\\a\\'length", "an extended identifier can have an attribute");
+
+  // Operators.
+  assert.equal(kinds("a <= b := c => d /= e ** f >= g ?= h"), "plain:a <= b := c => d /= e ** f >= g ?= h");
+  assert.equal(kinds("a & b ; c : d"), "plain:a & b ; c : d");
+  assert.equal(kinds("<< signal .tb.x : bit >>"), "plain:<< |keyword:signal|plain: .tb.x : |type:bit|plain: >>");
+  assert.equal(kinds("use ieee.std_logic_1164.all;"), "keyword:use|plain: ieee.std_logic_1164.|keyword:all|plain:;");
+  assert.equal(kinds("library work;"), "keyword:library|plain: work;", "work is a normal name");
+
+  // Other.
+  assert.equal(kinds(""), "");
+  assert.equal(kinds("a\n\nb"), "plain:a //  // plain:b");
+  assert.equal(kinds("x <= '😀';"), "plain:x <= '😀';", "a character literal holds one character, so an emoji is not one");
+  assert.equal(kinds("日本 <= 1;"), "plain:日本 <= |number:1|plain:;");
+});
+
+test("tokenizer: VHDL keeps every character, even in broken code", () => {
+  for (const source of ["", "'", "''", "'''", "''''", "x'", "x\"", "\"", "\\", "\\a", "/*", "/* a", "--", "16#", "16#F", "1.", "1e+", "a'\n", "'\n'", "x\"F", "8x", "(*", "-- é\r\nx", "\t'a'\t", "'😀'", "<<", "a ' b"]) {
+    const lines = tokenizeVhdl(source);
+    assert.equal(lines.map(joinLine).join("\n"), source, `lost text for ${JSON.stringify(source)}`);
+  }
+});
+
+test("languages: other languages do not read VHDL words and VHDL does not read theirs", () => {
+  assert.equal(kindOfWord(tokenizeCpp("architecture"), "architecture"), "plain");
+  assert.equal(kindOfWord(tokenizeVerilog("architecture"), "architecture"), "plain");
+  assert.equal(kindOfWord(tokenizeVerilog("ENTITY"), "ENTITY"), "plain", "Verilog is case-sensitive");
+  assert.equal(kindOfWord(tokenizeVhdl("module"), "module"), "plain");
+  assert.equal(kindOfWord(tokenizeVhdl("always"), "always"), "plain");
+  assert.equal(kindOf(tokenizeVhdl("$display"), "$display"), "plain");
+  assert.equal(kindOf(tokenizeVhdl("// hello there"), "// hello there"), "plain");
+  assert.equal(kindOf(tokenizeVhdl("# hello there"), "# hello there"), "plain");
+});
+
 test("layout: tabs expand to the next tab stop and control characters become visible", () => {
   const [expanded] = [expandLine([{ kind: "plain", text: "\tx\ty\u0000" }], 4)];
   assert.equal(expanded.map((t) => t.text).join(""), "    x   y␀");
@@ -3091,7 +3283,7 @@ test("files: supported extensions, excluded folders and PDF names", () => {
   for (const name of ["a.c", "a.cpp", "a.cc", "a.cxx", "a.h", "a.hpp", "a.hh", "a.hxx", "A.CPP", "A.C", "a.py", "a.pyw", "A.PY", "a.css", "A.CSS", "a.html", "a.htm", "A.HTML", "a.js", "a.mjs", "a.cjs", "A.JS", "a.ts", "a.mts", "a.cts", "A.TS", "a.jsx", "a.tsx", "A.TSX", "a.rs", "A.RS", "a.java", "A.JAVA", "a.cs", "A.CS", "a.go", "A.GO", "a.php", "A.PHP", "a.rb", "A.RB", "a.dart", "A.DART", "a.lua", "A.LUA", "a.r", "a.R", "A.R", "a.m", "A.M", "a.ino", "A.INO", "a.v", "A.V", "a.vh", "a.sv", "A.SV", "a.svh"]) {
     assert.ok(isSupportedSource(name), name);
   }
-  for (const name of ["a.ts.map", "a.tsbuildinfo", "a.js.map", "js", "cpp", "c", "py", "css", "a.scss", "a.css.map", "html", "a.html.bak", "a.xhtml", "a.cpp.bak", "a.c.bak", "a.pyc", "a.rs.bk", "rs", "a.class", "a.jar", "java", "a.csproj", "a.sln", "a.dll", "cs", "a.mod", "a.sum", "go", "a.phtml", "a.php.bak", "a.inc", "php", "a.erb", "a.rbi", "rb", "a.dart.bak", "dart", "a.lua.bak", "a.luac", "lua", "a.r.bak", "a.rmd", "a.Rproj", "a.rds", "r", "a.m.bak", "a.mat", "a.mlx", "a.mm", "m", "a.ino.bak", "a.pde", "ino", "a.v.bak", "a.vhd", "a.vcd", "a.vo", "a.sv.bak", "v", "sv","pubspec.yaml", "notes.txt"]) {
+  for (const name of ["a.ts.map", "a.tsbuildinfo", "a.js.map", "js", "cpp", "c", "py", "css", "a.scss", "a.css.map", "html", "a.html.bak", "a.xhtml", "a.cpp.bak", "a.c.bak", "a.pyc", "a.rs.bk", "rs", "a.class", "a.jar", "java", "a.csproj", "a.sln", "a.dll", "cs", "a.mod", "a.sum", "go", "a.phtml", "a.php.bak", "a.inc", "php", "a.erb", "a.rbi", "rb", "a.dart.bak", "dart", "a.lua.bak", "a.luac", "lua", "a.r.bak", "a.rmd", "a.Rproj", "a.rds", "r", "a.m.bak", "a.mat", "a.mlx", "a.mm", "m", "a.ino.bak", "a.pde", "ino", "a.v.bak", "a.vhd.bak", "a.vho", "a.vcd", "a.vo", "a.sv.bak", "v", "sv","pubspec.yaml", "notes.txt"]) {
     assert.ok(!isSupportedSource(name), name);
   }
   for (const name of [".git", ".vscode", "node_modules", "build", "dist", "cmake-build-debug", "Debug", "__pycache__", "venv", ".venv", "target", "out", "bin", ".gradle", "obj", "vendor", "Pods", "DerivedData", "Carthage", ".build", ".bundle", "vendor", ".dart_tool", "lua_modules", "renv", "packrat", "Renv", "slprj", "codegen", "Codegen", "obj_dir", "Obj_Dir", "xsim.dir", "incremental_db"]) {

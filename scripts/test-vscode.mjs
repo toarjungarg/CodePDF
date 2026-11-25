@@ -60,7 +60,9 @@ put("Scones.R", readFileSync(join(fixtures, "basic.r")));
 put("pastry.m", readFileSync(join(fixtures, "basic.m")));
 put("toaster.ino", readFileSync(join(fixtures, "basic.ino")));
 put("timer.sv", readFileSync(join(fixtures, "basic.sv")));
-put("gates.v", "// A made-up Verilog file\nmodule gates(input a, input b, output y);\n  assign y = a & b;\nendmodule\n");
+put("alu.vhd", readFileSync(join(fixtures, "basic.vhd")));
+put("adder.vhdl", "-- A made-up VHDL file\nentity adder is\n  port (a, b : in bit; y : out bit);\nend entity adder;\n");
+put("gates.v","// A made-up Verilog file\nmodule gates(input a, input b, output y);\n  assign y = a & b;\nendmodule\n");
 for (const name of ["comments_strings.cpp", "unicode.cpp", "long_lines.cpp"]) {
   cpSync(join(fixtures, name), join(project, name));
 }

@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.23.0
+- Added VHDL export (`.vhd`, `.vhdl`).
+
 ## 1.22.0
 - Added Verilog and SystemVerilog export (`.v`, `.vh`, `.sv`, `.svh`). Every `.v` file is treated as Verilog.
 - Folder export now skips `obj_dir`, `xsim.dir` and `incremental_db` folders.

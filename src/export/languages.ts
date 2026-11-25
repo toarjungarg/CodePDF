@@ -23,9 +23,10 @@ import { tokenizeShell } from "./shellTokenizer";
 import { tokenizeSql } from "./sqlTokenizer";
 import { tokenizeSwift } from "./swiftTokenizer";
 import { tokenizeVerilog } from "./verilogTokenizer";
+import { tokenizeVhdl } from "./vhdlTokenizer";
 import type { TokenLine } from "./tokens";
 
-export type LanguageId = "c" | "cpp" | "python" | "css" | "html" | "javascript" | "typescript" | "javascriptreact" | "typescriptreact" | "rust" | "java" | "csharp" | "go" | "php" | "sql" | "shell" | "kotlin" | "swift" | "ruby" | "dart" | "lua" | "r" | "matlab" | "arduino" | "verilog" | "systemverilog";
+export type LanguageId = "c" | "cpp" | "python" | "css" | "html" | "javascript" | "typescript" | "javascriptreact" | "typescriptreact" | "rust" | "java" | "csharp" | "go" | "php" | "sql" | "shell" | "kotlin" | "swift" | "ruby" | "dart" | "lua" | "r" | "matlab" | "arduino" | "verilog" | "systemverilog" | "vhdl";
 
 interface Language {
   /** Shown in messages, e.g. "C++". */
@@ -207,6 +208,13 @@ export const LANGUAGES: Record<LanguageId, Language> = {
     vscodeId: "systemverilog",
     tokenize: tokenizeVerilog,
   },
+  // VHDL is not case-sensitive, so it has its own tokenizer, not the Verilog one.
+  vhdl: {
+    label: "VHDL",
+    extensions: [".vhd", ".vhdl"],
+    vscodeId: "vhdl",
+    tokenize: tokenizeVhdl,
+  },
 };
 
 const LANGUAGE_IDS = Object.keys(LANGUAGES) as LanguageId[];
@@ -219,10 +227,10 @@ function nameList(lastJoiner: string): string {
   return labels.length < 2 ? labels.join("") : `${labels.slice(0, -1).join(", ")} ${lastJoiner} ${labels[labels.length - 1]}`;
 }
 
-/** "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog and SystemVerilog", for messages. */
+/** "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog and VHDL", for messages. */
 export const LANGUAGE_NAMES = nameList("and");
 
-/** "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog or SystemVerilog", for messages like "files that aren't ...". */
+/** "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog or VHDL", for messages like "files that aren't ...". */
 export const LANGUAGE_NAMES_OR = nameList("or");
 
 function extensionOf(fileName: string): string {
@@ -236,7 +244,7 @@ export function languageForFile(fileName: string): LanguageId | undefined {
   return LANGUAGE_IDS.find((id) => LANGUAGES[id].extensions.includes(ext));
 }
 
-/** The language for VS Code's language id ("c", "cpp", "python", "typescriptreact", "rust", "java", "csharp", "go", "php", "sql", "shellscript", "kotlin", "swift", "ruby", "dart", "lua", "r", "matlab", "arduino", "verilog", "systemverilog", ...), or undefined if unsupported. */
+/** The language for VS Code's language id ("c", "cpp", "python", "typescriptreact", "rust", "java", "csharp", "go", "php", "sql", "shellscript", "kotlin", "swift", "ruby", "dart", "lua", "r", "matlab", "arduino", "verilog", "systemverilog", "vhdl", ...), or undefined if unsupported. */
 export function languageForVscodeId(vscodeId: string | undefined): LanguageId | undefined {
   return LANGUAGE_IDS.find((id) => LANGUAGES[id].vscodeId === vscodeId);
 }

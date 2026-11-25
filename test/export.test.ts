@@ -587,6 +587,34 @@ test("1w. exports SystemVerilog and Verilog files, alone and combined with an Ar
   assert.ok(combined.pdf.text.includes("#include <Servo.h>"));
 });
 
+test("1x. exports VHDL files, alone and combined with a Verilog file", async () => {
+  const source = fixture("basic.vhd");
+  const { pdf } = await exportSections("basic_vhd.pdf", [{ ...file("basic.vhd", source), language: "vhdl" }]);
+  assert.ok(pdf.pages[0]!.lines[0]!.startsWith("basic.vhd"), "file name in the header");
+  for (const expected of [
+    "library ieee;",
+    "entity toaster_timer is",
+    ":= 2.5e1",
+    'unsigned(7 downto 0) := x"C8";',
+    "integer := 16#FF# + 2#1010_1010# + 1_000;",
+    "signal \\bus+index\\ : std_logic;",
+    "elsif clk'event and clk = '1' then",
+    'report "Bad width: ""ticks"""',
+    "end architecture rtl;",
+  ]) {
+    assert.ok(pdf.text.includes(expected), `missing: ${expected}`);
+  }
+
+  const verilog = "// A made-up gate\nmodule gates(input a, input b, output y);\n  assign y = a & b;\nendmodule\n";
+  const combined = await exportSections("mixed_vhd_v.pdf", [
+    { ...file("basic.vhd", source), language: "vhdl" },
+    { ...file("gates.v", verilog), language: "verilog" },
+  ]);
+  assert.deepEqual(combined.pdf.outline, ["basic.vhd", "gates.v"], "one bookmark per file");
+  assert.ok(combined.pdf.text.includes("architecture rtl of toaster_timer is"));
+  assert.ok(combined.pdf.text.includes("assign y = a & b;"));
+});
+
 test("2. exports comments and strings exactly", async () => {
   const { pdf } = await exportSections("comments_strings.pdf", [file("comments_strings.cpp", fixture("comments_strings.cpp"))]);
   for (const expected of [
