@@ -411,6 +411,32 @@ test("1p. exports a Swift file, alone and combined with Kotlin", async () => {
   assert.ok(combined.pdf.text.includes("#!/usr/bin/env swift"));
 });
 
+test("1q. exports a Ruby file, alone and combined with Swift", async () => {
+  const source = fixture("basic.rb");
+  const { pdf } = await exportSections("basic_ruby.pdf", [file("basic.rb", source)]);
+  assert.ok(pdf.pages[0]!.lines[0]!.startsWith("basic.rb"), "file name in the header");
+  for (const expected of [
+    "def initialize(name, slices: 8, heat: :medium)",
+    "def <=>(other)",
+    "text = <<~NOTE",
+    "Today's bake: #{kind}",
+    "bits = 1<<4",
+    "pattern = %r{^/path/(\\d+)$}x",
+    "words = %w[rye wheat spelt]",
+    "puts :a.to_proc.call(\"x\") if loaf.name =~ /ry+e/i",
+    "count = defined?(loaf) ? loaf.slices : 0",
+  ]) {
+    assert.ok(pdf.text.includes(expected), `missing: ${expected}`);
+  }
+
+  const combined = await exportSections("mixed_ruby_swift.pdf", [
+    { ...file("basic.rb", source), language: "ruby" },
+    { ...file("basic.swift", fixture("basic.swift")), language: "swift" },
+  ]);
+  assert.deepEqual(combined.pdf.outline, ["basic.rb", "basic.swift"], "one bookmark per file");
+  assert.ok(combined.pdf.text.includes("#!/usr/bin/env ruby"));
+});
+
 test("2. exports comments and strings exactly", async () => {
   const { pdf } = await exportSections("comments_strings.pdf", [file("comments_strings.cpp", fixture("comments_strings.cpp"))]);
   for (const expected of [

@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.16.0
+- Added Ruby export (`.rb`).
+
 ## 1.15.0
 - Added Swift export (`.swift`).
 - Folder export now skips `Pods`, `DerivedData` and `Carthage` folders.

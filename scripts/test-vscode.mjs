@@ -48,11 +48,12 @@ put("pantry.rs", readFileSync(join(fixtures, "basic.rs")));
 put("Kitchen.java", readFileSync(join(fixtures, "basic.java")));
 put("Cookbook.cs", readFileSync(join(fixtures, "basic.cs")));
 put("shelf.go", readFileSync(join(fixtures, "basic.go")));
-put("pantry.php", readFileSync(join(fixtures, "basic.php")));
+put("larder.php", readFileSync(join(fixtures, "basic.php")));
 put("bookshop.sql", readFileSync(join(fixtures, "basic.sql")));
 put("backup.sh", readFileSync(join(fixtures, "basic.sh")));
 put("Bakery.kt", readFileSync(join(fixtures, "basic.kt")));
 put("Oven.swift", readFileSync(join(fixtures, "basic.swift")));
+put("loaves.rb", readFileSync(join(fixtures, "basic.rb")));
 for (const name of ["comments_strings.cpp", "unicode.cpp", "long_lines.cpp"]) {
   cpSync(join(fixtures, name), join(project, name));
 }
@@ -74,6 +75,8 @@ put("vendor/autoload.php", "<?php // Composer dependency copy: must be skipped\n
 put("Pods/Dep/Dep.swift", "// CocoaPods dependency copy: must be skipped\n");
 put("DerivedData/Build/Gen.swift", "// Xcode build output: must be skipped\n");
 put("Carthage/Checkouts/Dep.swift", "// Carthage dependency copy: must be skipped\n");
+put("vendor/bundle/ruby/gems/dep.rb", "# Bundler dependency copy: must be skipped\n");
+put(".bundle/config.rb", "# Bundler settings folder (hidden): must be skipped\n");
 put("notes.txt","Not source code.\n");
 
 // 2. Test PDFs, made with CodePDF's own (compiled) engine.
