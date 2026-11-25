@@ -15,10 +15,10 @@ export const EXCLUDED_FOLDERS = new Set([
 
 /**
  * Files a tool writes for you (huge lists of package versions) that a folder export skips, matched by exact
- * lowercase name. They are valid JSON, but thousands of lines of them would bury your own code.
+ * lowercase name. They are valid JSON or YAML, but thousands of lines of them would bury your own code.
  * Exporting one of them on its own still works.
  */
-export const GENERATED_FILES = new Set(["package-lock.json", "npm-shrinkwrap.json"]);
+export const GENERATED_FILES = new Set(["package-lock.json", "npm-shrinkwrap.json", "pnpm-lock.yaml"]);
 
 /** A folder search stops after this many files, so a huge folder can't freeze VS Code. */
 export const MAX_FOLDER_FILES = 500;

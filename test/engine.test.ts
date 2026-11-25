@@ -27,6 +27,7 @@ import { tokenizeVhdl } from "../src/export/vhdlTokenizer";
 import { tokenizeAsm } from "../src/export/asmTokenizer";
 import { tokenizeLatex } from "../src/export/latexTokenizer";
 import { tokenizeJson } from "../src/export/jsonTokenizer";
+import { tokenizeYaml } from "../src/export/yamlTokenizer";
 import type { TokenKind, TokenLine } from "../src/export/tokens";
 import { languageForFile, languageForVscodeId, LANGUAGES, LANGUAGE_NAMES, LANGUAGE_NAMES_OR } from "../src/export/languages";
 import { columnWidth, expandLine, layoutLine } from "../src/export/layout";
@@ -62,11 +63,11 @@ const kindOfWord = (lines: TokenLine[], word: string): TokenKind | undefined => 
 };
 
 test("tokenizer: joining tokens gives back every fixture exactly", () => {
-  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py", "basic.css", "basic.html", "basic.js", "basic.ts", "basic.jsx", "basic.tsx", "basic.rs", "basic.java", "basic.cs", "basic.go", "basic.php", "basic.sql", "basic.sh", "basic.kt", "basic.swift", "basic.rb", "basic.dart", "basic.lua", "basic.r", "basic.m", "basic.ino", "basic.sv", "basic.vhd", "basic.s", "basic.tex", "basic.json"]) {
+  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py", "basic.css", "basic.html", "basic.js", "basic.ts", "basic.jsx", "basic.tsx", "basic.rs", "basic.java", "basic.cs", "basic.go", "basic.php", "basic.sql", "basic.sh", "basic.kt", "basic.swift", "basic.rb", "basic.dart", "basic.lua", "basic.r", "basic.m", "basic.ino", "basic.sv", "basic.vhd", "basic.s", "basic.tex", "basic.json", "basic.yaml"]) {
     const source = fixture(name).replace(/\r\n?/g, "\n");
     for (const lines of [
       tokenizeCpp(source), tokenizeC(source), tokenizePython(source), tokenizeCss(source), tokenizeHtml(source), tokenizeJavaScript(source),
-      tokenizeTs(source), tokenizeJsx(source), tokenizeTsx(source), tokenizeRust(source), tokenizeJava(source), tokenizeCSharp(source), tokenizeGo(source), tokenizePhp(source), tokenizeSql(source), tokenizeShell(source), tokenizeKotlin(source), tokenizeSwift(source), tokenizeRuby(source), tokenizeDart(source), tokenizeLua(source), tokenizeR(source), tokenizeMatlab(source), tokenizeVerilog(source), tokenizeVhdl(source), tokenizeAsm(source), tokenizeLatex(source), tokenizeJson(source),
+      tokenizeTs(source), tokenizeJsx(source), tokenizeTsx(source), tokenizeRust(source), tokenizeJava(source), tokenizeCSharp(source), tokenizeGo(source), tokenizePhp(source), tokenizeSql(source), tokenizeShell(source), tokenizeKotlin(source), tokenizeSwift(source), tokenizeRuby(source), tokenizeDart(source), tokenizeLua(source), tokenizeR(source), tokenizeMatlab(source), tokenizeVerilog(source), tokenizeVhdl(source), tokenizeAsm(source), tokenizeLatex(source), tokenizeJson(source), tokenizeYaml(source),
     ]) {
       assert.equal(lines.map(joinLine).join("\n"), source, `${name} changed during tokenizing`);
     }
@@ -2891,8 +2892,8 @@ test("languages: picked by extension or VS Code language id, with .h treated as 
   assert.equal(languageForVscodeId("bibtex"), undefined);
   assert.equal(languageForVscodeId(undefined), undefined);
   assert.equal(LANGUAGES.latex.label, "LaTeX");
-  assert.equal(LANGUAGE_NAMES, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL, Assembly, LaTeX and JSON");
-  assert.equal(LANGUAGE_NAMES_OR, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL, Assembly, LaTeX or JSON");
+  assert.equal(LANGUAGE_NAMES, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL, Assembly, LaTeX, JSON and YAML");
+  assert.equal(LANGUAGE_NAMES_OR, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL, Assembly, LaTeX, JSON or YAML");
   for (const name of ["config.json", "CONFIG.JSON", "tsconfig.json", "settings.jsonc", "Data.JSONC"]) {
     assert.equal(languageForFile(name), "json", name);
   }
@@ -2904,6 +2905,16 @@ test("languages: picked by extension or VS Code language id, with .h treated as 
   assert.equal(languageForVscodeId("jsonl"), undefined);
   assert.equal(languageForVscodeId("json5"), undefined);
   assert.equal(LANGUAGES.json.label, "JSON");
+  for (const name of ["docker-compose.yml", "ci.yaml", "CONFIG.YML", "Data.YAML", "pubspec.yaml"]) {
+    assert.equal(languageForFile(name), "yaml", name);
+  }
+  for (const name of ["a.yaml.bak", "a.yml.tmpl", "a.yamll", "a.ymls", "yaml", "yml", "a.toml", "a.ya"]) {
+    assert.equal(languageForFile(name), undefined, name);
+  }
+  assert.equal(languageForVscodeId("yaml"), "yaml", "VS Code's id for .yml and .yaml files");
+  assert.equal(languageForVscodeId("yml"), undefined);
+  assert.equal(languageForVscodeId("home-assistant"), undefined);
+  assert.equal(LANGUAGES.yaml.label, "YAML");
 });
 
 test("tokenizer: Arduino sketches use the C++ tokenizer for comments, preprocessor lines, strings and keywords", () => {
@@ -3779,6 +3790,257 @@ test("package.json: all five menu rules match .json and .jsonc and no look-alike
   }
 });
 
+test("tokenizer: YAML fixture colours", () => {
+  const source = fixture("basic.yaml");
+  const yaml = LANGUAGES[languageForFile("config.yaml")!].tokenize(source);
+  assert.equal(yaml.map(joinLine).join("\n"), source, "no text lost or changed");
+  assert.equal(kindOf(yaml, "# A made-up settings file"), "comment");
+  assert.equal(kindOf(yaml, "%YAML 1.2"), "preprocessor", "a directive");
+  assert.equal(kindOf(yaml, "---"), "preprocessor", "a document marker");
+  assert.equal(kindOf(yaml, "name"), "type", "a key");
+  assert.equal(kindOf(yaml, "bread-timer"), "plain", "a plain value");
+  assert.equal(kindOf(yaml, "false"), "keyword");
+  assert.equal(kindOf(yaml, "~"), "keyword");
+  assert.equal(kindOf(yaml, "Null"), "keyword");
+  assert.equal(kindOf(yaml, "-12.5"), "number");
+  assert.equal(kindOf(yaml, "0x1F"), "number");
+  assert.equal(kindOf(yaml, "0o17"), "number");
+  assert.equal(kindOf(yaml, ".inf"), "number");
+  assert.equal(kindOf(yaml, "180"), "number");
+  assert.equal(kindOf(yaml, "1e3"), "number");
+  assert.equal(kindOf(yaml, "url"), "type");
+  assert.equal(kindOf(yaml, "http://bakery.example/recipes#top"), "plain", "no comment in a url");
+  assert.equal(kindOf(yaml, "a#b is not a comment"), "plain", "a # with no space before it is text");
+  assert.equal(kindOf(yaml, "# but this is"), "comment");
+  assert.equal(kindOf(yaml, "crème é # not a comment"), "string", "a # inside double quotes");
+  assert.equal(kindOf(yaml, "it''s # not a comment"), "string", "a # inside single quotes, with an escaped quote");
+  assert.equal(kindOf(yaml, "&base"), "keyword", "an anchor");
+  assert.equal(kindOf(yaml, "*base"), "keyword", "an alias");
+  assert.equal(kindOf(yaml, "<<"), "type", "a merge key");
+  assert.equal(kindOf(yaml, "!!str"), "preprocessor", "a tag");
+  assert.equal(kindOf(yaml, "\"fan speed\""), "type", "a quoted key");
+  assert.equal(kindOf(yaml, "crusty"), "type", "a key inside {}");
+  assert.equal(kindOfWord(yaml, "true"), "keyword", "a value inside {}");
+  assert.equal(kindOfWord(yaml, "no"), "plain", "no is not a keyword");
+  assert.equal(kindOf(yaml, "'another one'"), "string", "a quoted list item");
+  assert.equal(kindOf(yaml, "script"), "type");
+  assert.equal(kindOf(yaml, "echo \"# not a comment\""), "string", "block scalar text");
+  assert.equal(kindOf(yaml, "echo yes"), "string");
+  assert.equal(kindOf(yaml, "|"), "string", "the | itself");
+  assert.equal(kindOf(yaml, "# still text"), "string", "a # in a >- block is not a comment");
+  assert.equal(kindOf(yaml, "folded"), "type", "the key after a block scalar is read normally");
+  assert.equal(kindOf(yaml, "a string"), "string", "a double quoted string over two lines");
+  assert.equal(kindOf(yaml, "over two lines"), "string");
+  assert.equal(kindOf(yaml, "..."), "preprocessor");
+  assert.equal(kindOf(yaml, "second"), "type", "a key in the second document");
+  assert.equal(kindOf(yaml, "\"oops"), "string", "a quote with no end stops at the line break");
+  assert.deepEqual(yaml[yaml.length - 2]!.map((t) => `${t.kind}:${t.text}`), ["type:last", "plain:: ", "number:1"], "and the next line is read normally");
+});
+
+test("tokenizer: YAML tricky cases", () => {
+  // Every token as kind:text, joined with |, and a " // " marks the start of a new line.
+  const kinds = (source: string): string => tokenizeYaml(source).map((l) => l.map((t) => `${t.kind}:${t.text}`).join("|")).join(" // ");
+  // The kind of the last token on the first line of "a: <value>".
+  const valueKind = (value: string): string => {
+    const line = tokenizeYaml(`a: ${value}`)[0]!;
+    return line[line.length - 1]!.kind;
+  };
+
+  // Comments.
+  assert.equal(kinds("# top"), "comment:# top");
+  assert.equal(kinds("  # indented"), "plain:  |comment:# indented");
+  assert.equal(kinds("a: b # c"), "type:a|plain:: b |comment:# c");
+  assert.equal(kinds("a: b\t# c"), "type:a|plain:: b\t|comment:# c", "a tab before the #");
+  assert.equal(kinds("a: b #"), "type:a|plain:: b |comment:#");
+  assert.equal(kinds("a: b#c"), "type:a|plain:: b#c", "no space before the #");
+  assert.equal(kinds("a#b: c"), "type:a#b|plain:: c");
+  assert.equal(kinds("url: http://x#frag"), "type:url|plain:: http://x#frag");
+  assert.equal(kinds("a: \"b\"#c"), "type:a|plain:: |string:\"b\"|plain:#c", "a # right after a closing quote is text");
+  assert.equal(kinds("a: \"b\" #c"), "type:a|plain:: |string:\"b\"|plain: |comment:#c");
+  assert.equal(kinds("\"a # b\""), "string:\"a # b\"");
+  assert.equal(kinds("'a # b'"), "string:'a # b'");
+  assert.equal(kinds("# a: 1"), "comment:# a: 1", "nothing inside a comment is read");
+
+  // Keys.
+  assert.equal(kinds("a: 1"), "type:a|plain:: |number:1");
+  assert.equal(kinds("a:"), "type:a|plain::");
+  assert.equal(kinds("a b c: 1"), "type:a b c|plain:: |number:1", "a key with spaces");
+  assert.equal(kinds("a : 1"), "type:a|plain: : |number:1", "a space before the colon");
+  assert.equal(kinds("a:\tb"), "type:a|plain::\tb", "a tab after the colon");
+  assert.equal(kinds("key:value"), "plain:key:value", "no space after the colon, so no key");
+  assert.equal(kinds("http://x"), "plain:http://x");
+  assert.equal(kinds("a: http://x"), "type:a|plain:: http://x");
+  assert.equal(kinds("time: 12:30:00"), "type:time|plain:: 12:30:00");
+  assert.equal(kinds("1: x"), "type:1|plain:: x", "a key that looks like a number");
+  assert.equal(kinds("true: x"), "type:true|plain:: x", "a key that looks like a keyword");
+  assert.equal(kinds(": a"), "plain:: a", "an empty key");
+  assert.equal(kinds("\"a\": 1"), "type:\"a\"|plain:: |number:1", "a double quoted key");
+  assert.equal(kinds("'a': 1"), "type:'a'|plain:: |number:1", "a single quoted key");
+  assert.equal(kinds("\"a\" : 1"), "type:\"a\"|plain: : |number:1");
+  assert.equal(kinds("\"a\":1"), "string:\"a\"|plain::1", "no space after the colon outside {}");
+  assert.equal(kinds("\"a\""), "string:\"a\"", "a quoted string with no colon is a value");
+  assert.equal(kinds("a: \"b\": c"), "type:a|plain:: |type:\"b\"|plain:: c", "the same rule applies to every quoted string");
+  assert.equal(kinds("- a: 1"), "plain:- |type:a|plain:: |number:1", "a key after a list dash");
+  assert.equal(kinds("- \"q\": 1"), "plain:- |type:\"q\"|plain:: |number:1");
+  assert.equal(kinds("- x"), "plain:- x");
+  assert.equal(kinds("-x"), "plain:-x", "a dash with no space is part of a value");
+  assert.equal(kinds("-"), "plain:-");
+  assert.equal(kinds("a: b, c"), "type:a|plain:: b, c", "commas are text outside {} and []");
+  assert.equal(kinds("ключ: значение 😀"), "type:ключ|plain:: значение 😀");
+
+  // Quoted strings.
+  assert.equal(kinds("'it''s'"), "string:'it''s'", "'' is an escaped quote");
+  assert.equal(kinds("'a\\' b"), "string:'a\\'|plain: b", "no backslash escapes in single quotes");
+  assert.equal(kinds("\"a\\\"b\""), "string:\"a\\\"b\"", "an escaped quote in double quotes");
+  assert.equal(kinds("\"a\\\\\" c"), "string:\"a\\\\\"|plain: c", "an escaped backslash right before the closing quote");
+  assert.equal(kinds("\"a\nb\""), "string:\"a // string:b\"", "a double quoted string over lines");
+  assert.equal(kinds("'a\nb'"), "string:'a // string:b'", "a single quoted string over lines");
+  assert.equal(kinds("\"a\\\nb\""), "string:\"a\\ // string:b\"", "a backslash at the end of a line");
+  assert.equal(kinds("\"a\nb\": 1"), "string:\"a // string:b\"|plain:: |number:1", "a string over lines is not a key");
+  assert.equal(kinds("\"é\\u00e9😀\""), "string:\"é\\u00e9😀\"");
+
+  // Quotes that never close.
+  assert.equal(kinds("\"abc\nx: 1"), "string:\"abc // type:x|plain:: |number:1", "only the first line is a string");
+  assert.equal(kinds("'abc\nx: 1"), "string:'abc // type:x|plain:: |number:1");
+  assert.equal(kinds("x: \"abc"), "type:x|plain:: |string:\"abc");
+  assert.equal(kinds("\""), "string:\"");
+  assert.equal(kinds("'"), "string:'");
+  assert.equal(kinds("\"abc: 1"), "string:\"abc: 1", "an open string is never a key");
+  {
+    // A closing quote that is more than MAX_QUOTED_LINES lines away does not count.
+    const far = `"x\n${"y\n".repeat(150)}"\nz: 1`;
+    const lines = tokenizeYaml(far);
+    assert.equal(lines[0]!.map((t) => `${t.kind}:${t.text}`).join("|"), "string:\"x");
+    assert.equal(lines[1]!.map((t) => `${t.kind}:${t.text}`).join("|"), "plain:y");
+    assert.equal(lines[lines.length - 1]!.map((t) => `${t.kind}:${t.text}`).join("|"), "type:z|plain:: |number:1");
+    assert.equal(lines.map(joinLine).join("\n"), far);
+  }
+
+  // Block scalars.
+  assert.equal(kinds("a: |\n  x # y\n  z\nb: 1"), "type:a|plain:: |string:| // string:  x # y // string:  z // type:b|plain:: |number:1");
+  assert.equal(kinds("a: |-\n  x"), "type:a|plain:: |string:|- // string:  x", "|-");
+  assert.equal(kinds("a: >+\n  x"), "type:a|plain:: |string:>+ // string:  x", ">+");
+  assert.equal(kinds("a: |2\n  x"), "type:a|plain:: |string:|2 // string:  x", "|2");
+  assert.equal(kinds("a: |2-\n  x"), "type:a|plain:: |string:|2- // string:  x", "|2-");
+  assert.equal(kinds("a: >-2\n  x"), "type:a|plain:: |string:>-2 // string:  x", ">-2");
+  assert.equal(kinds("a: >+ # c\n  x"), "type:a|plain:: |string:>+|plain: |comment:# c // string:  x", "a comment after the header");
+  assert.equal(kinds("a: |--\n  x"), "type:a|plain:: |-- // plain:  x", "two modifiers of the same kind are not a header");
+  assert.equal(kinds("a: |foo\n  x"), "type:a|plain:: |foo // plain:  x", "text after the | is not a header");
+  assert.equal(kinds("a: | b\n  x"), "type:a|plain:: | b // plain:  x");
+  assert.equal(kinds("- |\n  text\n- b"), "plain:- |string:| // string:  text // plain:- b", "a block scalar in a list");
+  assert.equal(kinds("a: |\n  x\n\n  y\nb: 1"), "type:a|plain:: |string:| // string:  x //  // string:  y // type:b|plain:: |number:1", "a blank line inside");
+  assert.equal(kinds("a:\n  b: |\n    x\n  c: 1"), "type:a|plain:: // plain:  |type:b|plain:: |string:| // string:    x // plain:  |type:c|plain:: |number:1", "stops when the indent is back to the key's");
+  assert.equal(kinds("- k: |\n    x\n  j: 1"), "plain:- |type:k|plain:: |string:| // string:    x // plain:  |type:j|plain:: |number:1", "a key after a list dash owns the block");
+  assert.equal(kinds("a:\n  b: |\n    x\n  # c"), "type:a|plain:: // plain:  |type:b|plain:: |string:| // string:    x // plain:  |comment:# c", "a less indented comment ends the block");
+  assert.equal(kinds("a: |\nb: 1"), "type:a|plain:: |string:| // type:b|plain:: |number:1", "an empty block scalar");
+  assert.equal(kinds("a: |"), "type:a|plain:: |string:|");
+  assert.equal(kinds("a: |\n  x"), "type:a|plain:: |string:| // string:  x", "no line break at the end of the file");
+  assert.equal(kinds("--- |\ntext\n---\nx"), "preprocessor:---|plain: |string:| // string:text // preprocessor:--- // plain:x", "a document marker ends a block");
+  assert.equal(kindOf(tokenizeYaml("a: |\r\n  x # y\r\nb: 1"), "x # y"), "string", "Windows line breaks");
+  assert.equal(kinds("a: |\n  x\n  ---\n  y"), "type:a|plain:: |string:| // string:  x // string:  --- // string:  y", "an indented --- is text");
+
+  // Document markers, directives, anchors, aliases and tags.
+  assert.equal(kinds("---"), "preprocessor:---");
+  assert.equal(kinds("..."), "preprocessor:...");
+  assert.equal(kinds("--- # c"), "preprocessor:---|plain: |comment:# c");
+  assert.equal(kinds("--- a"), "preprocessor:---|plain: a");
+  assert.equal(kinds("--- !!map"), "preprocessor:---|plain: |preprocessor:!!map");
+  assert.equal(kinds("---x"), "plain:---x");
+  assert.equal(kinds("----"), "plain:----");
+  assert.equal(kinds("  ---"), "plain:  ---", "only at the start of a line");
+  assert.equal(kinds("%YAML 1.2"), "preprocessor:%YAML 1.2");
+  assert.equal(kinds("%TAG ! tag:x,2000:"), "preprocessor:%TAG ! tag:x,2000:");
+  assert.equal(kinds("%YAML 1.2 # c"), "preprocessor:%YAML 1.2|plain: |comment:# c");
+  assert.equal(kinds(" %YAML"), "plain: %YAML", "only at the start of a line");
+  assert.equal(kinds("a: %x"), "type:a|plain:: %x");
+  assert.equal(kinds("a: &x 1"), "type:a|plain:: |keyword:&x|plain: |number:1");
+  assert.equal(kinds("&a key: v"), "keyword:&a|plain: |type:key|plain:: v");
+  assert.equal(kinds("<<: *x"), "type:<<|plain:: |keyword:*x");
+  assert.equal(kinds("- *x"), "plain:- |keyword:*x");
+  assert.equal(kinds("*a : b"), "keyword:*a|plain: : b");
+  assert.equal(kinds("&"), "plain:&", "no name");
+  assert.equal(kinds("* a"), "plain:* a");
+  assert.equal(kinds("!!str 12"), "preprocessor:!!str|plain: |number:12");
+  assert.equal(kinds("!"), "preprocessor:!");
+  assert.equal(kinds("!tag x"), "preprocessor:!tag|plain: x");
+  assert.equal(kinds("!<tag:yaml.org,2002:str> x"), "preprocessor:!<tag:yaml.org,2002:str>|plain: x", "a tag in <>");
+  assert.equal(kinds("a: !!int \"3\""), "type:a|plain:: |preprocessor:!!int|plain: |string:\"3\"");
+  assert.equal(kinds("a: hi!"), "type:a|plain:: hi!", "a ! inside a word is text");
+  assert.equal(kinds("a: x&y*z"), "type:a|plain:: x&y*z", "so are & and *");
+
+  // Plain values.
+  for (const word of ["true", "True", "TRUE", "false", "False", "FALSE", "null", "Null", "NULL", "~"]) {
+    assert.equal(valueKind(word), "keyword", word);
+  }
+  for (const word of ["yes", "no", "on", "off", "Yes", "tRue", "nULL", "~x", "true story", "truex", "nil", "None"]) {
+    assert.equal(valueKind(word), "plain", word);
+  }
+  for (const num of ["0", "12", "-3", "+4", "1.5", "-1.5", ".5", "-.5", "5.", "1e3", "1E3", "1.5e-3", "1e+3", "0x1F", "0xff", "0o17", ".inf", "-.inf", "+.inf", ".Inf", ".INF", ".nan", ".NaN", ".NAN"]) {
+    assert.equal(valueKind(num), "number", num);
+  }
+  for (const text of ["1_000", "0b101", "1.2.3", "1e", "0x", "0xG", "0o8", "12ab", "1 2", "+", ".", "..", "..inf", ".infx", "0X1F", "1,5", "2024-01-01", "12:30", "1.5.", "--1", "- 1x"]) {
+    assert.equal(valueKind(text), "plain", text);
+  }
+
+  // Flow collections.
+  assert.equal(kinds("{a: 1}"), "plain:{|type:a|plain:: |number:1|plain:}");
+  assert.equal(kinds("{a: 1, b: [x, y]}"), "plain:{|type:a|plain:: |number:1|plain:, |type:b|plain:: [x, y]}");
+  assert.equal(kinds("[1, 2]"), "plain:[|number:1|plain:, |number:2|plain:]");
+  assert.equal(kinds("[a, b]"), "plain:[a, b]");
+  assert.equal(kinds("{a:1}"), "plain:{a:1}", "no space after the colon, so no key");
+  assert.equal(kinds("{\"a\":1}"), "plain:{|type:\"a\"|plain::|number:1|plain:}", "a quoted key may touch its colon");
+  assert.equal(kinds("{a: \"x, y\", b: 'z'}"), "plain:{|type:a|plain:: |string:\"x, y\"|plain:, |type:b|plain:: |string:'z'|plain:}");
+  assert.equal(kinds("- {a: 1}"), "plain:- {|type:a|plain:: |number:1|plain:}");
+  assert.equal(kinds("a: [1,\n  2]\nb: 3"), "type:a|plain:: [|number:1|plain:, // plain:  |number:2|plain:] // type:b|plain:: |number:3", "over two lines");
+  assert.equal(kinds("a: [x # c\n  ]"), "type:a|plain:: [x |comment:# c // plain:  ]", "a comment inside []");
+  assert.equal(kinds("]"), "plain:]", "a closer with nothing open");
+  assert.equal(kinds("a: }"), "type:a|plain:: }");
+  assert.equal(kinds("[a\n- b\n---\nc: |\n  x"), "plain:[a // plain:- b // preprocessor:--- // type:c|plain:: |string:| // string:  x", "a bracket left open ends at the next ---");
+
+  // Odd input stays plain.
+  assert.equal(kinds("\uFEFFa: 1"), "plain:\uFEFF|type:a|plain:: |number:1", "a byte order mark at the start");
+  assert.equal(kinds("@#%"), "plain:@#%");
+  assert.equal(kinds(""), "");
+  assert.equal(kinds("a\n\nb"), "plain:a //  // plain:b");
+});
+
+test("tokenizer: YAML keeps every character, even in broken code", () => {
+  for (const source of ["", "\"", "'", "\"\\", "'\\", "\"a\n", "'a''", "\\", "#", "- ", "-", "?", ":", ": ", "&", "*", "!", "!<", "!<a", "%", "---", "...", "--- |", "|", ">", "|-", "a: |\n", "a: |\n\n\n", "a: >2", "{", "}", "[", "]", ",", "[a, {b: ", "{a: [", "a: [b\n- c", "\"a\":", "\"a\" :", "😀", "a: 😀", "\"a\r\nb\"", "a: |\r\n  x\r\nb", "a: b\r\n", "\u0000", "a: \u0000", "\uFEFF", "\uFEFF---", "%YAML\n---\n...", "\t", "a:\t", "key: value # c\r\n"]) {
+    const lines = tokenizeYaml(source);
+    assert.equal(lines.map(joinLine).join("\n"), source, `lost text for ${JSON.stringify(source)}`);
+  }
+  // A big file with an unclosed quote and an unclosed bracket on every few lines is still read in one go (no slow loops).
+  const big = "a: \"b\nc: 1\n- [d\n---\ne: |\n  f\n".repeat(2000);
+  assert.equal(tokenizeYaml(big).map(joinLine).join("\n"), big);
+});
+
+test("languages: other languages do not read YAML rules and YAML does not read theirs", () => {
+  assert.equal(kindOf(tokenizeCpp("a: b"), "a: b"), "plain", "other languages have no keys");
+  assert.equal(kindOf(tokenizeJson("a: true"), "true"), "keyword");
+  assert.equal(kindOf(tokenizeYaml("// hello there"), "// hello there"), "plain", "// is not a comment");
+  assert.equal(kindOf(tokenizeYaml("/* hello there */"), "/* hello there */"), "plain", "/* is not a comment");
+  assert.equal(kindOf(tokenizeYaml("% hello there"), "% hello there"), "preprocessor", "% at the start of a line is a directive");
+  assert.equal(kindOfWord(tokenizeYaml("a: int return"), "return"), "plain", "C words are only plain words");
+  assert.equal(kindOf(tokenizeYaml("{\"a\": 1}"), "\"a\""), "type", "JSON is mostly valid YAML");
+  assert.ok(isSupportedSource("a.yml") && isSupportedSource("a.yaml") && isSupportedSource("A.YAML"));
+  assert.ok(!isSupportedSource("a.yaml.bak") && !isSupportedSource("a.yml.tmpl") && !isSupportedSource("yarn.lock") && !isSupportedSource("a.toml"));
+});
+
+test("package.json: all five menu rules match .yml and .yaml and no look-alike extensions", () => {
+  const manifest = JSON.parse(readFileSync(`${ROOT}/package.json`, "utf8")) as { contributes: { menus: Record<string, { when: string }[]> } };
+  const rules = Object.values(manifest.contributes.menus).flat().map((item) => item.when).filter((when) => when.includes("resourceExtname"));
+  assert.equal(rules.length, 5, "five menu rules use the extension list");
+  for (const when of rules) {
+    const regex = new RegExp(/resourceExtname =~ \/(.*)\/i/.exec(when)![1]!, "i");
+    for (const ext of [".yml", ".yaml", ".YML", ".Yaml", ".json", ".cpp"]) {
+      assert.ok(regex.test(ext), `${ext} should match in: ${when}`);
+    }
+    for (const ext of [".yamls", ".ymll", ".yaml.bak", ".yl", ".y", ".ya", "yaml", ".yml2", ".toml"]) {
+      assert.ok(!regex.test(ext), `${ext} should not match in: ${when}`);
+    }
+  }
+});
+
 test("layout: tabs expand to the next tab stop and control characters become visible", () => {
   const [expanded] = [expandLine([{ kind: "plain", text: "\tx\ty\u0000" }], 4)];
   assert.equal(expanded.map((t) => t.text).join(""), "    x   y␀");
@@ -3824,7 +4086,7 @@ test("files: supported extensions, excluded folders and PDF names", () => {
   for (const name of ["a.c", "a.cpp", "a.cc", "a.cxx", "a.h", "a.hpp", "a.hh", "a.hxx", "A.CPP", "A.C", "a.py", "a.pyw", "A.PY", "a.css", "A.CSS", "a.html", "a.htm", "A.HTML", "a.js", "a.mjs", "a.cjs", "A.JS", "a.ts", "a.mts", "a.cts", "A.TS", "a.jsx", "a.tsx", "A.TSX", "a.rs", "A.RS", "a.java", "A.JAVA", "a.cs", "A.CS", "a.go", "A.GO", "a.php", "A.PHP", "a.rb", "A.RB", "a.dart", "A.DART", "a.lua", "A.LUA", "a.r", "a.R", "A.R", "a.m", "A.M", "a.ino", "A.INO", "a.v", "A.V", "a.vh", "a.sv", "A.SV", "a.svh"]) {
     assert.ok(isSupportedSource(name), name);
   }
-  for (const name of ["a.ts.map", "a.tsbuildinfo", "a.js.map", "js", "cpp", "c", "py", "css", "a.scss", "a.css.map", "html", "a.html.bak", "a.xhtml", "a.cpp.bak", "a.c.bak", "a.pyc", "a.rs.bk", "rs", "a.class", "a.jar", "java", "a.csproj", "a.sln", "a.dll", "cs", "a.mod", "a.sum", "go", "a.phtml", "a.php.bak", "a.inc", "php", "a.erb", "a.rbi", "rb", "a.dart.bak", "dart", "a.lua.bak", "a.luac", "lua", "a.r.bak", "a.rmd", "a.Rproj", "a.rds", "r", "a.m.bak", "a.mat", "a.mlx", "a.mm", "m", "a.ino.bak", "a.pde", "ino", "a.v.bak", "a.vhd.bak", "a.vho", "a.vcd", "a.vo", "a.sv.bak", "v", "sv","pubspec.yaml", "notes.txt"]) {
+  for (const name of ["a.ts.map", "a.tsbuildinfo", "a.js.map", "js", "cpp", "c", "py", "css", "a.scss", "a.css.map", "html", "a.html.bak", "a.xhtml", "a.cpp.bak", "a.c.bak", "a.pyc", "a.rs.bk", "rs", "a.class", "a.jar", "java", "a.csproj", "a.sln", "a.dll", "cs", "a.mod", "a.sum", "go", "a.phtml", "a.php.bak", "a.inc", "php", "a.erb", "a.rbi", "rb", "a.dart.bak", "dart", "a.lua.bak", "a.luac", "lua", "a.r.bak", "a.rmd", "a.Rproj", "a.rds", "r", "a.m.bak", "a.mat", "a.mlx", "a.mm", "m", "a.ino.bak", "a.pde", "ino", "a.v.bak", "a.vhd.bak", "a.vho", "a.vcd", "a.vo", "a.sv.bak", "v", "sv","pubspec.yaml.bak", "notes.txt"]) {
     assert.ok(!isSupportedSource(name), name);
   }
   for (const name of [".git", ".vscode", "node_modules", "build", "dist", "cmake-build-debug", "Debug", "__pycache__", "venv", ".venv", "target", "out", "bin", ".gradle", "obj", "vendor", "Pods", "DerivedData", "Carthage", ".build", ".bundle", "vendor", ".dart_tool", "lua_modules", "renv", "packrat", "Renv", "slprj", "codegen", "Codegen", "obj_dir", "Obj_Dir", "xsim.dir", "incremental_db"]) {
@@ -3901,6 +4163,30 @@ test("files: folder scan skips generated lock files by exact name but keeps othe
   assert.deepEqual(scan.skippedHiddenFiles, []);
   assert.ok(isSupportedSource("package-lock.json"), "a lock file still exports when picked on its own");
   assert.ok(isGeneratedFile("package-lock.json") && !isGeneratedFile("package.json") && !isGeneratedFile("Package-Lock.json"));
+});
+
+test("files: folder scan skips pnpm-lock.yaml by exact name but keeps other yaml files", async () => {
+  const tree: Record<string, DirEntry[]> = {
+    "": [
+      { name: "pnpm-lock.yaml", isFile: true, isDirectory: false },
+      { name: "pnpm-lock.yml", isFile: true, isDirectory: false },
+      { name: "my-pnpm-lock.yaml", isFile: true, isDirectory: false },
+      { name: "PNPM-LOCK.yaml", isFile: true, isDirectory: false },
+      { name: "pnpm-workspace.yaml", isFile: true, isDirectory: false },
+      { name: "yarn.lock", isFile: true, isDirectory: false },
+      { name: "ci.yml", isFile: true, isDirectory: false },
+      { name: "app", isFile: false, isDirectory: true },
+    ],
+    app: [
+      { name: "pnpm-lock.yaml", isFile: true, isDirectory: false },
+      { name: "config.yaml", isFile: true, isDirectory: false },
+    ],
+  };
+  const scan = await scanFolder<string>("", async (path) => tree[path] ?? [], (path, name) => (path ? `${path}/${name}` : name));
+  assert.deepEqual(scan.files.map((f) => f.relativePath).sort(), ["PNPM-LOCK.yaml", "app/config.yaml", "ci.yml", "my-pnpm-lock.yaml", "pnpm-lock.yml", "pnpm-workspace.yaml"]);
+  assert.deepEqual(scan.skippedGeneratedFiles.sort(), ["app/pnpm-lock.yaml", "pnpm-lock.yaml"]);
+  assert.ok(isSupportedSource("pnpm-lock.yaml"), "a lock file still exports when picked on its own");
+  assert.ok(isGeneratedFile("pnpm-lock.yaml") && !isGeneratedFile("pnpm-workspace.yaml") && !isGeneratedFile("PNPM-LOCK.yaml"));
 });
 
 test("fonts: parses the editor font setting and finds the Mac's fonts", () => {

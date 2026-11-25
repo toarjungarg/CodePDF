@@ -1,0 +1,43 @@
+# A made-up settings file for a pretend bakery app.
+%YAML 1.2
+---
+name: bread-timer
+version: 2
+debug: false
+owner: ~
+ratio: -12.5
+mask: 0x1F
+perms: 0o17
+limit: .inf
+url: http://bakery.example/recipes#top
+note: a#b is not a comment # but this is
+quoted: "bake \"slow\" \\ crème é # not a comment"
+single: 'it''s # not a comment'
+base: &base
+  temperature: 180
+  steps: [1, 0.5, 1e3]
+oven:
+  <<: *base
+  mode: !!str 350
+  "fan speed": 3
+recipes:
+  - name: loaf
+    tags: {crusty: true, soft: no, list: [a, b]}
+  - plain
+  - 'another one'
+script: |
+  echo "# not a comment"
+  if [ -f x ]; then
+    echo yes
+  fi
+folded: >-
+  one long line
+  # still text
+after: Null
+long: "a string
+  over two lines"
+...
+---
+second: document
+broken: "oops
+last: 1

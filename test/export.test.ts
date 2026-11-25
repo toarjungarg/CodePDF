@@ -696,6 +696,37 @@ test("1aa. exports JSON files, alone and combined with a LaTeX file", async () =
   assert.ok(combined.pdf.text.includes("\\section{Bread}"));
 });
 
+test("1ab. exports YAML files, alone and combined with a JSON file", async () => {
+  const source = fixture("basic.yaml");
+  const { pdf } = await exportSections("basic_yaml.pdf", [{ ...file("basic.yaml", source), language: "yaml" }]);
+  assert.ok(pdf.pages[0]!.lines[0]!.startsWith("basic.yaml"), "file name in the header");
+  for (const expected of [
+    "# A made-up settings file for a pretend bakery app.",
+    "%YAML 1.2",
+    "name: bread-timer",
+    "url: http://bakery.example/recipes#top",
+    "single: 'it''s # not a comment'",
+    "base: &base",
+    "<<: *base",
+    "tags: {crusty: true, soft: no, list: [a, b]}",
+    "script: |",
+    "echo \"# not a comment\"",
+    "folded: >-",
+    "broken: \"oops",
+  ]) {
+    assert.ok(pdf.text.includes(expected), `missing: ${expected}`);
+  }
+
+  const json = "{ \"a\": 1 }\n";
+  const combined = await exportSections("mixed_yaml_json.pdf", [
+    { ...file("basic.yaml", source), language: "yaml" },
+    { ...file("data.json", json), language: "json" },
+  ]);
+  assert.deepEqual(combined.pdf.outline, ["basic.yaml", "data.json"], "one bookmark per file");
+  assert.ok(combined.pdf.text.includes("version: 2"));
+  assert.ok(combined.pdf.text.includes("{ \"a\": 1 }"));
+});
+
 test("2. exports comments and strings exactly", async () => {
   const { pdf } = await exportSections("comments_strings.pdf", [file("comments_strings.cpp", fixture("comments_strings.cpp"))]);
   for (const expected of [

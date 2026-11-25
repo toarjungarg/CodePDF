@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.27.0
+- Added YAML export (`.yml`, `.yaml`).
+- Folder export now also skips `pnpm-lock.yaml`.
+
 ## 1.26.0
 - Added JSON export (`.json`, `.jsonc`).
 - Folder export now skips `package-lock.json` and `npm-shrinkwrap.json`.

@@ -71,7 +71,10 @@ put("Report.cls", "% A made-up LaTeX class\n\\ProvidesClass{Report}\n\\LoadClass
 put("cupboard.json", readFileSync(join(fixtures, "basic.json")));
 put("tsconfig.json", "// A made-up tsconfig, which VS Code opens as JSON with comments\n{\n  \"compilerOptions\": { \"strict\": true, \"target\": \"es2020\" }\n}\n");
 put("stove.jsonc", "/* A made-up JSONC file */\n{ \"preheat\": 180, \"door\": null }\n");
-put("package-lock.json", "{\n  \"name\": \"generated\",\n  \"lockfileVersion\": 3\n}\n");
+put("cellar.yaml",readFileSync(join(fixtures, "basic.yaml")));
+put("compose.yml", "# A made-up compose file\nservices:\n  web:\n    image: nginx\n    ports: [\"80:80\"]\n");
+put("pnpm-lock.yaml", "lockfileVersion: '9.0'\npackages: {}\n");
+put("package-lock.json","{\n  \"name\": \"generated\",\n  \"lockfileVersion\": 3\n}\n");
 put("gates.v","// A made-up Verilog file\nmodule gates(input a, input b, output y);\n  assign y = a & b;\nendmodule\n");
 for (const name of ["comments_strings.cpp", "unicode.cpp", "long_lines.cpp"]) {
   cpSync(join(fixtures, name), join(project, name));

@@ -368,7 +368,7 @@ export async function exportFolderCommand(uri?: vscode.Uri): Promise<void> {
     skippedNote.push(`Skipped ${scan.skippedHiddenFiles.length} hidden file(s).`);
   }
   if (scan.skippedGeneratedFiles.length > 0) {
-    skippedNote.push(`Skipped ${scan.skippedGeneratedFiles.length} generated file(s) like package-lock.json.`);
+    skippedNote.push(`Skipped ${scan.skippedGeneratedFiles.length} generated file(s) like package-lock.json or pnpm-lock.yaml.`);
   }
   if (scan.truncated) {
     skippedNote.push(`Stopped at the first ${scan.files.length} files.`);
