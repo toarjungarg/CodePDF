@@ -1,8 +1,8 @@
 {
   "name": "codepdf",
   "displayName": "CodePDF",
-  "description": "View PDFs inside VS Code and export C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL and Shell files as clean, printable PDFs. Everything runs locally.",
-  "version": "1.13.0",
+  "description": "View PDFs inside VS Code and export C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell and Kotlin files as clean, printable PDFs. Everything runs locally.",
+  "version": "1.14.0",
   "publisher": "toarjungarg",
   "icon": "media/icon.png",
   "private": true,
@@ -37,6 +37,7 @@
     "sql",
     "shell",
     "bash",
+    "kotlin",
     "print",
     "export"
   ],
@@ -69,12 +70,12 @@
       "explorer/context": [
         {
           "command": "codepdf.exportFile",
-          "when": "!explorerResourceIsFolder && resourceExtname =~ /^\\.(c|cpp|cc|cxx|h|hpp|hh|hxx|py|pyw|css|html|htm|js|mjs|cjs|ts|mts|cts|jsx|tsx|rs|java|cs|go|php|sql|sh|bash)$/i",
+          "when": "!explorerResourceIsFolder && resourceExtname =~ /^\\.(c|cpp|cc|cxx|h|hpp|hh|hxx|py|pyw|css|html|htm|js|mjs|cjs|ts|mts|cts|jsx|tsx|rs|java|cs|go|php|sql|sh|bash|kt|kts)$/i",
           "group": "7_codepdf@1"
         },
         {
           "command": "codepdf.exportMultiple",
-          "when": "listMultiSelection && !explorerResourceIsFolder && resourceExtname =~ /^\\.(c|cpp|cc|cxx|h|hpp|hh|hxx|py|pyw|css|html|htm|js|mjs|cjs|ts|mts|cts|jsx|tsx|rs|java|cs|go|php|sql|sh|bash)$/i",
+          "when": "listMultiSelection && !explorerResourceIsFolder && resourceExtname =~ /^\\.(c|cpp|cc|cxx|h|hpp|hh|hxx|py|pyw|css|html|htm|js|mjs|cjs|ts|mts|cts|jsx|tsx|rs|java|cs|go|php|sql|sh|bash|kt|kts)$/i",
           "group": "7_codepdf@2"
         },
         {
@@ -86,19 +87,19 @@
       "editor/context": [
         {
           "command": "codepdf.exportSelection",
-          "when": "editorHasSelection && resourceExtname =~ /^\\.(c|cpp|cc|cxx|h|hpp|hh|hxx|py|pyw|css|html|htm|js|mjs|cjs|ts|mts|cts|jsx|tsx|rs|java|cs|go|php|sql|sh|bash)$/i",
+          "when": "editorHasSelection && resourceExtname =~ /^\\.(c|cpp|cc|cxx|h|hpp|hh|hxx|py|pyw|css|html|htm|js|mjs|cjs|ts|mts|cts|jsx|tsx|rs|java|cs|go|php|sql|sh|bash|kt|kts)$/i",
           "group": "7_codepdf@1"
         },
         {
           "command": "codepdf.exportFile",
-          "when": "resourceExtname =~ /^\\.(c|cpp|cc|cxx|h|hpp|hh|hxx|py|pyw|css|html|htm|js|mjs|cjs|ts|mts|cts|jsx|tsx|rs|java|cs|go|php|sql|sh|bash)$/i",
+          "when": "resourceExtname =~ /^\\.(c|cpp|cc|cxx|h|hpp|hh|hxx|py|pyw|css|html|htm|js|mjs|cjs|ts|mts|cts|jsx|tsx|rs|java|cs|go|php|sql|sh|bash|kt|kts)$/i",
           "group": "7_codepdf@2"
         }
       ],
       "editor/title/context": [
         {
           "command": "codepdf.exportFile",
-          "when": "resourceExtname =~ /^\\.(c|cpp|cc|cxx|h|hpp|hh|hxx|py|pyw|css|html|htm|js|mjs|cjs|ts|mts|cts|jsx|tsx|rs|java|cs|go|php|sql|sh|bash)$/i",
+          "when": "resourceExtname =~ /^\\.(c|cpp|cc|cxx|h|hpp|hh|hxx|py|pyw|css|html|htm|js|mjs|cjs|ts|mts|cts|jsx|tsx|rs|java|cs|go|php|sql|sh|bash|kt|kts)$/i",
           "group": "7_codepdf@1"
         }
       ],

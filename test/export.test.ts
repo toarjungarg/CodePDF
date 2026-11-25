@@ -358,6 +358,33 @@ test("1n. exports a Shell file, alone and combined with SQL", async () => {
   assert.ok(combined.pdf.text.includes("CREATE FUNCTION shelf_count(shelf_id INT) RETURNS INT AS $$"));
 });
 
+test("1o. exports a Kotlin file, alone and combined with Shell", async () => {
+  const source = fixture("basic.kt");
+  const { pdf } = await exportSections("basic_kt.pdf", [file("basic.kt", source)]);
+  assert.ok(pdf.pages[0]!.lines[0]!.startsWith("basic.kt"), "file name in the header");
+  for (const expected of [
+    "@file:JvmName(\"Shelf\")",
+    "/* A block comment /* with a nested one */ that is still a comment */",
+    "data class Soup(override val name: String, val cups: Int = 2) : Dish",
+    "\"Pantry $label has ${dishes.size} dishes",
+    "{ \"<$it>\" }} done\"",
+    "Line two with ${value * 2}",
+    "val edge = \"\"\"ends with a quote\"\"\"\"",
+    "if (it < 0) return@forEach",
+    "outer@ for (i in 0..<3) {",
+    "fun `my test with spaces`() = 1",
+  ]) {
+    assert.ok(pdf.text.includes(expected), `missing: ${expected}`);
+  }
+
+  const combined = await exportSections("mixed_kt_sh.pdf", [
+    { ...file("basic.kt", source), language: "kotlin" },
+    { ...file("basic.sh", fixture("basic.sh")), language: "shell" },
+  ]);
+  assert.deepEqual(combined.pdf.outline, ["basic.kt", "basic.sh"], "one bookmark per file");
+  assert.ok(combined.pdf.text.includes("#!/bin/bash"));
+});
+
 test("2. exports comments and strings exactly", async () => {
   const { pdf } = await exportSections("comments_strings.pdf", [file("comments_strings.cpp", fixture("comments_strings.cpp"))]);
   for (const expected of [

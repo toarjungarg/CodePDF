@@ -15,6 +15,7 @@ import { tokenizeGo } from "../src/export/goTokenizer";
 import { tokenizePhp } from "../src/export/phpTokenizer";
 import { tokenizeSql } from "../src/export/sqlTokenizer";
 import { tokenizeShell } from "../src/export/shellTokenizer";
+import { tokenizeKotlin } from "../src/export/kotlinTokenizer";
 import type { TokenKind, TokenLine } from "../src/export/tokens";
 import { languageForFile, languageForVscodeId, LANGUAGE_NAMES, LANGUAGE_NAMES_OR } from "../src/export/languages";
 import { columnWidth, expandLine, layoutLine } from "../src/export/layout";
@@ -49,11 +50,11 @@ const kindOfWord = (lines: TokenLine[], word: string): TokenKind | undefined => 
 };
 
 test("tokenizer: joining tokens gives back every fixture exactly", () => {
-  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py", "basic.css", "basic.html", "basic.js", "basic.ts", "basic.jsx", "basic.tsx", "basic.rs", "basic.java", "basic.cs", "basic.go", "basic.php", "basic.sql", "basic.sh"]) {
+  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py", "basic.css", "basic.html", "basic.js", "basic.ts", "basic.jsx", "basic.tsx", "basic.rs", "basic.java", "basic.cs", "basic.go", "basic.php", "basic.sql", "basic.sh", "basic.kt"]) {
     const source = fixture(name).replace(/\r\n?/g, "\n");
     for (const lines of [
       tokenizeCpp(source), tokenizeC(source), tokenizePython(source), tokenizeCss(source), tokenizeHtml(source), tokenizeJavaScript(source),
-      tokenizeTs(source), tokenizeJsx(source), tokenizeTsx(source), tokenizeRust(source), tokenizeJava(source), tokenizeCSharp(source), tokenizeGo(source), tokenizePhp(source), tokenizeSql(source), tokenizeShell(source),
+      tokenizeTs(source), tokenizeJsx(source), tokenizeTsx(source), tokenizeRust(source), tokenizeJava(source), tokenizeCSharp(source), tokenizeGo(source), tokenizePhp(source), tokenizeSql(source), tokenizeShell(source), tokenizeKotlin(source),
     ]) {
       assert.equal(lines.map(joinLine).join("\n"), source, `${name} changed during tokenizing`);
     }
@@ -1012,6 +1013,206 @@ test("tokenizer: Shell tricky cases", () => {
   assert.equal(tokenizeShell(deep).map(joinLine).join("\n"), deep, "200 levels of $( )");
 });
 
+test("tokenizer: Kotlin comments, strings, templates, numbers, annotations and keywords", () => {
+  const source = fixture("basic.kt");
+  const sourceLines = source.split("\n");
+  const kt = tokenizeKotlin(source);
+  assert.equal(kt.length, sourceLines.length, "one token line per source line");
+  // One source line as kind:text pieces joined with |, found by a piece of its text.
+  const line = (text: string): string => {
+    const index = sourceLines.findIndex((l) => l.includes(text));
+    assert.ok(index !== -1, `no line with ${text}`);
+    return kt[index]!.map((t) => `${t.kind}:${t.text}`).join("|");
+  };
+  const has = (text: string, kind: TokenKind): boolean => kt.flat().some((t) => t.text === text && t.kind === kind);
+
+  // Comments: KDoc, a line comment, and a block comment with another one inside it.
+  assert.equal(kindOf(kt, "A small recipe book"), "comment", "KDoc");
+  assert.equal(kindOf(kt, "One line comment"), "comment");
+  assert.ok(has("/* A block comment /* with a nested one */ that is still a comment */", "comment"), "a nested block comment is one comment");
+
+  // Annotations, including a file target.
+  assert.equal(line("@file:JvmName"), 'preprocessor:@file:JvmName|plain:(|string:"Shelf"|plain:)');
+  assert.ok(has("@JvmInline", "preprocessor") && has("@Target", "preprocessor") && has("@Tasty", "preprocessor"));
+
+  // Numbers, and characters.
+  for (const num of ["1_000", "0xFF", "0b1010", "9_000_000_000L", "7u", "0xFFuL", "1.5e10", "2.5f", "0", "3", "1", "10", "2"]) {
+    assert.ok(has(num, "number"), `number ${num}`);
+  }
+  for (const char of ["'A'", "'\\t'", "'\\''"]) {
+    assert.ok(has(char, "string"), `char ${char}`);
+  }
+
+  // Declarations, modifiers and types.
+  assert.equal(line("package kitchen"), "keyword:package|plain: kitchen.recipes");
+  assert.equal(line("import kotlin.collections"), "keyword:import|plain: kotlin.collections.|type:List|plain: |keyword:as|plain: |type:KList");
+  assert.equal(line("const val MAX_ITEMS"), "keyword:const|plain: |keyword:val|plain: MAX_ITEMS = |number:1_000", "a CONSTANT stays plain");
+  assert.equal(
+    line("data class Soup"),
+    "keyword:data|plain: |keyword:class|plain: |type:Soup|plain:(|keyword:override|plain: |keyword:val|plain: name: |type:String|plain:, |keyword:val|plain: cups: |type:Int|plain: = |number:2|plain:) : |type:Dish",
+  );
+  assert.equal(line("sealed class Step"), "keyword:sealed|plain: |keyword:class|plain: |type:Step|plain: {");
+  assert.equal(line("data object Stir"), "plain:    |keyword:data|plain: |keyword:object|plain: |type:Stir|plain: : |type:Step|plain:()");
+  assert.equal(line("enum class Measure"), "keyword:enum|plain: |keyword:class|plain: |type:Measure|plain: { CUP, SPOON, GRAM }");
+  assert.equal(line("value class Grams"), "keyword:value|plain: |keyword:class|plain: |type:Grams|plain:(|keyword:val|plain: amount: |type:Int|plain:)");
+  assert.equal(
+    line("open class Pantry"),
+    "keyword:open|plain: |keyword:class|plain: |type:Pantry|plain:<|keyword:out|plain: |type:T|plain: : |type:Dish|plain:>(|keyword:private|plain: |keyword:val|plain: dishes: |type:List|plain:<|type:T|plain:>) {",
+  );
+  assert.equal(
+    line("suspend fun load"),
+    "plain:    |keyword:suspend|plain: |keyword:fun|plain: load(|keyword:vararg|plain: names: |type:String|plain:): |type:List|plain:<|type:String|plain:> {",
+  );
+  assert.equal(
+    line("inline fun <reified"),
+    "plain:    |keyword:inline|plain: |keyword:fun|plain: <|keyword:reified|plain: |type:R|plain:> pick(items: |type:List|plain:<|type:Any|plain:>): |type:R|plain:? = items.firstOrNull { it |keyword:is|plain: |type:R|plain: } |keyword:as|plain:? |type:R",
+  );
+  assert.equal(line("infix fun plus"), "plain:    |keyword:infix|plain: |keyword:fun|plain: plus(other: |type:Int|plain:): |type:Int|plain: = count + other");
+  assert.equal(
+    line("where T : Comparable"),
+    "keyword:fun|plain: <|type:T|plain:> biggest(items: |type:List|plain:<|type:T|plain:>): |type:T|plain:? |keyword:where|plain: |type:T|plain: : |type:Comparable|plain:<|type:T|plain:> {",
+  );
+  assert.equal(line("`my test with spaces`"), "keyword:fun|plain: `my test with spaces`() = |number:1", "a backtick name is plain");
+
+  // get, set, init and by are keywords only where they work as keywords.
+  assert.equal(line("get() = dishes.size"), "plain:        |keyword:get|plain:() = dishes.size");
+  assert.equal(line("private set"), "plain:        |keyword:private|plain: |keyword:set");
+  assert.equal(line("set(value) {"), "plain:        |keyword:set|plain:(value) {");
+  assert.equal(line("field = value.trim()"), "plain:            field = value.trim()", "field and value stay plain");
+  assert.equal(line("val greeting by lazy"), 'plain:    |keyword:val|plain: greeting |keyword:by|plain: lazy { |string:"Hello from the pantry"|plain: }');
+  assert.equal(line("init {"), "plain:    |keyword:init|plain: {");
+  assert.equal(line("val value = 3"), "plain:        |keyword:val|plain: value = |number:3", "a variable named value");
+  assert.equal(line("val data = dishes.map"), "plain:        |keyword:val|plain: data = dishes.map { it.name }", "a variable named data");
+
+  // Templates: $name, ${code} with strings and braces inside, and escapes.
+  assert.equal(
+    line('val message = "Pantry'),
+    'plain:        |keyword:val|plain: message = |string:"Pantry |plain:$label|string: has |plain:${dishes.size}|string: dishes, total |plain:${value + count}|string:"',
+  );
+  assert.equal(
+    line("val nested"),
+    'plain:        |keyword:val|plain: nested = |string:"outer |plain:${data.joinToString(|string:", "|plain:) { |string:"<|plain:$it|string:>"|plain: }}|string: done"',
+    "a string inside ${ } inside a string",
+  );
+  assert.equal(
+    line("val braces"),
+    'plain:        |keyword:val|plain: braces = |string:"a map: |plain:${mapOf(|string:"k"|plain: to |string:"}"|plain:)}|string: and a dollar |plain:${|string:\'$\'|plain:}|string:"',
+    "a } inside a string inside ${ } does not close it",
+  );
+  assert.equal(
+    line("val escaped"),
+    'plain:        |keyword:val|plain: escaped = |string:"price: \\$5 and a quote \\" and \\\\"',
+    "\\$ is an escaped dollar, not a template",
+  );
+
+  // Raw strings: lines in the middle, templates still work, \n is plain text, and """" ends one.
+  assert.equal(line('val rawText = """'), 'plain:        |keyword:val|plain: rawText = |string:"""');
+  assert.equal(line("Line one with"), "string:            Line one with |plain:$label");
+  assert.equal(line("Line two with"), "string:            Line two with |plain:${value * |number:2|plain:}");
+  assert.equal(line("A \"quoted\" word"), 'string:            A "quoted" word, and \\n is not an escape');
+  assert.equal(line(".trimIndent()"), 'string:        """|plain:.trimIndent()');
+  assert.equal(line("val edge"), 'plain:        |keyword:val|plain: edge = |string:"""ends with a quote""""');
+  assert.equal(line("return message"), "plain:        |keyword:return|plain: message + nested + braces + escaped + rawText + edge");
+
+  // Labels, ranges and operators.
+  assert.equal(line("return@forEach"), "plain:        |keyword:if|plain: (it < |number:0|plain:) |keyword:return|plain:@forEach");
+  assert.equal(line("outer@ for"), "plain:    outer@ |keyword:for|plain: (i |keyword:in|plain: |number:0|plain:..<|number:3|plain:) {");
+  assert.equal(line("1..10 step 2"), "plain:        |keyword:for|plain: (j |keyword:in|plain: |number:1|plain:..|number:10|plain: step |number:2|plain:) {");
+  assert.equal(line("break@outer"), "plain:            |keyword:if|plain: (j > |number:5|plain:) |keyword:break|plain:@outer");
+  assert.equal(line("this@Outer.text"), "plain:        |keyword:fun|plain: show() = |keyword:this|plain:@Outer.text");
+  assert.equal(line("val type = Pantry::class"), "plain:    |keyword:val|plain: type = |type:Pantry|plain:::|keyword:class");
+  assert.equal(line("numbers?.firstOrNull() ?: 0"), "plain:    |keyword:val|plain: first = numbers?.firstOrNull() ?: |number:0");
+  assert.equal(line("numbers!!.last()"), "plain:    |keyword:val|plain: last = numbers!!.last()");
+  assert.equal(line("catch (e: Exception)"), "plain:        } |keyword:catch|plain: (e: |type:Exception|plain:) {");
+  assert.equal(line("} finally {"), "plain:        } |keyword:finally|plain: {");
+  assert.equal(line("inner class Inner"), "plain:    |keyword:inner|plain: |keyword:class|plain: |type:Inner|plain: {");
+});
+
+test("tokenizer: Kotlin tricky cases", () => {
+  // Every token as kind:text, joined with |, and a " // " marks the start of a new line.
+  const kinds = (source: string): string => tokenizeKotlin(source).map((l) => l.map((t) => `${t.kind}:${t.text}`).join("|")).join(" // ");
+
+  // Comments nest, and an unclosed one runs to the end.
+  assert.equal(kinds("/* a /* b */ c */ val x"), "comment:/* a /* b */ c */|plain: |keyword:val|plain: x");
+  assert.equal(kinds("/* a /* b */ val x"), "comment:/* a /* b */ val x", "one level is still open");
+  assert.equal(kinds("/** doc // not line */ x\n// c /* d\ny"), "comment:/** doc // not line */|plain: x // comment:// c /* d // plain:y");
+  assert.equal(kinds("#!/usr/bin/env kotlin\nprintln(1)"), "comment:#!/usr/bin/env kotlin // plain:println(|number:1|plain:)", "a script's first line");
+  assert.equal(kinds("x #! y"), "plain:x #! y", "#! only counts on the very first line");
+
+  // Strings, templates and escapes.
+  assert.equal(kinds('"a $b c"'), 'string:"a |plain:$b|string: c"');
+  assert.equal(kinds('"a ${b + 1} c"'), 'string:"a |plain:${b + |number:1|plain:}|string: c"');
+  assert.equal(kinds('"$"'), 'string:"$"', "a lone $ is text");
+  assert.equal(kinds('"$1 $ {a}"'), 'string:"$1 $ {a}"', "$ before a digit or a space is text");
+  assert.equal(kinds('"\\$a \\" $b"'), 'string:"\\$a \\" |plain:$b|string:"', "an escaped $ is not a template");
+  assert.equal(kinds('"a ${b" c'), 'string:"a ${b"|plain: c', "a ${ that never closes is text");
+  assert.equal(kinds('"x ${f("}")} y" z'), 'string:"x |plain:${f(|string:"}"|plain:)}|string: y"|plain: z');
+  assert.equal(kinds('"x ${if (a) "b" else "c"}"'), 'string:"x |plain:${|keyword:if|plain: (a) |string:"b"|plain: |keyword:else|plain: |string:"c"|plain:}|string:"', "keywords inside a template are coloured");
+  assert.equal(kinds('"x ${"y ${z} w"} v"'), 'string:"x |plain:${|string:"y |plain:${z}|string: w"|plain:}|string: v"', "a template inside a template");
+  assert.equal(kinds('"no end\nval x'), 'string:"no end // keyword:val|plain: x', "a string ends at the line end");
+  assert.equal(kinds("'a' '\\n' '\\u0041' '\\'' x"), "string:'a'|plain: |string:'\\n'|plain: |string:'\\u0041'|plain: |string:'\\''|plain: x");
+
+  // Raw strings.
+  assert.equal(kinds('"""a $b ${c}"""'), 'string:"""a |plain:$b|string: |plain:${c}|string:"""');
+  assert.equal(kinds('"""a""""  x'), 'string:"""a""""|plain:  x', "four quotes at the end: the last three close it");
+  assert.equal(kinds('"""a""" b """c"""'), 'string:"""a"""|plain: b |string:"""c"""');
+  assert.equal(kinds('"""say "hi" and ""ok"" \\n"""'), 'string:"""say "hi" and ""ok"" \\n"""', "quotes and backslashes are plain text");
+  assert.equal(kinds('"""\nno end'), 'string:""" // string:no end', "an unclosed raw string runs to the end");
+  assert.equal(kinds('""" ${\n  a\n} """ x'), 'string:""" |plain:${ // plain:  a // plain:}|string: """|plain: x', "a template in a raw string can span lines");
+  assert.equal(kinds('"" + ""'), 'string:""|plain: + |string:""', "empty strings");
+
+  // Annotations and labels.
+  assert.equal(kinds("@get:Rule val x"), "preprocessor:@get:Rule|plain: |keyword:val|plain: x");
+  assert.equal(kinds("@kotlin.jvm.JvmStatic fun f()"), "preprocessor:@kotlin.jvm.JvmStatic|plain: |keyword:fun|plain: f()");
+  assert.equal(kinds("@Foo(1) @Bar"), "preprocessor:@Foo|plain:(|number:1|plain:) |preprocessor:@Bar");
+  assert.equal(kinds("a@b"), "plain:a@b", "an @ right after a name is a label");
+  assert.equal(kinds("return@ x"), "keyword:return|plain:@ x");
+  assert.equal(kinds("list.forEach label@{ it }"), "plain:list.forEach label@{ it }");
+  assert.equal(kinds("@"), "plain:@");
+  assert.equal(kinds("x::get"), "plain:x::get");
+
+  // Backtick names.
+  assert.equal(kinds("val `in` = 1; `a b`()"), "keyword:val|plain: `in` = |number:1|plain:; `a b`()");
+  assert.equal(kinds("`no end\nval x"), "plain:`no end // keyword:val|plain: x");
+
+  // Numbers.
+  assert.equal(kinds("1..10 1.5.toInt() 1.toString() 0..<n"), "number:1|plain:..|number:10|plain: |number:1.5|plain:.toInt() |number:1|plain:.toString() |number:0|plain:..<n");
+  assert.equal(kinds("0xFFu 0XFFL 0b1_0 1e3 1E-3 2f 3F 4L 5uL 6UL 1_000"), "number:0xFFu|plain: |number:0XFFL|plain: |number:0b1_0|plain: |number:1e3|plain: |number:1E-3|plain: |number:2f|plain: |number:3F|plain: |number:4L|plain: |number:5uL|plain: |number:6UL|plain: |number:1_000");
+  assert.equal(kinds("a1 _2"), "plain:a1 _2", "a digit after a name or underscore is part of the name");
+
+  // Soft and modifier words are plain unless they work as keywords.
+  assert.equal(kinds("val value = 1; value + 1; println(value)"), "keyword:val|plain: value = |number:1|plain:; value + |number:1|plain:; println(value)");
+  assert.equal(kinds("if (value in 1..3) data is Int"), "keyword:if|plain: (value |keyword:in|plain: |number:1|plain:..|number:3|plain:) data |keyword:is|plain: |type:Int");
+  assert.equal(kinds("fun f(data: Int, value: String, set: Int, open: Boolean)"), "keyword:fun|plain: f(data: |type:Int|plain:, value: |type:String|plain:, set: |type:Int|plain:, open: |type:Boolean|plain:)");
+  assert.equal(kinds("file.open(); val open = true; open()"), "plain:file.open(); |keyword:val|plain: open = |keyword:true|plain:; open()");
+  assert.equal(kinds("override fun a() {}\nprivate val b = 1\nabstract class C"), "keyword:override|plain: |keyword:fun|plain: a() {} // keyword:private|plain: |keyword:val|plain: b = |number:1 // keyword:abstract|plain: |keyword:class|plain: |type:C");
+  assert.equal(kinds("companion object\nprivate constructor()\nlateinit var s: String"), "keyword:companion|plain: |keyword:object // keyword:private|plain: |keyword:constructor|plain:() // keyword:lateinit|plain: |keyword:var|plain: s: |type:String");
+  assert.equal(kinds("val get = 1; fun get() = 2"), "keyword:val|plain: get = |number:1|plain:; |keyword:fun|plain: get() = |number:2", "a function named get");
+  assert.equal(kinds("x.get(1); get(2); map.set(a, b)"), "plain:x.get(|number:1|plain:); get(|number:2|plain:); map.set(a, b)");
+  assert.equal(kinds("val x get() = 1"), "keyword:val|plain: x |keyword:get|plain:() = |number:1", "an accessor on the same line");
+  assert.equal(kinds("var x = 0\n  private set\n  protected get"), "keyword:var|plain: x = |number:0 // plain:  |keyword:private|plain: |keyword:set // plain:  |keyword:protected|plain: |keyword:get");
+  assert.equal(kinds("val by = 1\nval y by lazy { 1 }\nclass A : B by c"), "keyword:val|plain: by = |number:1 // keyword:val|plain: y |keyword:by|plain: lazy { |number:1|plain: } // keyword:class|plain: |type:A|plain: : |type:B|plain: |keyword:by|plain: c");
+  assert.equal(kinds("Box<out T> Box<in T> System.out.println(out)"), "type:Box|plain:<|keyword:out|plain: |type:T|plain:> |type:Box|plain:<|keyword:in|plain: |type:T|plain:> |type:System|plain:.out.println(out)");
+  assert.equal(kinds("val init = 1\ninit { x() }\nclass A { init {\n}\n}"), "keyword:val|plain: init = |number:1 // keyword:init|plain: { x() } // keyword:class|plain: |type:A|plain: { |keyword:init|plain: { // plain:} // plain:}");
+  assert.equal(kinds("try { } catch (e: Exception) { } finally { }\nval catch = 1"), "keyword:try|plain: { } |keyword:catch|plain: (e: |type:Exception|plain:) { } |keyword:finally|plain: { } // keyword:val|plain: catch = |number:1");
+  assert.equal(kinds("import a.b\nval import = 1\nx.import"), "keyword:import|plain: a.b // keyword:val|plain: import = |number:1 // plain:x.import");
+  assert.equal(kinds("val f: suspend () -> Unit = {}\nsuspend(1)\nsuspend fun g()"), "keyword:val|plain: f: |keyword:suspend|plain: () -> |type:Unit|plain: = {} // plain:suspend(|number:1|plain:) // keyword:suspend|plain: |keyword:fun|plain: g()");
+  assert.equal(kinds("fun <T> f(vararg a: Int, noinline b: () -> Unit) where T : Any"), "keyword:fun|plain: <|type:T|plain:> f(|keyword:vararg|plain: a: |type:Int|plain:, |keyword:noinline|plain: b: () -> |type:Unit|plain:) |keyword:where|plain: |type:T|plain: : |type:Any");
+  assert.equal(kinds("val where = 1; where(x)"), "keyword:val|plain: where = |number:1|plain:; where(x)");
+  assert.equal(kinds("typealias Names = List<String>"), "keyword:typealias|plain: |type:Names|plain: = |type:List|plain:<|type:String|plain:>");
+  assert.equal(kinds("HTTP URL_PART Point T it"), "plain:HTTP URL_PART |type:Point|plain: |type:T|plain: it");
+  assert.equal(kinds("if (a !in b && a !is C) x as? Y ?: z"), "keyword:if|plain: (a !|keyword:in|plain: b && a !|keyword:is|plain: |type:C|plain:) x |keyword:as|plain:? |type:Y|plain: ?: z");
+
+  // Unusual text never gets lost or changed, and deep nesting does not crash.
+  for (const source of ["", '"', "'", '"""', '""""', '"""a"', '"${', '"${a', '"${"', '"$', '"$a', "/*", "/* /*", "/* /* */", "/", "@", "@a:", "@a:b.", "`", "0x", "0b", "1e", "1e+", "1.", "1..", "return@", "$", "${", "#!", "中文 '中' \"é\" 😀", "a\r\nb", '"""\r\n${\r\n}"""']) {
+    assert.equal(tokenizeKotlin(source).map(joinLine).join("\n"), source, JSON.stringify(source));
+  }
+  const deep = '"${'.repeat(100) + "x" + '}"'.repeat(100);
+  assert.equal(tokenizeKotlin(deep).map(joinLine).join("\n"), deep, "100 levels of templates");
+  const deepComment = "/*".repeat(200) + "*/".repeat(200) + " val x";
+  assert.equal(kinds(deepComment), `comment:${"/*".repeat(200)}${"*/".repeat(200)}|plain: |keyword:val|plain: x`, "200 nested comments");
+});
+
 test("tokenizer: Python comments, strings, numbers, keywords and decorators", () => {
   const py = tokenizePython(fixture("basic.py"));
   assert.equal(kindOf(py, "A small weather log"), "string", "docstring");
@@ -1181,8 +1382,14 @@ test("languages: picked by extension or VS Code language id, with .h treated as 
   assert.equal(languageForFile("prompt.zsh"), undefined);
   assert.equal(languageForFile("sh"), undefined);
   assert.equal(languageForVscodeId("shellscript"), "shell");
-  assert.equal(LANGUAGE_NAMES, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL and Shell");
-  assert.equal(LANGUAGE_NAMES_OR, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL or Shell");
+  assert.equal(languageForFile("Pantry.kt"), "kotlin");
+  assert.equal(languageForFile("build.gradle.kts"), "kotlin");
+  assert.equal(languageForFile("MAIN.KT"), "kotlin");
+  assert.equal(languageForFile("Main.ktm"), undefined);
+  assert.equal(languageForFile("kt"), undefined);
+  assert.equal(languageForVscodeId("kotlin"), "kotlin");
+  assert.equal(LANGUAGE_NAMES, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell and Kotlin");
+  assert.equal(LANGUAGE_NAMES_OR, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell or Kotlin");
 });
 
 test("layout: tabs expand to the next tab stop and control characters become visible", () => {

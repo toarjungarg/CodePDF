@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.14.0
+- Added Kotlin export (`.kt`, `.kts`).
+
 ## 1.13.0
 - Added Shell / Bash export (`.sh`, `.bash`).
 
