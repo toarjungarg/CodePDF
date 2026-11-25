@@ -52,6 +52,7 @@ put("pantry.php", readFileSync(join(fixtures, "basic.php")));
 put("bookshop.sql", readFileSync(join(fixtures, "basic.sql")));
 put("backup.sh", readFileSync(join(fixtures, "basic.sh")));
 put("Bakery.kt", readFileSync(join(fixtures, "basic.kt")));
+put("Oven.swift", readFileSync(join(fixtures, "basic.swift")));
 for (const name of ["comments_strings.cpp", "unicode.cpp", "long_lines.cpp"]) {
   cpSync(join(fixtures, name), join(project, name));
 }
@@ -70,7 +71,10 @@ put("out/production/Old.java", "// IntelliJ build output: must be skipped\n");
 put("obj/Debug/AssemblyInfo.cs", "// .NET build output: must be skipped\n");
 put("vendor/dep/dep.go", "// Go dependency copy: must be skipped\n");
 put("vendor/autoload.php", "<?php // Composer dependency copy: must be skipped\n");
-put("notes.txt", "Not source code.\n");
+put("Pods/Dep/Dep.swift", "// CocoaPods dependency copy: must be skipped\n");
+put("DerivedData/Build/Gen.swift", "// Xcode build output: must be skipped\n");
+put("Carthage/Checkouts/Dep.swift", "// Carthage dependency copy: must be skipped\n");
+put("notes.txt","Not source code.\n");
 
 // 2. Test PDFs, made with CodePDF's own (compiled) engine.
 const { renderPdf } = require(join(root, "out", "src", "export", "renderer.js"));

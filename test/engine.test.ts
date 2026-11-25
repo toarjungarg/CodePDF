@@ -16,6 +16,7 @@ import { tokenizePhp } from "../src/export/phpTokenizer";
 import { tokenizeSql } from "../src/export/sqlTokenizer";
 import { tokenizeShell } from "../src/export/shellTokenizer";
 import { tokenizeKotlin } from "../src/export/kotlinTokenizer";
+import { tokenizeSwift } from "../src/export/swiftTokenizer";
 import type { TokenKind, TokenLine } from "../src/export/tokens";
 import { languageForFile, languageForVscodeId, LANGUAGE_NAMES, LANGUAGE_NAMES_OR } from "../src/export/languages";
 import { columnWidth, expandLine, layoutLine } from "../src/export/layout";
@@ -50,11 +51,11 @@ const kindOfWord = (lines: TokenLine[], word: string): TokenKind | undefined => 
 };
 
 test("tokenizer: joining tokens gives back every fixture exactly", () => {
-  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py", "basic.css", "basic.html", "basic.js", "basic.ts", "basic.jsx", "basic.tsx", "basic.rs", "basic.java", "basic.cs", "basic.go", "basic.php", "basic.sql", "basic.sh", "basic.kt"]) {
+  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py", "basic.css", "basic.html", "basic.js", "basic.ts", "basic.jsx", "basic.tsx", "basic.rs", "basic.java", "basic.cs", "basic.go", "basic.php", "basic.sql", "basic.sh", "basic.kt", "basic.swift"]) {
     const source = fixture(name).replace(/\r\n?/g, "\n");
     for (const lines of [
       tokenizeCpp(source), tokenizeC(source), tokenizePython(source), tokenizeCss(source), tokenizeHtml(source), tokenizeJavaScript(source),
-      tokenizeTs(source), tokenizeJsx(source), tokenizeTsx(source), tokenizeRust(source), tokenizeJava(source), tokenizeCSharp(source), tokenizeGo(source), tokenizePhp(source), tokenizeSql(source), tokenizeShell(source), tokenizeKotlin(source),
+      tokenizeTs(source), tokenizeJsx(source), tokenizeTsx(source), tokenizeRust(source), tokenizeJava(source), tokenizeCSharp(source), tokenizeGo(source), tokenizePhp(source), tokenizeSql(source), tokenizeShell(source), tokenizeKotlin(source), tokenizeSwift(source),
     ]) {
       assert.equal(lines.map(joinLine).join("\n"), source, `${name} changed during tokenizing`);
     }
@@ -1213,6 +1214,256 @@ test("tokenizer: Kotlin tricky cases", () => {
   assert.equal(kinds(deepComment), `comment:${"/*".repeat(200)}${"*/".repeat(200)}|plain: |keyword:val|plain: x`, "200 nested comments");
 });
 
+test("tokenizer: Swift comments, strings, interpolation, numbers, attributes and keywords", () => {
+  const source = fixture("basic.swift");
+  const sourceLines = source.split("\n");
+  const sw = tokenizeSwift(source);
+  assert.equal(sw.length, sourceLines.length, "one token line per source line");
+  // One source line as kind:text pieces joined with |, found by a piece of its text.
+  const line = (text: string): string => {
+    const index = sourceLines.findIndex((l) => l.includes(text));
+    assert.ok(index !== -1, `no line with ${text}`);
+    return sw[index]!.map((t) => `${t.kind}:${t.text}`).join("|");
+  };
+  const has = (text: string, kind: TokenKind): boolean => sw.flat().some((t) => t.text === text && t.kind === kind);
+
+  // Comments: the script line, a doc comment, a line comment, and a block comment with another one inside it.
+  assert.equal(line("#!/usr/bin/env"), "comment:#!/usr/bin/env swift");
+  assert.equal(kindOf(sw, "A small oven timer"), "comment", "doc comment");
+  assert.equal(kindOf(sw, "One line comment"), "comment");
+  assert.ok(has("/* A block comment /* with a nested one */ that is still a comment */", "comment"), "a nested block comment is one comment");
+  assert.equal(line("// A variable named get"), "plain:    |comment:// A variable named get, set, some, any and async stays plain.");
+  assert.equal(line("func describe()"), "plain:    |keyword:func|plain: describe() -> |type:String|plain: {", "a comment ending in a full stop does not hide the next keyword");
+
+  // Numbers: separators, hex, binary, octal, floats, hex floats, and tuple positions.
+  for (const num of ["1_000", "0xFF_FF", "0b1010", "0o755", "1.5e10", "2.5E-3", "0x1.8p3", "0xAp-2"]) {
+    assert.ok(has(num, "number"), `number ${num}`);
+  }
+  assert.equal(line("let pair"), "keyword:let|plain: pair = (|number:3|plain:, (|number:4|plain:, |number:5|plain:))");
+  assert.equal(line("let inner"), "keyword:let|plain: inner = pair.|number:1|plain:.|number:0", "pair.1.0 is two positions, not a float");
+  assert.equal(line("let range"), "keyword:let|plain: range = |number:1|plain:...|number:10");
+  assert.equal(line("let half"), "keyword:let|plain: half = |number:0|plain:..<|number:5");
+
+  // # directives.
+  assert.equal(line("#if DEBUG"), "preprocessor:#if|plain: |type:DEBUG");
+  assert.equal(line("#elseif os(macOS)"), "preprocessor:#elseif|plain: os(macOS)");
+  assert.ok(has("#else", "preprocessor"));
+  assert.equal(line("#endif"), "preprocessor:#endif");
+  assert.equal(line("#if os(iOS)"), "plain:    |preprocessor:#if|plain: os(iOS)");
+  assert.equal(line("#available(macOS 13, *)"), "plain:    |keyword:if|plain: |preprocessor:#available|plain:(macOS |number:13|plain:, *) {");
+  assert.equal(line("#selector"), "plain:    |keyword:let|plain: action = |preprocessor:#selector|plain:(|type:Oven|plain:.ring(_:))");
+
+  // Attributes, and modifiers in front of declarations.
+  assert.equal(line("@MainActor"), "preprocessor:@MainActor");
+  assert.equal(line("final class Oven"), "keyword:final|plain: |keyword:class|plain: |type:Oven|plain:: |type:ObservableObject|plain: {");
+  assert.equal(line("@Published var"), "plain:    |preprocessor:@Published|plain: |keyword:var|plain: trays: [|type:Loaf|plain:] = []");
+  assert.equal(line("@State private var open"), "plain:    |preprocessor:@State|plain: |keyword:private|plain: |keyword:var|plain: open = |keyword:false", "a variable named open stays plain");
+  assert.equal(line("weak var door"), "plain:    |keyword:weak|plain: |keyword:var|plain: door: |type:AnyObject|plain:?");
+  assert.equal(line("@objc func ring"), "plain:    |preprocessor:@objc|plain: |keyword:func|plain: ring(_ sender: |type:Any|plain:?) {}");
+  assert.equal(line("required init"), "plain:    |keyword:required|plain: |keyword:init|plain:() {}");
+  assert.equal(line("convenience init"), "plain:    |keyword:convenience|plain: |keyword:init|plain:?(name: |type:String|plain:) {");
+  assert.equal(line("self.init()"), "plain:        |keyword:self|plain:.|keyword:init|plain:()");
+  assert.equal(line("indirect case"), "plain:    |keyword:indirect|plain: |keyword:case|plain: then(|type:Step|plain:, |type:Step|plain:)");
+  assert.equal(line("mutating func cool() {"), "plain:    |keyword:mutating|plain: |keyword:func|plain: cool() {");
+  assert.equal(line("actor Counter"), "keyword:actor|plain: |type:Counter|plain: {");
+
+  // get, set, willSet and didSet are keywords only as accessors.
+  assert.equal(line("var heat: Int { get set }"), "plain:    |keyword:var|plain: heat: |type:Int|plain: { |keyword:get|plain: |keyword:set|plain: }");
+  assert.equal(line("private(set) var"), "plain:    |keyword:private|plain:(|keyword:set|plain:) |keyword:var|plain: slices = |number:8");
+  assert.equal(line("get { trays.count }"), "plain:        |keyword:get|plain: { trays.count }");
+  assert.equal(line("set(newValue)"), "plain:        |keyword:set|plain:(newValue) { print(newValue) }");
+  assert.equal(line("willSet"), 'plain:        |keyword:willSet|plain: { print(|string:"going to |plain:\\(newValue)|string:"|plain:) }');
+  assert.equal(line("didSet {"), "plain:        |keyword:didSet|plain: {");
+  assert.equal(line("let get = 1"), "plain:        |keyword:let|plain: get = |number:1", "a variable named get");
+  assert.equal(line("let set = 2"), "plain:        |keyword:let|plain: set = |number:2");
+  assert.equal(line("let some = 3"), "plain:        |keyword:let|plain: some = |number:3");
+  assert.equal(line("let any = 4"), "plain:        |keyword:let|plain: any = |number:4");
+  assert.equal(line("let async = 5"), "plain:        |keyword:let|plain: async = |number:5");
+  assert.equal(line("let actor = 6"), "plain:        |keyword:let|plain: actor = |number:6");
+  assert.equal(line("let await = 7"), "plain:        |keyword:let|plain: await = |number:7");
+  assert.equal(line("return \"\\(get"), 'plain:        |keyword:return|plain: |string:"|plain:\\(get + set + some + any + async + actor + await)|string:"');
+
+  // async, await, some and any.
+  assert.equal(line("func bake"), "plain:    |keyword:func|plain: bake(_ loaf: |type:Loaf|plain:, |keyword:for|plain: minutes: |type:Int|plain:) |keyword:async|plain: |keyword:throws|plain: -> |type:Loaf|plain: {");
+  assert.equal(line("try await Task"), "plain:        |keyword:try|plain: |keyword:await|plain: |type:Task|plain:.sleep(nanoseconds: |number:1_000|plain:)");
+  assert.equal(line("async let extra"), "plain:        |keyword:async|plain: |keyword:let|plain: extra = |type:Task|plain:.sleep(nanoseconds: |number:5|plain:)");
+  assert.equal(line("some View"), "plain:    |keyword:func|plain: shapes() -> |keyword:some|plain: |type:View|plain: {");
+  assert.equal(line("any Baked, from"), "plain:    |keyword:func|plain: pick(_ item: |keyword:any|plain: |type:Baked|plain:, from list: [|keyword:any|plain: |type:Baked|plain:]) -> |type:Int|plain: {");
+  assert.equal(line("for await item"), "plain:    |keyword:for|plain: |keyword:await|plain: item |keyword:in|plain: stream {");
+
+  // Closure arguments and key paths are plain.
+  assert.equal(line("trays.map { $0.name }"), "plain:        |keyword:let|plain: names = trays.map { $0.name }");
+  assert.equal(line("$0.heat < $1.heat"), "plain:        |keyword:let|plain: sorted = trays.sorted { $0.heat < $1.heat }");
+  assert.equal(line("map(\\.name)"), "plain:        |keyword:return|plain: names + sorted.map(\\.name)");
+
+  // Backtick names are plain, and a keyword after a dot is a name.
+  assert.equal(line("func `class`"), "keyword:func|plain: `class`(_ value: |type:Int|plain:) -> |type:Int|plain: {");
+  assert.equal(line("case .some(let count)"), "plain:    |keyword:case|plain: .some(|keyword:let|plain: count) |keyword:where|plain: count > |number:1|plain::");
+  assert.equal(line("case .none:"), "plain:    |keyword:case|plain: .none:");
+  assert.equal(line("default:"), "plain:    |keyword:default|plain::");
+
+  // Strings: interpolation, nested strings and brackets, and escapes.
+  assert.equal(line("Oven number"), 'plain:    |keyword:lazy|plain: |keyword:var|plain: label: |type:String|plain: = |string:"Oven number |plain:\\(trays.count)|string:"');
+  assert.equal(line("let plain"), 'plain:    |keyword:let|plain: plain = |string:"Hello, |plain:\\(name)|string:!"');
+  assert.equal(
+    line("let nested"),
+    'plain:    |keyword:let|plain: nested = |string:"Total: |plain:\\(names.map { |string:"<|plain:\\($0)|string:>"|plain: }.joined(separator: |string:", "|plain:))|string: done"',
+    "a string inside \\( ) inside a string",
+  );
+  assert.equal(
+    line("let math"),
+    'plain:    |keyword:let|plain: math = |string:"Sum: |plain:\\((|number:1|plain: + |number:2|plain:) * |number:3|plain:)|string: and |plain:\\(max(|number:1|plain:, |number:2|plain:))|string:"',
+    "brackets inside \\( ) do not end it early",
+  );
+  assert.equal(
+    line("let escapes"),
+    'plain:    |keyword:let|plain: escapes = |string:"tab\\t quote\\" slash\\\\ unicode\\u{1F600} backslash-paren \\\\(not code)"',
+    "\\\\( is an escaped backslash, not code",
+  );
+
+  // Multi-line strings: lines in the middle, interpolation, quotes, and a backslash at the end of a line.
+  assert.equal(line("let multi"), 'plain:    |keyword:let|plain: multi = |string:"""');
+  assert.equal(line("Line one with"), "string:        Line one with |plain:\\(name)");
+  assert.equal(line("Line two with"), 'string:        Line two with "quotes" and ""double"" quotes');
+  assert.equal(line("A \\"), "string:        A \\");
+  assert.equal(line("continued line"), "string:        continued line");
+  assert.equal(line("a \\\"\"\" is escaped"), 'string:        a \\""" is escaped');
+
+  // Raw strings: \( is plain text, \#( is code, and the closing quote needs the same number of #.
+  assert.equal(
+    line("let raw = #"),
+    'plain:    |keyword:let|plain: raw = |string:#"raw \\(not code) and |plain:\\#(name)|string: and "quotes""#',
+  );
+  assert.equal(
+    line("let raw2"),
+    'plain:    |keyword:let|plain: raw2 = |string:##"two hashes "# still raw |plain:\\##(name)|string:"##',
+  );
+  assert.equal(line("let rawMulti"), 'plain:    |keyword:let|plain: rawMulti = |string:#"""');
+  assert.equal(line("raw block"), "string:        raw block \\(literal)");
+  assert.equal(line('"""#'), 'string:        """#');
+  assert.equal(line("let escapedQuotes"), 'plain:    |keyword:let|plain: escapedQuotes = |string:"""');
+
+  // Other statements.
+  assert.equal(line("catch let error"), "plain:    } |keyword:catch|plain: |keyword:let|plain: error |keyword:as|plain: |type:NSError|plain: {");
+  assert.equal(line("outer: for"), "plain:    outer: |keyword:for|plain: i |keyword:in|plain: |number:0|plain:..<|number:3|plain: {");
+  assert.equal(line("guard let first"), "plain:    |keyword:guard|plain: |keyword:let|plain: first = |type:Optional|plain:(|number:1|plain:) |keyword:else|plain: { |keyword:return|plain: }");
+});
+
+test("tokenizer: Swift tricky cases", () => {
+  // Every token as kind:text, joined with |, and a " // " marks the start of a new line.
+  const kinds = (source: string): string => tokenizeSwift(source).map((l) => l.map((t) => `${t.kind}:${t.text}`).join("|")).join(" // ");
+
+  // Comments nest, and an unclosed one runs to the end.
+  assert.equal(kinds("/* a /* b */ c */ let x"), "comment:/* a /* b */ c */|plain: |keyword:let|plain: x");
+  assert.equal(kinds("/* a /* b */ let x"), "comment:/* a /* b */ let x", "one level is still open");
+  assert.equal(kinds("/// doc // not\nx"), "comment:/// doc // not // plain:x");
+  assert.equal(kinds("x #! y"), "plain:x #! y", "#! only counts on the very first line");
+  assert.equal(kinds("// ends with dot.\nfunc a() {}"), "comment:// ends with dot. // keyword:func|plain: a() {}");
+
+  // Strings and interpolation.
+  assert.equal(kinds('"a \\(b) c"'), 'string:"a |plain:\\(b)|string: c"');
+  assert.equal(kinds('"a \\(b + (c * 2)) d"'), 'string:"a |plain:\\(b + (c * |number:2|plain:))|string: d"');
+  assert.equal(kinds('"a \\(f(")")) d"'), 'string:"a |plain:\\(f(|string:")"|plain:))|string: d"', "a ) inside a string inside \\( ) does not close it");
+  assert.equal(kinds('"x \\("y \\(z) w") v"'), 'string:"x |plain:\\(|string:"y |plain:\\(z)|string: w"|plain:)|string: v"', "interpolation inside interpolation");
+  assert.equal(kinds('"no end\nlet x'), 'string:"no end // keyword:let|plain: x', "a string ends at the line end");
+  assert.equal(kinds('"a \\(b" c'), 'string:"a \\(b"|plain: c', "a \\( that never closes is text");
+  assert.equal(kinds('"\\\\(a) \\" \\(b)"'), 'string:"\\\\(a) \\" |plain:\\(b)|string:"', "an escaped backslash before ( is not code");
+  assert.equal(kinds('"" + ""'), 'string:""|plain: + |string:""', "empty strings");
+  assert.equal(kinds('"a\\\nlet x'), 'string:"a\\ // keyword:let|plain: x', "a backslash at the end of a single-line string does not join lines");
+
+  // Multi-line strings.
+  assert.equal(kinds('"""a \\(b) "c" ""d""" x'), 'string:"""a |plain:\\(b)|string: "c" ""d"""|plain: x', "quotes inside, closed by the first three");
+  assert.equal(kinds('"""\nno end'), 'string:""" // string:no end', "an unclosed multi-line string runs to the end");
+  assert.equal(kinds('""" \\(\n a\n) """ x'), 'string:""" |plain:\\( // plain: a // plain:)|string: """|plain: x', "interpolation in a multi-line string can span lines");
+  assert.equal(kinds('"""\n  a \\"""b\n  """ x'), 'string:""" // string:  a \\"""b // string:  """|plain: x', "an escaped quote does not close it");
+
+  // Raw strings.
+  assert.equal(kinds('#"a \\(b) \\#(c) "d""# x'), 'string:#"a \\(b) |plain:\\#(c)|string: "d""#|plain: x');
+  assert.equal(kinds('##"a "# \\#(b) \\##(c)"## x'), 'string:##"a "# \\#(b) |plain:\\##(c)|string:"##|plain: x', "only the matching number of # counts");
+  assert.equal(kinds('#"""\n a \\(b) \\#n """# x'), 'string:#""" // string: a \\(b) \\#n """#|plain: x');
+  assert.equal(kinds('#"no end\nlet x'), 'string:#"no end // keyword:let|plain: x', "a raw string ends at the line end");
+  assert.equal(kinds('#"\\"#'), 'string:#"\\"#', "a backslash is plain text in a raw string");
+
+  // Directives and attributes.
+  assert.equal(kinds("#x #if #available(iOS 15, *)"), "preprocessor:#x|plain: |preprocessor:#if|plain: |preprocessor:#available|plain:(iOS |number:15|plain:, *)");
+  assert.equal(kinds("##a"), "plain:#|preprocessor:#a");
+  assert.equal(kinds("@available(iOS 15, *) @objc(foo) @Foo.Bar @ @_x @"), "preprocessor:@available|plain:(iOS |number:15|plain:, *) |preprocessor:@objc|plain:(foo) |preprocessor:@Foo.Bar|plain: @ |preprocessor:@_x|plain: @");
+
+  // Backtick names and $ names.
+  assert.equal(kinds("`class` `a b`() `no end\nlet x"), "plain:`class` `a b`() `no end // keyword:let|plain: x");
+  assert.equal(kinds("$0 $1.name $name $"), "plain:$0 $1.name $name $", "the digits of $0 are not a number");
+
+  // Numbers.
+  assert.equal(
+    kinds("0x1p3 0xFF.description 0x1.8p-2 1e3 1E+3 1.5.rounded() 1...2 1..<2 0b1_0 0o17 3.0"),
+    "number:0x1p3|plain: |number:0xFF|plain:.description |number:0x1.8p-2|plain: |number:1e3|plain: |number:1E+3|plain: |number:1.5|plain:.rounded() |number:1|plain:...|number:2|plain: |number:1|plain:..<|number:2|plain: |number:0b1_0|plain: |number:0o17|plain: |number:3.0",
+  );
+  assert.equal(kinds("t.0.1 a.1"), "plain:t.|number:0|plain:.|number:1|plain: a.|number:1", "tuple positions after a dot");
+
+  // Contextual words are plain unless they work as keywords.
+  assert.equal(
+    kinds("let get = 1\nvar x: Int { get }\nvar y: Int { get set }\nx.get(1); get(2)"),
+    "keyword:let|plain: get = |number:1 // keyword:var|plain: x: |type:Int|plain: { |keyword:get|plain: } // keyword:var|plain: y: |type:Int|plain: { |keyword:get|plain: |keyword:set|plain: } // plain:x.get(|number:1|plain:); get(|number:2|plain:)",
+  );
+  assert.equal(
+    kinds("var a: Int { mutating get async throws }"),
+    "keyword:var|plain: a: |type:Int|plain: { |keyword:mutating|plain: |keyword:get|plain: |keyword:async|plain: |keyword:throws|plain: }",
+  );
+  assert.equal(
+    kinds("var z = 0 { willSet(v) { } didSet { } }\nobj.didSet { }"),
+    "keyword:var|plain: z = |number:0|plain: { |keyword:willSet|plain:(v) { } |keyword:didSet|plain: { } } // plain:obj.didSet { }",
+  );
+  assert.equal(
+    kinds("private(set) var a; public private(set) var b; let set = 1"),
+    "keyword:private|plain:(|keyword:set|plain:) |keyword:var|plain: a; |keyword:public|plain: |keyword:private|plain:(|keyword:set|plain:) |keyword:var|plain: b; |keyword:let|plain: set = |number:1",
+  );
+  assert.equal(
+    kinds("let some = 1; x as? any P; func f() -> some View; let s: [any Q]; some(1)"),
+    "keyword:let|plain: some = |number:1|plain:; x |keyword:as|plain:? |keyword:any|plain: |type:P|plain:; |keyword:func|plain: f() -> |keyword:some|plain: |type:View|plain:; |keyword:let|plain: s: [|keyword:any|plain: |type:Q|plain:]; some(|number:1|plain:)",
+  );
+  assert.equal(
+    kinds("func f() async {}; func g() async throws -> Int; let t: () async -> Void; async let a = 1; async(1)"),
+    "keyword:func|plain: f() |keyword:async|plain: {}; |keyword:func|plain: g() |keyword:async|plain: |keyword:throws|plain: -> |type:Int|plain:; |keyword:let|plain: t: () |keyword:async|plain: -> |type:Void|plain:; |keyword:async|plain: |keyword:let|plain: a = |number:1|plain:; async(|number:1|plain:)",
+  );
+  assert.equal(
+    kinds("await foo(); await in; for await x in y {}; await(1); let await = 1; self.await"),
+    "keyword:await|plain: foo(); await |keyword:in|plain:; |keyword:for|plain: |keyword:await|plain: x |keyword:in|plain: y {}; |keyword:await|plain:(|number:1|plain:); |keyword:let|plain: await = |number:1|plain:; |keyword:self|plain:.await",
+  );
+  assert.equal(
+    kinds("actor A {}; distributed actor B: C {}; for actor in actors {}; let actor = 1; actor.run()"),
+    "keyword:actor|plain: |type:A|plain: {}; |keyword:distributed|plain: |keyword:actor|plain: |type:B|plain:: |type:C|plain: {}; |keyword:for|plain: actor |keyword:in|plain: actors {}; |keyword:let|plain: actor = |number:1|plain:; actor.run()",
+  );
+  assert.equal(
+    kinds("final class A { lazy var x = 1; weak var y: B?; unowned(unsafe) let z: C; open func f() {}; let open = 1; override init() {} }"),
+    "keyword:final|plain: |keyword:class|plain: |type:A|plain: { |keyword:lazy|plain: |keyword:var|plain: x = |number:1|plain:; |keyword:weak|plain: |keyword:var|plain: y: |type:B|plain:?; |keyword:unowned|plain:(unsafe) |keyword:let|plain: z: |type:C|plain:; |keyword:open|plain: |keyword:func|plain: f() {}; |keyword:let|plain: open = |number:1|plain:; |keyword:override|plain: |keyword:init|plain:() {} }",
+  );
+  assert.equal(
+    kinds("func f(isolated a: MyActor, consuming b: Loaf) {}; let each = 1"),
+    "keyword:func|plain: f(|keyword:isolated|plain: a: |type:MyActor|plain:, |keyword:consuming|plain: b: |type:Loaf|plain:) {}; |keyword:let|plain: each = |number:1",
+  );
+
+  // Keywords after a dot are names, except self and init. Ranges are not member access.
+  assert.equal(
+    kinds(".default .none x.in x.class x.self x.init Foo.Type 1...self"),
+    "plain:.default .none x.in x.class x.|keyword:self|plain: x.|keyword:init|plain: |type:Foo|plain:.|type:Type|plain: |number:1|plain:...|keyword:self",
+  );
+  assert.equal(kinds("a...b; a..<b"), "plain:a...b; a..<b");
+
+  // Types are capitalised names, and operators stay plain.
+  assert.equal(kinds("HTTP URL _Foo t"), "type:HTTP|plain: |type:URL|plain: _Foo t");
+  assert.equal(kinds("x ?? y ?.z !.w -> a === b"), "plain:x ?? y ?.z !.w -> a === b");
+  assert.equal(kinds('中文 "é" 😀'), 'plain:中文 |string:"é"|plain: 😀');
+
+  // Unusual text never gets lost or changed, and deep nesting does not crash.
+  for (const source of ["", '"', "#", '#"', '##"', '"""', '#"""', '"\\(', '"\\(a', '"\\("', '"\\', "/*", "/* /*", "/* /* */", "/", "@", "@a.", "`", "0x", "0b", "0o", "1e", "1e+", "1.", "1..", "$", "#!", "0x1.", "0x1.8", "中文 '中' \"é\" 😀", "a\r\nb", '"""\r\n\\(\r\n)"""']) {
+    assert.equal(tokenizeSwift(source).map(joinLine).join("\n"), source, JSON.stringify(source));
+  }
+  const deep = '"\\('.repeat(100) + "x" + ')"'.repeat(100);
+  assert.equal(tokenizeSwift(deep).map(joinLine).join("\n"), deep, "100 levels of interpolation");
+  const deepComment = "/*".repeat(200) + "*/".repeat(200) + " let x";
+  assert.equal(kinds(deepComment), `comment:${"/*".repeat(200)}${"*/".repeat(200)}|plain: |keyword:let|plain: x`, "200 nested comments");
+});
+
 test("tokenizer: Python comments, strings, numbers, keywords and decorators", () => {
   const py = tokenizePython(fixture("basic.py"));
   assert.equal(kindOf(py, "A small weather log"), "string", "docstring");
@@ -1388,8 +1639,13 @@ test("languages: picked by extension or VS Code language id, with .h treated as 
   assert.equal(languageForFile("Main.ktm"), undefined);
   assert.equal(languageForFile("kt"), undefined);
   assert.equal(languageForVscodeId("kotlin"), "kotlin");
-  assert.equal(LANGUAGE_NAMES, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell and Kotlin");
-  assert.equal(LANGUAGE_NAMES_OR, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell or Kotlin");
+  assert.equal(languageForFile("Oven.swift"), "swift");
+  assert.equal(languageForFile("MAIN.SWIFT"), "swift");
+  assert.equal(languageForFile("Oven.swiftmodule"), undefined);
+  assert.equal(languageForFile("swift"), undefined);
+  assert.equal(languageForVscodeId("swift"), "swift");
+  assert.equal(LANGUAGE_NAMES, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin and Swift");
+  assert.equal(LANGUAGE_NAMES_OR, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin or Swift");
 });
 
 test("layout: tabs expand to the next tab stop and control characters become visible", () => {
@@ -1440,7 +1696,7 @@ test("files: supported extensions, excluded folders and PDF names", () => {
   for (const name of ["a.ts.map", "a.tsbuildinfo", "a.js.map", "js", "cpp", "c", "py", "css", "a.scss", "a.css.map", "html", "a.html.bak", "a.xhtml", "a.cpp.bak", "a.c.bak", "a.pyc", "a.rs.bk", "rs", "a.class", "a.jar", "java", "a.csproj", "a.sln", "a.dll", "cs", "a.mod", "a.sum", "go", "a.phtml", "a.php.bak", "a.inc", "php", "notes.txt"]) {
     assert.ok(!isSupportedSource(name), name);
   }
-  for (const name of [".git", ".vscode", "node_modules", "build", "dist", "cmake-build-debug", "Debug", "__pycache__", "venv", ".venv", "target", "out", "bin", ".gradle", "obj", "vendor"]) {
+  for (const name of [".git", ".vscode", "node_modules", "build", "dist", "cmake-build-debug", "Debug", "__pycache__", "venv", ".venv", "target", "out", "bin", ".gradle", "obj", "vendor", "Pods", "DerivedData", "Carthage", ".build"]) {
     assert.ok(isExcludedFolder(name), name);
   }
   assert.ok(!isExcludedFolder("src"));

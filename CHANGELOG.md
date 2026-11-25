@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.15.0
+- Added Swift export (`.swift`).
+- Folder export now skips `Pods`, `DerivedData` and `Carthage` folders.
+
 ## 1.14.0
 - Added Kotlin export (`.kt`, `.kts`).
 

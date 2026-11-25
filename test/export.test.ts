@@ -385,6 +385,32 @@ test("1o. exports a Kotlin file, alone and combined with Shell", async () => {
   assert.ok(combined.pdf.text.includes("#!/bin/bash"));
 });
 
+test("1p. exports a Swift file, alone and combined with Kotlin", async () => {
+  const source = fixture("basic.swift");
+  const { pdf } = await exportSections("basic_swift.pdf", [file("basic.swift", source)]);
+  assert.ok(pdf.pages[0]!.lines[0]!.startsWith("basic.swift"), "file name in the header");
+  for (const expected of [
+    "/* A block comment /* with a nested one */ that is still a comment */",
+    "let inner = pair.1.0",
+    "lazy var label: String = \"Oven number \\(trays.count)\"",
+    "let math = \"Sum: \\((1 + 2) * 3) and \\(max(1, 2))\"",
+    "let raw = #\"raw \\(not code) and \\#(name) and \"quotes\"\"#",
+    "let raw2 = ##\"two hashes \"# still raw \\##(name)\"##",
+    "private(set) var slices = 8",
+    "func `class`(_ value: Int) -> Int {",
+    "if #available(macOS 13, *) {",
+  ]) {
+    assert.ok(pdf.text.includes(expected), `missing: ${expected}`);
+  }
+
+  const combined = await exportSections("mixed_swift_kt.pdf", [
+    { ...file("basic.swift", source), language: "swift" },
+    { ...file("basic.kt", fixture("basic.kt")), language: "kotlin" },
+  ]);
+  assert.deepEqual(combined.pdf.outline, ["basic.swift", "basic.kt"], "one bookmark per file");
+  assert.ok(combined.pdf.text.includes("#!/usr/bin/env swift"));
+});
+
 test("2. exports comments and strings exactly", async () => {
   const { pdf } = await exportSections("comments_strings.pdf", [file("comments_strings.cpp", fixture("comments_strings.cpp"))]);
   for (const expected of [

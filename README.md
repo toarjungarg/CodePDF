@@ -3,7 +3,7 @@
 A VS Code extension that does two things:
 
 1. Opens PDF files in a VS Code tab.
-2. Exports C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell and Kotlin files as clean, printable PDFs.
+2. Exports C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin and Swift files as clean, printable PDFs.
 
 I built it for my own assignments. I wanted to read the assignment PDF next to my code, and then turn my `.cpp` files into PDFs I could upload, without leaving VS Code.
 
@@ -27,7 +27,7 @@ Open any `.pdf` file in VS Code and it shows up in a tab.
 
 Links inside a PDF never open by themselves. CodePDF asks first, and only opens web and email links.
 
-## Exporting C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell and Kotlin to PDF
+## Exporting C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin and Swift to PDF
 
 Supported files:
 
@@ -47,19 +47,20 @@ Supported files:
 - SQL: `.sql`
 - Shell / Bash: `.sh`, `.bash`
 - Kotlin: `.kt`, `.kts`
+- Swift: `.swift`
 
 `.h` files are coloured as C++, which also works for C headers.
 
 With HTML, CSS and JavaScript, it supports traditional web dev.
 
-I'm adding more languages. Swift is next.
+I'm adding more languages. Ruby is next.
 
 | Command | What it does |
 |---|---|
 | CodePDF: Export as PDF | Exports one file. `main.cpp` becomes `main.pdf` in the same folder. |
 | CodePDF: Export Selection as PDF | Exports only the lines you highlighted, with their real line numbers. |
 | CodePDF: Export Multiple Files | Combines the files you pick into one PDF. Each file starts on a new page. |
-| CodePDF: Export Folder as PDF | Combines every C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell and Kotlin file in a folder into one PDF. |
+| CodePDF: Export Folder as PDF | Combines every C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin and Swift file in a folder into one PDF. |
 
 You can run them from the Command Palette, or by right-clicking a file or folder in the Explorer, or by right-clicking in the editor.
 
@@ -89,7 +90,7 @@ The PDFs have syntax colours, line numbers, a header with the file name and a fo
 
 ![Exporting the demo folder, where the file list shows build and the hidden file were skipped](images/export-folder.gif)
 
-The demos show C++ files, but everything works the same way for C, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell and Kotlin.
+The demos show C++ files, but everything works the same way for C, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin and Swift.
 
 Some details worth knowing:
 
@@ -97,7 +98,7 @@ Some details worth knowing:
 - If the PDF already exists, CodePDF asks before replacing it.
 - If a file is open with unsaved changes, the export uses what is on screen and tells you so.
 - The PDF uses the same font as your editor (the `editor.fontFamily` setting), as long as it is a monospace font installed on your computer. Otherwise it uses the system's default monospace font.
-- Folder export skips hidden files and folders, and folders named `node_modules`, `build`, `builds`, `dist`, `out`, `bin`, `obj`, `debug`, `release`, `x64`, `x86`, `target`, `__pycache__`, `venv`, `vendor` or starting with `cmake-build-`. It shows you the file list before exporting, so you can untick anything.
+- Folder export skips hidden files and folders, and folders named `node_modules`, `build`, `builds`, `dist`, `out`, `bin`, `obj`, `debug`, `release`, `x64`, `x86`, `target`, `__pycache__`, `venv`, `vendor`, `pods`, `deriveddata`, `carthage` or starting with `cmake-build-`. It shows you the file list before exporting, so you can untick anything.
 - Folder export stops at 500 files and does not follow shortcuts (symlinks). Header files come first, then the rest in alphabetical order.
 - If you export `main.cpp` and `main.h` together as separate PDFs, they are named `main.cpp.pdf` and `main.h.pdf` so one does not overwrite the other.
 
@@ -152,7 +153,7 @@ Used only for building and testing, never shipped:
 | [@types/vscode](https://www.npmjs.com/package/@types/vscode) | 1.140.0 | Type descriptions for the VS Code API. |
 | [@vscode/vsce](https://www.npmjs.com/package/@vscode/vsce) | 4.1.0 | Packages the extension into a `.vsix` file. |
 
-The syntax colouring is written from scratch (`src/export/cFamilyTokenizer.ts` for C and C++, `src/export/pythonTokenizer.ts` for Python, `src/export/cssTokenizer.ts` for CSS, `src/export/htmlTokenizer.ts` for HTML, `src/export/javascriptTokenizer.ts` for JavaScript, TypeScript and React, `src/export/rustTokenizer.ts` for Rust, `src/export/javaTokenizer.ts` for Java, `src/export/csharpTokenizer.ts` for C#, `src/export/goTokenizer.ts` for Go, `src/export/phpTokenizer.ts` for PHP, `src/export/sqlTokenizer.ts` for SQL, `src/export/shellTokenizer.ts` for Shell / Bash, `src/export/kotlinTokenizer.ts` for Kotlin), so there is no highlighting library.
+The syntax colouring is written from scratch (`src/export/cFamilyTokenizer.ts` for C and C++, `src/export/pythonTokenizer.ts` for Python, `src/export/cssTokenizer.ts` for CSS, `src/export/htmlTokenizer.ts` for HTML, `src/export/javascriptTokenizer.ts` for JavaScript, TypeScript and React, `src/export/rustTokenizer.ts` for Rust, `src/export/javaTokenizer.ts` for Java, `src/export/csharpTokenizer.ts` for C#, `src/export/goTokenizer.ts` for Go, `src/export/phpTokenizer.ts` for PHP, `src/export/sqlTokenizer.ts` for SQL, `src/export/shellTokenizer.ts` for Shell / Bash, `src/export/kotlinTokenizer.ts` for Kotlin, `src/export/swiftTokenizer.ts` for Swift), so there is no highlighting library.
 
 Install scripts are turned off for this project (`.npmrc`), and optional binary packages are not installed.
 
@@ -160,7 +161,7 @@ Known issue: `npm audit` reports a moderate issue in `minimatch` 10.2.6, which `
 
 ## Limitations
 
-- Syntax colouring is for C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell and Kotlin only, and it is pattern-based rather than a full parser, so unusual macros can be coloured slightly wrong. The text itself is always exact.
+- Syntax colouring is for C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin and Swift only, and it is pattern-based rather than a full parser, so unusual macros can be coloured slightly wrong. The text itself is always exact.
 - In Python, `match`, `case` and `type` are only coloured as keywords when the statement fits on one line.
 - In JavaScript, a `/` right after `)` is read as division, so a regex there (like `if (ok) /a/.test(s)`) isn't coloured.
 - In TypeScript, type words like `string` and `number` are always coloured as types, even when used as a variable name.
@@ -172,6 +173,7 @@ Known issue: `npm audit` reports a moderate issue in `minimatch` 10.2.6, which `
 - In SQL, words are coloured the same in every database, so a column or table named like a keyword or type (like `key`, `date` or `text`) is coloured too, unless it is in quotes or comes after a dot. Built-in functions like `count` and `max` are only coloured when a bracket follows. In MySQL, a `\'` inside a string isn't treated as an escape (use `''` instead), except in `E'...'` strings. A `#` starts a comment only at the start of a line or after a space, and block comments do not nest.
 - In Shell / Bash, `.sh` and `.bash` files are coloured the same way, and other shells like `.zsh` are not supported. A word like `if`, `then` or `echo` is only coloured where a command can start, so it is left plain as an argument (`echo if`). Only the common builtins are coloured, so commands like `grep` and `ls` stay plain. Heredoc bodies are always one string colour, even when they contain `$variables`. A `<<` right before a word is read as a heredoc, so shifting bits like `1<<n` should be written inside `$(( ))`.
 - In Kotlin, `.kt` and `.kts` files are coloured the same way. A name is coloured as a type if it starts with a capital letter and has a lowercase letter somewhere (`String`, `Point`), so a class named in capitals like `HTTP` stays plain. Words like `data`, `sealed`, `override`, `value`, `get`, `set`, `by` and `where` are only coloured where they work as keywords, so a variable named `data` or `value` stays plain, but a modifier split from its declaration over two lines is not coloured. A function type like `suspend () -> Unit` is only coloured when it follows a `:`, `<`, `,`, `(` or `=`. The `@label` part of `return@forEach` or `this@Outer` stays plain. Inside a string, `$name` and the braces of `${...}` are shown plain, and the code between the braces is coloured as code.
+- In Swift, a name is coloured as a type if it starts with a capital letter (`String`, `URL`, `Point`), so a capitalised constant is coloured as a type too. Words like `get`, `set`, `willSet`, `didSet`, `some`, `any`, `async`, `await`, `actor`, `final`, `lazy` and `open` are only coloured where they work as keywords, so a variable named `get` or `some` stays plain, but a modifier split from its declaration over two lines is not coloured. A keyword right after a dot (like `.default` or `.none`) is shown plain, except `.self` and `.init`. Inside a string, the `\(` and `)` around interpolated code are shown plain, and the code between them is coloured as code. Regex literals (`/.../` and `#/.../#`) are not recognised, so a `/` is always read as an operator and the pattern is coloured like normal code.
 - Since `.h` files are coloured as C++, a C header that uses a C++ word like `new` or `class` as a name shows that word coloured as a keyword.
 - Emoji are not supported in exported PDFs. They print as a placeholder symbol.
 - Characters your editor font does not have (for example Chinese, Japanese or Korean) are filled in from a system font.

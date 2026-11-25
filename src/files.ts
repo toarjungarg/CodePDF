@@ -10,7 +10,7 @@ const HEADER_EXTENSIONS = new Set([".h", ".hpp", ".hh", ".hxx"]);
 /** Folders never searched during a folder export (hidden folders are skipped too). */
 export const EXCLUDED_FOLDERS = new Set([
   "node_modules", "build", "builds", "dist", "out", "bin", "obj", "debug", "release", "x64", "x86", "target",
-  "__pycache__", "venv", "vendor",
+  "__pycache__", "venv", "vendor", "pods", "deriveddata", "carthage",
 ]);
 
 /** A folder search stops after this many files, so a huge folder can't freeze VS Code. */
