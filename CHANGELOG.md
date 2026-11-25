@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.12.0
+- Added SQL export (`.sql`).
+
 ## 1.11.0
 - Added PHP export (`.php`).
 

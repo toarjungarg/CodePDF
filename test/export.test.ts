@@ -302,6 +302,33 @@ test("1l. exports a PHP file, alone and combined with Go", async () => {
   assert.ok(combined.pdf.text.includes("type Shelf struct {"));
 });
 
+test("1m. exports a SQL file, alone and combined with PHP", async () => {
+  const source = fixture("basic.sql");
+  const { pdf } = await exportSections("basic_sql.pdf", [file("basic.sql", source)]);
+  assert.ok(pdf.pages[0]!.lines[0]!.startsWith("basic.sql"), "file name in the header");
+  for (const expected of [
+    "-- Made-up schema for a small bookshop. Nothing here is real data.",
+    "TEXT DEFAULT 'none',",
+    "values ('Mira O''Hare', '1971-03-02', 'M.O.'),",
+    "('Sam -- not a comment', '1980-11-30', NULL);",
+    "a.full_name AS \"Author -- Name\",",
+    "b.price::numeric * 1.13 AS with_tax,",
+    "CREATE FUNCTION shelf_count(shelf_id INT) RETURNS INT AS $$",
+    "$$ LANGUAGE plpgsql;",
+    "SELECT E'tab\\there', N'unicode', X'1F';",
+    "/* This block comment is never closed, so it runs to the end of the file.",
+  ]) {
+    assert.ok(pdf.text.includes(expected), `missing: ${expected}`);
+  }
+
+  const combined = await exportSections("mixed_sql_php.pdf", [
+    { ...file("basic.sql", source), language: "sql" },
+    { ...file("basic.php", fixture("basic.php")), language: "php" },
+  ]);
+  assert.deepEqual(combined.pdf.outline, ["basic.sql", "basic.php"], "one bookmark per file");
+  assert.ok(combined.pdf.text.includes("public function add(Item $item, int ...$more): static"));
+});
+
 test("2. exports comments and strings exactly", async () => {
   const { pdf } = await exportSections("comments_strings.pdf", [file("comments_strings.cpp", fixture("comments_strings.cpp"))]);
   for (const expected of [

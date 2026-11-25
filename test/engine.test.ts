@@ -13,6 +13,7 @@ import { tokenizeJava } from "../src/export/javaTokenizer";
 import { tokenizeCSharp } from "../src/export/csharpTokenizer";
 import { tokenizeGo } from "../src/export/goTokenizer";
 import { tokenizePhp } from "../src/export/phpTokenizer";
+import { tokenizeSql } from "../src/export/sqlTokenizer";
 import type { TokenKind, TokenLine } from "../src/export/tokens";
 import { languageForFile, languageForVscodeId, LANGUAGE_NAMES, LANGUAGE_NAMES_OR } from "../src/export/languages";
 import { columnWidth, expandLine, layoutLine } from "../src/export/layout";
@@ -47,11 +48,11 @@ const kindOfWord = (lines: TokenLine[], word: string): TokenKind | undefined => 
 };
 
 test("tokenizer: joining tokens gives back every fixture exactly", () => {
-  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py", "basic.css", "basic.html", "basic.js", "basic.ts", "basic.jsx", "basic.tsx", "basic.rs", "basic.java", "basic.cs", "basic.go", "basic.php"]) {
+  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py", "basic.css", "basic.html", "basic.js", "basic.ts", "basic.jsx", "basic.tsx", "basic.rs", "basic.java", "basic.cs", "basic.go", "basic.php", "basic.sql"]) {
     const source = fixture(name).replace(/\r\n?/g, "\n");
     for (const lines of [
       tokenizeCpp(source), tokenizeC(source), tokenizePython(source), tokenizeCss(source), tokenizeHtml(source), tokenizeJavaScript(source),
-      tokenizeTs(source), tokenizeJsx(source), tokenizeTsx(source), tokenizeRust(source), tokenizeJava(source), tokenizeCSharp(source), tokenizeGo(source), tokenizePhp(source),
+      tokenizeTs(source), tokenizeJsx(source), tokenizeTsx(source), tokenizeRust(source), tokenizeJava(source), tokenizeCSharp(source), tokenizeGo(source), tokenizePhp(source), tokenizeSql(source),
     ]) {
       assert.equal(lines.map(joinLine).join("\n"), source, `${name} changed during tokenizing`);
     }
@@ -711,6 +712,142 @@ test("tokenizer: unfinished PHP doesn't swallow or lose text", () => {
   assert.equal(tokenizePhp("<?php $a = <<<EOT\nbody\nmore").length, 3, "an unclosed heredoc keeps its lines");
 });
 
+test("tokenizer: SQL comments, strings, names, numbers, keywords and types", () => {
+  const source = fixture("basic.sql");
+  const sql = tokenizeSql(source);
+  const has = (text: string, kind: TokenKind): boolean => sql.flat().some((t) => t.text === text && t.kind === kind);
+  assert.equal(sql.length, source.split("\n").length, "one token line per source line");
+
+  // Comments: --, block (over two lines, and unclosed at the end) and MySQL #.
+  assert.equal(kindOf(sql, "Made-up schema"), "comment");
+  assert.equal(kindOf(sql, "The words SELECT and 'quotes' in this comment"), "comment");
+  assert.equal(kindOf(sql, "It runs over two lines and mentions DROP TABLE"), "comment");
+  assert.equal(kindOf(sql, "a quoted name with a space"), "comment");
+  assert.equal(kindOf(sql, "MySQL style comment"), "comment", "# after code");
+  assert.equal(kindOf(sql, "A MySQL comment on its own line"), "comment", "# at the start of a line");
+  assert.equal(kindOf(sql, "never closed"), "comment", "an unclosed block comment runs to the end");
+  assert.equal(kindOf(sql, "SELECT * FROM books;"), "comment", "and takes the last line with it");
+  assert.equal(kindOf(sql, "T-SQL bracket name with"), "comment");
+
+  // Strings: '' is a quote inside, -- and /* */ inside a string are not comments.
+  assert.ok(has("'Mira O''Hare'", "string"), "doubled quote");
+  assert.ok(has("'Sam -- not a comment'", "string"), "-- inside a string");
+  assert.ok(has("'Notes on /* not a comment */ Tea'", "string"), "/* */ inside a string");
+  assert.ok(has("'The Quiet Shelf'", "string"));
+  assert.equal(kindOf(sql, "'It''s open'"), "string", "doubled quote inside a dollar quote");
+  assert.ok(has("E'tab\\there'", "string"), "E prefix is part of the string");
+  assert.ok(has("N'unicode'", "string"));
+  assert.ok(has("X'1F'", "string"));
+
+  // Dollar quotes, with and without a tag, spanning lines. The comment-looking line inside is part of the string.
+  assert.ok(sql.flat().some((t) => t.kind === "string" && t.text.startsWith("$$") && t.text.includes("RETURN (SELECT COUNT") === false), "a $$ string starts on its line");
+  assert.equal(kindOf(sql, "-- the body is a dollar-quoted string"), "string");
+  assert.equal(kindOf(sql, "RETURN (SELECT COUNT(*) FROM books WHERE id = shelf_id);"), "string");
+  assert.ok(has("$body$", "string"), "the tagged opening delimiter");
+  assert.ok(sql.flat().some((t) => t.kind === "string" && t.text === "$body$"), "tagged string ends on its own line");
+  assert.equal(kindOfWord(sql, "plpgsql"), "plain", "text after the closing $$ is code again");
+  assert.equal(kindOfWord(sql, "LANGUAGE"), "keyword", "keyword after the closing $$");
+
+  // Names in quotes are plain, even when they look like comments or keywords.
+  assert.equal(kindOf(sql, '"pen name"'), "plain");
+  assert.equal(kindOf(sql, '"Author -- Name"'), "plain", "-- inside a quoted name");
+  assert.equal(kindOf(sql, "`region`"), "plain");
+  assert.equal(kindOf(sql, "[odd name]"), "plain");
+
+  // Parameters and variables are plain.
+  assert.equal(kindOfWord(sql, "$1"), "plain", "$1 is a parameter");
+  assert.equal(kindOfWord(sql, ":since"), "plain");
+  assert.equal(kindOfWord(sql, "@count"), "plain");
+  assert.equal(kindOfWord(sql, "@@ROWCOUNT"), "plain");
+  assert.equal(kindOfWord(sql, "#temp_books"), "plain", "a T-SQL temp table is not a comment");
+
+  // Numbers.
+  for (const num of ["12.50", ".5", "5e0", "0x1F", "1.13", "0.9", "9.99", "14.00", "6", "2"]) {
+    assert.ok(has(num, "number"), `number ${num}`);
+  }
+
+  // Keywords ignore case. Types get the type colour.
+  for (const word of ["CREATE", "TABLE", "PRIMARY", "KEY", "NOT", "NULL", "insert", "Insert", "Into", "values", "Values", "SELECT", "select", "FROM", "INNER", "JOIN", "WHERE", "AND", "ORDER", "BY", "DESC", "LIMIT", "UPDATE", "SET", "DELETE", "WITH", "RECURSIVE", "UNION", "BETWEEN", "RETURNS", "LANGUAGE", "TRUE", "CURRENT_TIMESTAMP", "REFERENCES", "CASCADE", "AUTOINCREMENT", "COUNT", "OVER", "PARTITION", "IS", "IF", "EXISTS", "not"]) {
+    assert.ok(sql.flat().some((t) => t.kind === "keyword" && t.text.split(/[^\w$]+/).some((w) => w.toLowerCase() === word.toLowerCase())), `keyword ${word}`);
+  }
+  for (const word of ["INTEGER", "VARCHAR", "DATE", "TEXT", "CHAR", "SERIAL", "INT", "DECIMAL", "REAL", "BOOLEAN", "TIMESTAMP", "numeric"]) {
+    assert.ok(sql.flat().some((t) => t.kind === "type" && t.text === word), `type ${word}`);
+  }
+
+  // Ordinary names stay plain, and so does a function name without a bracket after it.
+  for (const word of ["authors", "books", "full_name", "author_id", "title", "b", "a", "counter", "shelf_count"]) {
+    assert.ok(sql.flat().some((t) => t.kind === "plain" && new RegExp(`(^|[^\\w$])${word}($|[^\\w$])`).test(t.text)), `plain ${word}`);
+    assert.ok(!sql.flat().some((t) => t.kind !== "plain" && t.kind !== "comment" && t.kind !== "string" && t.text === word), `${word} is never coloured`);
+  }
+  assert.ok(has("COUNT", "keyword"), "a function name before a bracket");
+});
+
+test("tokenizer: SQL tricky cases", () => {
+  // Every token as kind:text, joined with |, and a " // " marks the start of a new line.
+  const kinds = (source: string): string => tokenizeSql(source).map((line) => line.map((t) => `${t.kind}:${t.text}`).join("|")).join(" // ");
+  // Doubled quotes keep the string going; -- inside a string is not a comment.
+  assert.equal(kinds("'a''b' x"), "string:'a''b'|plain: x");
+  assert.equal(kindOfWord(tokenizeSql("SELECT 'it''s -- fine', 1 FROM t"), "FROM"), "keyword", "code after a string with -- inside");
+  assert.equal(kindOf(tokenizeSql("SELECT 'a -- b'"), "a -- b"), "string");
+  assert.equal(kindOf(tokenizeSql("SELECT 'a'-- b"), "-- b"), "comment", "a comment right after a string");
+  // A backslash is a normal character in '...' strings, so 'C:\' closes. Only E'..' strings honour backslash escapes.
+  assert.equal(kinds("'C:\\' x"), "string:'C:\\'|plain: x");
+  assert.equal(kinds("'C:\\temp\\', 'a'"), "string:'C:\\temp\\'|plain:, |string:'a'");
+  assert.equal(kinds("E'it\\'s' x"), "string:E'it\\'s'|plain: x", "E'..' keeps \\' inside the string");
+  assert.equal(kinds("e'a\\\\' x"), "string:e'a\\\\'|plain: x", "a lower-case e works too, and \\\\ is one escape");
+  assert.equal(kinds("'it\\'s' x"), "string:'it\\'|plain:s|string:' x", "in a plain string \\' ends the string (use '' instead)");
+  // Dollar quotes: bare, tagged, spanning lines, a different tag inside, and $1 is not one.
+  assert.equal(kinds("$$a$$ x"), "string:$$a$$|plain: x");
+  assert.equal(kinds("$f$ a $$ b $f$ x"), "string:$f$ a $$ b $f$|plain: x", "a $$ inside a $f$ string does not close it");
+  assert.equal(kinds("$t$\nSELECT -- hi\n$t$"), "string:$t$ // string:SELECT -- hi // string:$t$", "every line of a dollar string stays a string");
+  assert.equal(tokenizeSql("$t$\nSELECT -- hi\n$t$").length, 3, "a dollar string keeps its lines");
+  assert.equal(kinds("WHERE id = $1 AND x = $22"), "keyword:WHERE|plain: id = $1 |keyword:AND|plain: x = $22");
+  assert.equal(kinds("$$unclosed\nSELECT"), "string:$$unclosed // string:SELECT", "an unclosed dollar quote runs to the end");
+  assert.equal(kindOfWord(tokenizeSql("SELECT a$b FROM t"), "a$b"), "plain", "a $ inside a name");
+  // Quoted names are plain, and comment marks inside them are text.
+  assert.equal(kinds('"a -- b" /* c */'), 'plain:"a -- b" |comment:/* c */');
+  assert.equal(kinds("`a -- b` x"), "plain:`a -- b` x");
+  assert.equal(kinds("[a -- b] x"), "plain:[a -- b] x");
+  assert.equal(kinds('"say ""hi"" -- ok" x'), 'plain:"say ""hi"" -- ok" x', "doubled quote in a quoted name");
+  assert.equal(kinds("[a]]b] x"), "plain:[a]]b] x", "]] inside a bracket name");
+  assert.equal(kindOfWord(tokenizeSql('SELECT "select" FROM t'), "select"), "plain", "a keyword in quotes is a name");
+  assert.equal(kindOfWord(tokenizeSql("SELECT ARRAY['a','b'] FROM t"), "FROM"), "keyword", "an array literal is not a bracket name");
+  assert.equal(kindOf(tokenizeSql("SELECT ARRAY['a','b']"), "'a'"), "string");
+  assert.equal(kindOfWord(tokenizeSql("SELECT x[1] -- c\nFROM t"), "FROM"), "keyword", "a subscript is not a bracket name");
+  // An unclosed quote mark stays on its own line.
+  assert.equal(kindOfWord(tokenizeSql('SELECT "oops\nFROM t'), "FROM"), "keyword", "an unclosed double quote");
+  assert.equal(kindOfWord(tokenizeSql("SELECT [oops\nFROM t"), "FROM"), "keyword", "an unclosed bracket");
+  // Comments.
+  assert.equal(kinds("a -- b\nc"), "plain:a |comment:-- b // plain:c");
+  assert.equal(kinds("/* a\nb */ c"), "comment:/* a // comment:b */|plain: c");
+  assert.equal(kinds("/* a\nb"), "comment:/* a // comment:b", "an unclosed block comment runs to the end of the file");
+  assert.equal(kinds("1 /* a */ / 2"), "number:1|plain: |comment:/* a */|plain: / |number:2", "a lone / is division");
+  assert.equal(kinds("# note\nx"), "comment:# note // plain:x");
+  assert.equal(kinds("x # note"), "plain:x |comment:# note");
+  assert.equal(kinds("x #> y"), "plain:x #> y", "PostgreSQL's #> operator is not a comment");
+  assert.equal(kinds("x #>> '{a}'"), "plain:x #>> |string:'{a}'");
+  assert.equal(kinds("'a # b'"), "string:'a # b'", "# inside a string");
+  assert.equal(kinds('"a # b"'), 'plain:"a # b"', "# inside a quoted name");
+  assert.equal(kinds("SELECT * FROM #t"), "keyword:SELECT|plain: * |keyword:FROM|plain: #t", "a T-SQL temp table");
+  // Keywords ignore case, and a word after a dot is a column.
+  assert.equal(kinds("SELECT select Select sElEcT"), "keyword:SELECT|plain: |keyword:select|plain: |keyword:Select|plain: |keyword:sElEcT");
+  assert.equal(kinds("t.order"), "plain:t.order", "a keyword after a dot is a column name");
+  assert.equal(kinds("VarChar(5) BIGINT"), "type:VarChar|plain:(|number:5|plain:) |type:BIGINT");
+  assert.equal(kinds("a.count max(1) count"), "plain:a.count |keyword:max|plain:(|number:1|plain:) count", "functions only when a bracket follows");
+  assert.equal(kinds("MAX (x)"), "keyword:MAX|plain: (x)", "a space before the bracket is fine");
+  // Operators stay plain and don't start anything.
+  assert.equal(kinds("a::int <> b != c || d"), "plain:a::|type:int|plain: <> b != c || d");
+  // Numbers.
+  assert.equal(kinds("1.5 .5 1e10 1.5E-3 0x1F 7"), "number:1.5|plain: |number:.5|plain: |number:1e10|plain: |number:1.5E-3|plain: |number:0x1F|plain: |number:7");
+  assert.equal(kinds("t1.c2 col3"), "plain:t1.c2 col3", "digits inside names are not numbers");
+  assert.equal(kinds("a.5"), "plain:a.|number:5", "after a name, a dot is not part of a number");
+  assert.equal(kinds("1e"), "number:1|plain:e", "an exponent needs digits");
+  // Unusual text never gets lost or changed.
+  for (const source of ["", "'", "''", "'''", "$", "$$", "$a", "$a$", "$a$ b", "\"", "`", "[", "]", "[]", "/*", "/", "-", "--", "#", "##", "#a", "@", "@@", "@@a", "0x", "0xZ", "1e+", ".", "..", "x'", "E'", "中文 'a' 😀", "SELECT 😀 FROM t", "a\r\nb"]) {
+    assert.equal(tokenizeSql(source).map(joinLine).join("\n"), source, JSON.stringify(source));
+  }
+});
+
 test("tokenizer: Python comments, strings, numbers, keywords and decorators", () => {
   const py = tokenizePython(fixture("basic.py"));
   assert.equal(kindOf(py, "A small weather log"), "string", "docstring");
@@ -870,8 +1007,13 @@ test("languages: picked by extension or VS Code language id, with .h treated as 
   assert.equal(languageForFile("a.phtml"), undefined);
   assert.equal(languageForFile("composer.json"), undefined);
   assert.equal(languageForVscodeId("php"), "php");
-  assert.equal(LANGUAGE_NAMES, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go and PHP");
-  assert.equal(LANGUAGE_NAMES_OR, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go or PHP");
+  assert.equal(languageForFile("schema.sql"), "sql");
+  assert.equal(languageForFile("SCHEMA.SQL"), "sql");
+  assert.equal(languageForFile("data.sqlite"), undefined);
+  assert.equal(languageForFile("query.mysql"), undefined);
+  assert.equal(languageForVscodeId("sql"), "sql");
+  assert.equal(LANGUAGE_NAMES, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP and SQL");
+  assert.equal(LANGUAGE_NAMES_OR, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP or SQL");
 });
 
 test("layout: tabs expand to the next tab stop and control characters become visible", () => {
