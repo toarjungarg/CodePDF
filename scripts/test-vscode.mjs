@@ -58,6 +58,7 @@ put("dough.dart", readFileSync(join(fixtures, "basic.dart")));
 put("rolls.lua",readFileSync(join(fixtures, "basic.lua")));
 put("Scones.R", readFileSync(join(fixtures, "basic.r")));
 put("pastry.m", readFileSync(join(fixtures, "basic.m")));
+put("toaster.ino", readFileSync(join(fixtures, "basic.ino")));
 for (const name of ["comments_strings.cpp", "unicode.cpp", "long_lines.cpp"]) {
   cpSync(join(fixtures, name), join(project, name));
 }

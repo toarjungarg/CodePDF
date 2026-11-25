@@ -24,7 +24,7 @@ import { tokenizeSql } from "./sqlTokenizer";
 import { tokenizeSwift } from "./swiftTokenizer";
 import type { TokenLine } from "./tokens";
 
-export type LanguageId = "c" | "cpp" | "python" | "css" | "html" | "javascript" | "typescript" | "javascriptreact" | "typescriptreact" | "rust" | "java" | "csharp" | "go" | "php" | "sql" | "shell" | "kotlin" | "swift" | "ruby" | "dart" | "lua" | "r" | "matlab";
+export type LanguageId = "c" | "cpp" | "python" | "css" | "html" | "javascript" | "typescript" | "javascriptreact" | "typescriptreact" | "rust" | "java" | "csharp" | "go" | "php" | "sql" | "shell" | "kotlin" | "swift" | "ruby" | "dart" | "lua" | "r" | "matlab" | "arduino";
 
 interface Language {
   /** Shown in messages, e.g. "C++". */
@@ -182,6 +182,15 @@ export const LANGUAGES: Record<LanguageId, Language> = {
     vscodeId: "matlab",
     tokenize: tokenizeMatlab,
   },
+  // An Arduino sketch is C++ with a few extra names, so it uses the C++ tokenizer.
+  // It has its own entry so messages say "Arduino" and the Arduino extension's
+  // language id ("arduino") is recognised. A plain .ino file works without that extension.
+  arduino: {
+    label: "Arduino",
+    extensions: [".ino"],
+    vscodeId: "arduino",
+    tokenize: (source) => tokenizeCFamily(source, "cpp"),
+  },
 };
 
 const LANGUAGE_IDS = Object.keys(LANGUAGES) as LanguageId[];
@@ -194,10 +203,10 @@ function nameList(lastJoiner: string): string {
   return labels.length < 2 ? labels.join("") : `${labels.slice(0, -1).join(", ")} ${lastJoiner} ${labels[labels.length - 1]}`;
 }
 
-/** "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R and MATLAB", for messages. */
+/** "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB and Arduino", for messages. */
 export const LANGUAGE_NAMES = nameList("and");
 
-/** "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R or MATLAB", for messages like "files that aren't ...". */
+/** "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB or Arduino", for messages like "files that aren't ...". */
 export const LANGUAGE_NAMES_OR = nameList("or");
 
 function extensionOf(fileName: string): string {
@@ -211,7 +220,7 @@ export function languageForFile(fileName: string): LanguageId | undefined {
   return LANGUAGE_IDS.find((id) => LANGUAGES[id].extensions.includes(ext));
 }
 
-/** The language for VS Code's language id ("c", "cpp", "python", "typescriptreact", "rust", "java", "csharp", "go", "php", "sql", "shellscript", "kotlin", "swift", "ruby", "dart", "lua", "r", "matlab", ...), or undefined if unsupported. */
+/** The language for VS Code's language id ("c", "cpp", "python", "typescriptreact", "rust", "java", "csharp", "go", "php", "sql", "shellscript", "kotlin", "swift", "ruby", "dart", "lua", "r", "matlab", "arduino", ...), or undefined if unsupported. */
 export function languageForVscodeId(vscodeId: string | undefined): LanguageId | undefined {
   return LANGUAGE_IDS.find((id) => LANGUAGES[id].vscodeId === vscodeId);
 }

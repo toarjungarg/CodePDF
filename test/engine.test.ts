@@ -23,7 +23,7 @@ import { tokenizeLua } from "../src/export/luaTokenizer";
 import { tokenizeR } from "../src/export/rTokenizer";
 import { tokenizeMatlab } from "../src/export/matlabTokenizer";
 import type { TokenKind, TokenLine } from "../src/export/tokens";
-import { languageForFile, languageForVscodeId, LANGUAGE_NAMES, LANGUAGE_NAMES_OR } from "../src/export/languages";
+import { languageForFile, languageForVscodeId, LANGUAGES, LANGUAGE_NAMES, LANGUAGE_NAMES_OR } from "../src/export/languages";
 import { columnWidth, expandLine, layoutLine } from "../src/export/layout";
 import { DEFAULT_OPTIONS, normalizeOptions, pageSize } from "../src/export/options";
 import { parseFontFamilyList, resolveFonts } from "../src/export/fonts";
@@ -56,7 +56,7 @@ const kindOfWord = (lines: TokenLine[], word: string): TokenKind | undefined => 
 };
 
 test("tokenizer: joining tokens gives back every fixture exactly", () => {
-  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py", "basic.css", "basic.html", "basic.js", "basic.ts", "basic.jsx", "basic.tsx", "basic.rs", "basic.java", "basic.cs", "basic.go", "basic.php", "basic.sql", "basic.sh", "basic.kt", "basic.swift", "basic.rb", "basic.dart", "basic.lua", "basic.r", "basic.m"]) {
+  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py", "basic.css", "basic.html", "basic.js", "basic.ts", "basic.jsx", "basic.tsx", "basic.rs", "basic.java", "basic.cs", "basic.go", "basic.php", "basic.sql", "basic.sh", "basic.kt", "basic.swift", "basic.rb", "basic.dart", "basic.lua", "basic.r", "basic.m", "basic.ino"]) {
     const source = fixture(name).replace(/\r\n?/g, "\n");
     for (const lines of [
       tokenizeCpp(source), tokenizeC(source), tokenizePython(source), tokenizeCss(source), tokenizeHtml(source), tokenizeJavaScript(source),
@@ -2831,8 +2831,31 @@ test("languages: picked by extension or VS Code language id, with .h treated as 
   assert.equal(languageForFile("m"), undefined);
   assert.equal(languageForVscodeId("matlab"), "matlab");
   assert.equal(languageForVscodeId("objective-c"), undefined, "Objective-C is not supported");
-  assert.equal(LANGUAGE_NAMES, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R and MATLAB");
-  assert.equal(LANGUAGE_NAMES_OR, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R or MATLAB");
+  assert.equal(languageForFile("blink.ino"), "arduino");
+  assert.equal(languageForFile("BLINK.INO"), "arduino", "a capital .INO is Arduino too");
+  assert.equal(languageForFile("blink.ino.bak"), undefined);
+  assert.equal(languageForFile("blink.pde"), undefined);
+  assert.equal(languageForFile("ino"), undefined);
+  assert.equal(languageForVscodeId("arduino"), "arduino");
+  assert.equal(LANGUAGE_NAMES, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB and Arduino");
+  assert.equal(LANGUAGE_NAMES_OR, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB or Arduino");
+});
+
+test("tokenizer: Arduino sketches use the C++ tokenizer for comments, preprocessor lines, strings and keywords", () => {
+  const source = fixture("basic.ino");
+  const arduino = LANGUAGES[languageForFile("blink.ino")!].tokenize(source);
+  const cpp = tokenizeCpp(source);
+  assert.deepEqual(arduino, cpp, "an .ino file is tokenized exactly like C++");
+  assert.equal(arduino.map(joinLine).join("\n"), source, "no text lost or changed");
+  assert.equal(kindOf(arduino, "// A made-up sketch"), "comment");
+  assert.equal(kindOf(arduino, "Wiring:"), "comment", "a block comment over two lines");
+  assert.equal(kindOf(arduino, "#include"), "preprocessor");
+  assert.equal(kindOf(arduino, "<Servo.h>"), "string");
+  assert.equal(kindOf(arduino, '"pins.h"'), "string");
+  assert.equal(kindOf(arduino, "Sensor demo // not a comment"), "string", "a // inside a string is not a comment");
+  assert.equal(kindOf(arduino, "0x1F4"), "number");
+  assert.equal(kindOfWord(arduino, "void"), "keyword");
+  assert.equal(kindOfWord(arduino, "if"), "keyword");
 });
 
 test("layout: tabs expand to the next tab stop and control characters become visible", () => {
@@ -2877,10 +2900,10 @@ test("options: defaults, clamping and page sizes", () => {
 });
 
 test("files: supported extensions, excluded folders and PDF names", () => {
-  for (const name of ["a.c", "a.cpp", "a.cc", "a.cxx", "a.h", "a.hpp", "a.hh", "a.hxx", "A.CPP", "A.C", "a.py", "a.pyw", "A.PY", "a.css", "A.CSS", "a.html", "a.htm", "A.HTML", "a.js", "a.mjs", "a.cjs", "A.JS", "a.ts", "a.mts", "a.cts", "A.TS", "a.jsx", "a.tsx", "A.TSX", "a.rs", "A.RS", "a.java", "A.JAVA", "a.cs", "A.CS", "a.go", "A.GO", "a.php", "A.PHP", "a.rb", "A.RB", "a.dart", "A.DART", "a.lua", "A.LUA", "a.r", "a.R", "A.R", "a.m", "A.M"]) {
+  for (const name of ["a.c", "a.cpp", "a.cc", "a.cxx", "a.h", "a.hpp", "a.hh", "a.hxx", "A.CPP", "A.C", "a.py", "a.pyw", "A.PY", "a.css", "A.CSS", "a.html", "a.htm", "A.HTML", "a.js", "a.mjs", "a.cjs", "A.JS", "a.ts", "a.mts", "a.cts", "A.TS", "a.jsx", "a.tsx", "A.TSX", "a.rs", "A.RS", "a.java", "A.JAVA", "a.cs", "A.CS", "a.go", "A.GO", "a.php", "A.PHP", "a.rb", "A.RB", "a.dart", "A.DART", "a.lua", "A.LUA", "a.r", "a.R", "A.R", "a.m", "A.M", "a.ino", "A.INO"]) {
     assert.ok(isSupportedSource(name), name);
   }
-  for (const name of ["a.ts.map", "a.tsbuildinfo", "a.js.map", "js", "cpp", "c", "py", "css", "a.scss", "a.css.map", "html", "a.html.bak", "a.xhtml", "a.cpp.bak", "a.c.bak", "a.pyc", "a.rs.bk", "rs", "a.class", "a.jar", "java", "a.csproj", "a.sln", "a.dll", "cs", "a.mod", "a.sum", "go", "a.phtml", "a.php.bak", "a.inc", "php", "a.erb", "a.rbi", "rb", "a.dart.bak", "dart", "a.lua.bak", "a.luac", "lua", "a.r.bak", "a.rmd", "a.Rproj", "a.rds", "r", "a.m.bak", "a.mat", "a.mlx", "a.mm", "m", "pubspec.yaml", "notes.txt"]) {
+  for (const name of ["a.ts.map", "a.tsbuildinfo", "a.js.map", "js", "cpp", "c", "py", "css", "a.scss", "a.css.map", "html", "a.html.bak", "a.xhtml", "a.cpp.bak", "a.c.bak", "a.pyc", "a.rs.bk", "rs", "a.class", "a.jar", "java", "a.csproj", "a.sln", "a.dll", "cs", "a.mod", "a.sum", "go", "a.phtml", "a.php.bak", "a.inc", "php", "a.erb", "a.rbi", "rb", "a.dart.bak", "dart", "a.lua.bak", "a.luac", "lua", "a.r.bak", "a.rmd", "a.Rproj", "a.rds", "r", "a.m.bak", "a.mat", "a.mlx", "a.mm", "m", "a.ino.bak", "a.pde", "ino", "pubspec.yaml", "notes.txt"]) {
     assert.ok(!isSupportedSource(name), name);
   }
   for (const name of [".git", ".vscode", "node_modules", "build", "dist", "cmake-build-debug", "Debug", "__pycache__", "venv", ".venv", "target", "out", "bin", ".gradle", "obj", "vendor", "Pods", "DerivedData", "Carthage", ".build", ".bundle", "vendor", ".dart_tool", "lua_modules", "renv", "packrat", "Renv", "slprj", "codegen", "Codegen"]) {

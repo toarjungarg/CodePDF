@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.21.0
+- Added Arduino export (`.ino`). Sketches are coloured as C++.
+
 ## 1.20.0
 - Added MATLAB export (`.m`). Every `.m` file is treated as MATLAB.
 - Folder export now skips `slprj` and `codegen` folders.

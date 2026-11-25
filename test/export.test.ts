@@ -536,6 +536,29 @@ test("1u. exports a MATLAB file, alone and combined with R", async () => {
   assert.ok(combined.pdf.text.includes("#!/usr/bin/env Rscript"));
 });
 
+test("1v. exports an Arduino sketch, alone and combined with MATLAB", async () => {
+  const source = fixture("basic.ino");
+  const { pdf } = await exportSections("basic_ino.pdf", [{ ...file("basic.ino", source), language: "arduino" }]);
+  assert.ok(pdf.pages[0]!.lines[0]!.startsWith("basic.ino"), "file name in the header");
+  for (const expected of [
+    "#include <Servo.h>",
+    "void setup() {",
+    "pinMode(LED_BUILTIN, OUTPUT);",
+    'Serial.println("Sensor demo // not a comment");',
+    "digitalWrite(LED_BUILTIN, ledOn ? HIGH : LOW);",
+    "LED on pin 13 (the built-in one), sensor on A0. */",
+  ]) {
+    assert.ok(pdf.text.includes(expected), `missing: ${expected}`);
+  }
+
+  const combined = await exportSections("mixed_ino_m.pdf", [
+    { ...file("basic.ino", source), language: "arduino" },
+    { ...file("basic.m", fixture("basic.m")), language: "matlab" },
+  ]);
+  assert.deepEqual(combined.pdf.outline, ["basic.ino", "basic.m"], "one bookmark per file");
+  assert.ok(combined.pdf.text.includes("function total = total_weight(weights, extra)"));
+});
+
 test("2. exports comments and strings exactly", async () => {
   const { pdf } = await exportSections("comments_strings.pdf", [file("comments_strings.cpp", fixture("comments_strings.cpp"))]);
   for (const expected of [
