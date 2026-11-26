@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.29.0
+- Added TOML export (`.toml`).
+
 ## 1.28.0
 - Added XML export (`.xml`, `.xsd`, `.xsl`, `.xslt`).
 

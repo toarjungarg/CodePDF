@@ -1,0 +1,50 @@
+# A made-up settings file for a pretend bakery app.
+title = "Bread timer" # the app name
+version = 2
+debug = false
+ratio = -12.5
+big = 1_000_000
+mask = 0xDEAD_beef
+perms = 0o755
+flags = 0b1101
+avogadro = 6.022e23
+limit = +inf
+unknown = nan
+url = "http://bakery.example/recipes#top"
+quote = "say \"hi\" \\ crème é # not a comment"
+path = 'C:\bakery\loaves # not a comment'
+a.b.c = 1
+"quoted key".sub = true
+'literal key' = "x"
+
+[oven]
+temperature = 180
+opened = 1979-05-27T07:32:00Z
+local = 1979-05-27 07:32:00.999-07:00
+day = 1979-05-27
+alarm = 07:32:00
+point = { x = 1, y = 2, "z z" = [1, 2] }
+
+[oven."door.glass"]
+layers = 2
+
+[[loaf]]
+name = "rye"
+sizes = [ 1, 2, 3 ]
+
+[[loaf]]
+name = "white"
+steps = [
+  "mix", # first
+  "knead",
+  [ "rest", "bake" ],
+]
+poem = """
+Roses are "red",
+a # here is not a comment
+and it ends with two quotes: """""
+note = '''
+raw \n text # still not a comment
+'''
+broken = "no end
+after = 5

@@ -756,6 +756,37 @@ test("1ac. exports XML files, alone and combined with a YAML file", async () => 
   assert.ok(combined.pdf.text.includes("name: bread"));
 });
 
+test("1ad. exports TOML files, alone and combined with an XML file", async () => {
+  const source = fixture("basic.toml");
+  const { pdf } = await exportSections("basic_toml.pdf", [{ ...file("basic.toml", source), language: "toml" }]);
+  assert.ok(pdf.pages[0]!.lines[0]!.startsWith("basic.toml"), "file name in the header");
+  for (const expected of [
+    "# A made-up settings file for a pretend bakery app.",
+    "title = \"Bread timer\" # the app name",
+    "mask = 0xDEAD_beef",
+    "\"quoted key\".sub = true",
+    "local = 1979-05-27 07:32:00.999-07:00",
+    "point = { x = 1, y = 2, \"z z\" = [1, 2] }",
+    "[oven.\"door.glass\"]",
+    "[[loaf]]",
+    "poem = \"\"\"",
+    "a # here is not a comment",
+    "raw \\n text # still not a comment",
+    "broken = \"no end",
+  ]) {
+    assert.ok(pdf.text.includes(expected), `missing: ${expected}`);
+  }
+
+  const xml = "<book/>\n";
+  const combined = await exportSections("mixed_toml_xml.pdf", [
+    { ...file("basic.toml", source), language: "toml" },
+    { ...file("data.xml", xml), language: "xml" },
+  ]);
+  assert.deepEqual(combined.pdf.outline, ["basic.toml", "data.xml"], "one bookmark per file");
+  assert.ok(combined.pdf.text.includes("[[loaf]]"));
+  assert.ok(combined.pdf.text.includes("<book/>"));
+});
+
 test("2. exports comments and strings exactly", async () => {
   const { pdf } = await exportSections("comments_strings.pdf", [file("comments_strings.cpp", fixture("comments_strings.cpp"))]);
   for (const expected of [

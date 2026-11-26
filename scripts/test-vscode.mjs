@@ -78,6 +78,8 @@ put("pantry-list.xml", readFileSync(join(fixtures, "basic.xml")));
 put("shape.xsd", "<?xml version=\"1.0\"?>\n<!-- A made-up schema -->\n<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">\n  <xs:element name=\"loaf\" type=\"xs:string\"/>\n</xs:schema>\n");
 put("page.xsl", "<?xml version=\"1.0\"?>\n<xsl:stylesheet version=\"1.0\" xmlns:xsl=\"http://www.w3.org/1999/XSL/Transform\">\n  <xsl:template match=\"/\"><p>Hello</p></xsl:template>\n</xsl:stylesheet>\n");
 put("sheet.xslt", "<?xml version=\"1.0\"?>\n<xsl:transform version=\"1.0\" xmlns:xsl=\"http://www.w3.org/1999/XSL/Transform\">\n  <xsl:output method=\"html\"/>\n</xsl:transform>\n");
+put("oven-settings.toml", readFileSync(join(fixtures, "basic.toml")));
+put("Cargo.toml", "# A made-up package file\n[package]\nname = \"toaster\"\nversion = \"0.1.0\"\n");
 put("package-lock.json","{\n  \"name\": \"generated\",\n  \"lockfileVersion\": 3\n}\n");
 put("gates.v","// A made-up Verilog file\nmodule gates(input a, input b, output y);\n  assign y = a & b;\nendmodule\n");
 for (const name of ["comments_strings.cpp", "unicode.cpp", "long_lines.cpp"]) {

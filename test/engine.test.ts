@@ -27,6 +27,7 @@ import { tokenizeVhdl } from "../src/export/vhdlTokenizer";
 import { tokenizeAsm } from "../src/export/asmTokenizer";
 import { tokenizeLatex } from "../src/export/latexTokenizer";
 import { tokenizeJson } from "../src/export/jsonTokenizer";
+import { tokenizeToml } from "../src/export/tomlTokenizer";
 import { tokenizeXml } from "../src/export/xmlTokenizer";
 import { tokenizeYaml } from "../src/export/yamlTokenizer";
 import type { TokenKind, TokenLine } from "../src/export/tokens";
@@ -64,11 +65,11 @@ const kindOfWord = (lines: TokenLine[], word: string): TokenKind | undefined => 
 };
 
 test("tokenizer: joining tokens gives back every fixture exactly", () => {
-  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py", "basic.css", "basic.html", "basic.js", "basic.ts", "basic.jsx", "basic.tsx", "basic.rs", "basic.java", "basic.cs", "basic.go", "basic.php", "basic.sql", "basic.sh", "basic.kt", "basic.swift", "basic.rb", "basic.dart", "basic.lua", "basic.r", "basic.m", "basic.ino", "basic.sv", "basic.vhd", "basic.s", "basic.tex", "basic.json", "basic.yaml", "basic.xml"]) {
+  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py", "basic.css", "basic.html", "basic.js", "basic.ts", "basic.jsx", "basic.tsx", "basic.rs", "basic.java", "basic.cs", "basic.go", "basic.php", "basic.sql", "basic.sh", "basic.kt", "basic.swift", "basic.rb", "basic.dart", "basic.lua", "basic.r", "basic.m", "basic.ino", "basic.sv", "basic.vhd", "basic.s", "basic.tex", "basic.json", "basic.yaml", "basic.xml", "basic.toml"]) {
     const source = fixture(name).replace(/\r\n?/g, "\n");
     for (const lines of [
       tokenizeCpp(source), tokenizeC(source), tokenizePython(source), tokenizeCss(source), tokenizeHtml(source), tokenizeJavaScript(source),
-      tokenizeTs(source), tokenizeJsx(source), tokenizeTsx(source), tokenizeRust(source), tokenizeJava(source), tokenizeCSharp(source), tokenizeGo(source), tokenizePhp(source), tokenizeSql(source), tokenizeShell(source), tokenizeKotlin(source), tokenizeSwift(source), tokenizeRuby(source), tokenizeDart(source), tokenizeLua(source), tokenizeR(source), tokenizeMatlab(source), tokenizeVerilog(source), tokenizeVhdl(source), tokenizeAsm(source), tokenizeLatex(source), tokenizeJson(source), tokenizeYaml(source), tokenizeXml(source),
+      tokenizeTs(source), tokenizeJsx(source), tokenizeTsx(source), tokenizeRust(source), tokenizeJava(source), tokenizeCSharp(source), tokenizeGo(source), tokenizePhp(source), tokenizeSql(source), tokenizeShell(source), tokenizeKotlin(source), tokenizeSwift(source), tokenizeRuby(source), tokenizeDart(source), tokenizeLua(source), tokenizeR(source), tokenizeMatlab(source), tokenizeVerilog(source), tokenizeVhdl(source), tokenizeAsm(source), tokenizeLatex(source), tokenizeJson(source), tokenizeYaml(source), tokenizeXml(source), tokenizeToml(source),
     ]) {
       assert.equal(lines.map(joinLine).join("\n"), source, `${name} changed during tokenizing`);
     }
@@ -2893,8 +2894,8 @@ test("languages: picked by extension or VS Code language id, with .h treated as 
   assert.equal(languageForVscodeId("bibtex"), undefined);
   assert.equal(languageForVscodeId(undefined), undefined);
   assert.equal(LANGUAGES.latex.label, "LaTeX");
-  assert.equal(LANGUAGE_NAMES, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL, Assembly, LaTeX, JSON, YAML and XML");
-  assert.equal(LANGUAGE_NAMES_OR, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL, Assembly, LaTeX, JSON, YAML or XML");
+  assert.equal(LANGUAGE_NAMES, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL, Assembly, LaTeX, JSON, YAML, XML and TOML");
+  assert.equal(LANGUAGE_NAMES_OR, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL, Assembly, LaTeX, JSON, YAML, XML or TOML");
   for (const name of ["config.json", "CONFIG.JSON", "tsconfig.json", "settings.jsonc", "Data.JSONC"]) {
     assert.equal(languageForFile(name), "json", name);
   }
@@ -2909,7 +2910,7 @@ test("languages: picked by extension or VS Code language id, with .h treated as 
   for (const name of ["docker-compose.yml", "ci.yaml", "CONFIG.YML", "Data.YAML", "pubspec.yaml"]) {
     assert.equal(languageForFile(name), "yaml", name);
   }
-  for (const name of ["a.yaml.bak", "a.yml.tmpl", "a.yamll", "a.ymls", "yaml", "yml", "a.toml", "a.ya"]) {
+  for (const name of ["a.yaml.bak", "a.yml.tmpl", "a.yamll", "a.ymls", "yaml", "yml", "a.ini", "a.ya"]) {
     assert.equal(languageForFile(name), undefined, name);
   }
   assert.equal(languageForVscodeId("yaml"), "yaml", "VS Code's id for .yml and .yaml files");
@@ -2928,6 +2929,16 @@ test("languages: picked by extension or VS Code language id, with .h treated as 
   assert.equal(languageForVscodeId("html"), "html", "HTML is still HTML");
   assert.equal(languageForVscodeId("svg"), undefined);
   assert.equal(LANGUAGES.xml.label, "XML");
+  for (const name of ["Cargo.toml", "pyproject.toml", "DATA.TOML", "Config.Toml", "a.b.toml"]) {
+    assert.equal(languageForFile(name), "toml", name);
+  }
+  for (const name of ["a.toml.bak", "a.tomls", "a.tom", "a.tomll", "toml", "a.ini", "a.cfg", "a.toml2"]) {
+    assert.equal(languageForFile(name), undefined, name);
+  }
+  assert.equal(languageForVscodeId("toml"), "toml", "the id a TOML extension gives to .toml files");
+  assert.equal(languageForVscodeId("ini"), undefined);
+  assert.equal(languageForVscodeId("tomll"), undefined);
+  assert.equal(LANGUAGES.toml.label, "TOML");
 });
 
 test("tokenizer: Arduino sketches use the C++ tokenizer for comments, preprocessor lines, strings and keywords", () => {
@@ -4036,7 +4047,7 @@ test("languages: other languages do not read YAML rules and YAML does not read t
   assert.equal(kindOfWord(tokenizeYaml("a: int return"), "return"), "plain", "C words are only plain words");
   assert.equal(kindOf(tokenizeYaml("{\"a\": 1}"), "\"a\""), "type", "JSON is mostly valid YAML");
   assert.ok(isSupportedSource("a.yml") && isSupportedSource("a.yaml") && isSupportedSource("A.YAML"));
-  assert.ok(!isSupportedSource("a.yaml.bak") && !isSupportedSource("a.yml.tmpl") && !isSupportedSource("yarn.lock") && !isSupportedSource("a.toml"));
+  assert.ok(!isSupportedSource("a.yaml.bak") && !isSupportedSource("a.yml.tmpl") && !isSupportedSource("yarn.lock") && !isSupportedSource("a.ini"));
 });
 
 test("package.json: all five menu rules match .yml and .yaml and no look-alike extensions", () => {
@@ -4048,7 +4059,7 @@ test("package.json: all five menu rules match .yml and .yaml and no look-alike e
     for (const ext of [".yml", ".yaml", ".YML", ".Yaml", ".json", ".cpp"]) {
       assert.ok(regex.test(ext), `${ext} should match in: ${when}`);
     }
-    for (const ext of [".yamls", ".ymll", ".yaml.bak", ".yl", ".y", ".ya", "yaml", ".yml2", ".toml"]) {
+    for (const ext of [".yamls", ".ymll", ".yaml.bak", ".yl", ".y", ".ya", "yaml", ".yml2", ".ini"]) {
       assert.ok(!regex.test(ext), `${ext} should not match in: ${when}`);
     }
   }
@@ -4274,6 +4285,318 @@ test("package.json: all five menu rules match .xml, .xsd, .xsl and .xslt and no 
       assert.ok(regex.test(ext), `${ext} should match in: ${when}`);
     }
     for (const ext of [".xmls", ".xmll", ".xsdl", ".xslx", ".xsltt", ".xs", ".svg", ".xhtml", ".plist", ".xml.bak", ".xml2", "xml", ".xslt2"]) {
+      assert.ok(!regex.test(ext), `${ext} should not match in: ${when}`);
+    }
+  }
+});
+
+test("tokenizer: TOML fixture colours", () => {
+  const source = fixture("basic.toml");
+  const toml = LANGUAGES[languageForFile("Cargo.toml")!].tokenize(source);
+  assert.equal(toml.map(joinLine).join("\n"), source, "no text lost or changed");
+  // The fixture's lines, checked one by one (the numbers are line numbers, starting at 0).
+  assert.equal(showLine(toml[0]!), "comment:# A made-up settings file for a pretend bakery app.");
+  assert.equal(showLine(toml[1]!), "type:title|plain: = |string:\"Bread timer\"|plain: |comment:# the app name", "a key, a string and a comment");
+  assert.equal(showLine(toml[2]!), "type:version|plain: = |number:2");
+  assert.equal(showLine(toml[3]!), "type:debug|plain: = |keyword:false");
+  assert.equal(showLine(toml[4]!), "type:ratio|plain: = |number:-12.5");
+  assert.equal(showLine(toml[5]!), "type:big|plain: = |number:1_000_000", "an underscore in a number");
+  assert.equal(showLine(toml[6]!), "type:mask|plain: = |number:0xDEAD_beef");
+  assert.equal(showLine(toml[7]!), "type:perms|plain: = |number:0o755");
+  assert.equal(showLine(toml[8]!), "type:flags|plain: = |number:0b1101");
+  assert.equal(showLine(toml[9]!), "type:avogadro|plain: = |number:6.022e23");
+  assert.equal(showLine(toml[10]!), "type:limit|plain: = |number:+inf");
+  assert.equal(showLine(toml[11]!), "type:unknown|plain: = |number:nan");
+  assert.equal(showLine(toml[12]!), "type:url|plain: = |string:\"http://bakery.example/recipes#top\"", "a # inside a string");
+  assert.equal(showLine(toml[13]!), "type:quote|plain: = |string:\"say \\\"hi\\\" \\\\ crème é # not a comment\"", "escapes inside a string");
+  assert.equal(showLine(toml[14]!), "type:path|plain: = |string:'C:\\bakery\\loaves # not a comment'", "a literal string has no escapes");
+  assert.equal(showLine(toml[15]!), "type:a.b.c|plain: = |number:1", "a dotted key");
+  assert.equal(showLine(toml[16]!), "type:\"quoted key\".sub|plain: = |keyword:true", "a quoted part in a dotted key");
+  assert.equal(showLine(toml[17]!), "type:'literal key'|plain: = |string:\"x\"");
+  assert.equal(showLine(toml[19]!), "keyword:[oven]", "a table header");
+  assert.equal(showLine(toml[21]!), "type:opened|plain: = |number:1979-05-27T07:32:00Z", "an offset date-time");
+  assert.equal(showLine(toml[22]!), "type:local|plain: = |number:1979-05-27 07:32:00.999-07:00", "a date-time with a space and an offset");
+  assert.equal(showLine(toml[23]!), "type:day|plain: = |number:1979-05-27", "a local date");
+  assert.equal(showLine(toml[24]!), "type:alarm|plain: = |number:07:32:00", "a local time");
+  assert.equal(showLine(toml[25]!), "type:point|plain: = { |type:x|plain: = |number:1|plain:, |type:y|plain: = |number:2|plain:, |type:\"z z\"|plain: = [|number:1|plain:, |number:2|plain:] }", "an inline table with keys");
+  assert.equal(showLine(toml[27]!), "keyword:[oven.\"door.glass\"]", "a quoted part in a header");
+  assert.equal(showLine(toml[30]!), "keyword:[[loaf]]", "an array of tables");
+  assert.equal(showLine(toml[32]!), "type:sizes|plain: = [ |number:1|plain:, |number:2|plain:, |number:3|plain: ]");
+  assert.equal(showLine(toml[36]!), "type:steps|plain: = [", "an array over several lines");
+  assert.equal(showLine(toml[37]!), "plain:  |string:\"mix\"|plain:, |comment:# first");
+  assert.equal(showLine(toml[39]!), "plain:  [ |string:\"rest\"|plain:, |string:\"bake\"|plain: ],", "an array inside an array");
+  assert.equal(showLine(toml[40]!), "plain:]");
+  assert.equal(showLine(toml[41]!), "type:poem|plain: = |string:\"\"\"", "a multi-line string starts");
+  assert.equal(showLine(toml[42]!), "string:Roses are \"red\",");
+  assert.equal(showLine(toml[43]!), "string:a # here is not a comment", "a # in a multi-line string");
+  assert.equal(showLine(toml[44]!), "string:and it ends with two quotes: \"\"\"\"\"", "two extra quotes before the closing delimiter");
+  assert.equal(showLine(toml[45]!), "type:note|plain: = |string:'''");
+  assert.equal(showLine(toml[46]!), "string:raw \\n text # still not a comment");
+  assert.equal(showLine(toml[47]!), "string:'''");
+  assert.equal(showLine(toml[48]!), "type:broken|plain: = |string:\"no end", "a string with no end stops at the line break");
+  assert.equal(showLine(toml[49]!), "type:after|plain: = |number:5", "and the next line is read normally");
+});
+
+test("tokenizer: TOML tricky cases", () => {
+  // Every token as kind:text, joined with |, and a " // " marks the start of a new line.
+  const kinds = (source: string): string => tokenizeToml(source).map(showLine).join(" // ");
+
+  // Comments.
+  assert.equal(kinds("# hi"), "comment:# hi");
+  assert.equal(kinds("a = 1 # hi"), "type:a|plain: = |number:1|plain: |comment:# hi");
+  assert.equal(kinds("a = 1# hi"), "type:a|plain: = |number:1|comment:# hi", "a # right after a value");
+  assert.equal(kinds("[a] # hi"), "keyword:[a]|plain: |comment:# hi");
+  assert.equal(kinds("a = \"x#y\" # z"), "type:a|plain: = |string:\"x#y\"|plain: |comment:# z", "a # in a string is not a comment");
+  assert.equal(kinds("a = 'x#y'"), "type:a|plain: = |string:'x#y'");
+  assert.equal(kinds("# a = 1"), "comment:# a = 1", "a key in a comment");
+  assert.equal(kinds("a = [1, # two\n 2]"), "type:a|plain: = [|number:1|plain:, |comment:# two // plain: |number:2|plain:]", "a comment inside an array");
+  assert.equal(kinds("a = { b = 1 } # c"), "type:a|plain: = { |type:b|plain: = |number:1|plain: } |comment:# c");
+
+  // Table headers.
+  assert.equal(kinds("[a]"), "keyword:[a]");
+  assert.equal(kinds("[a.b.c]"), "keyword:[a.b.c]");
+  assert.equal(kinds("[ a . b ]"), "keyword:[ a . b ]", "spaces in a header");
+  assert.equal(kinds("[a.\"b.c\"]"), "keyword:[a.\"b.c\"]", "a dot in a quoted part");
+  assert.equal(kinds("[a.'b]c']"), "keyword:[a.'b]c']", "a ] in a quoted part");
+  assert.equal(kinds("[\"a\\\"]\"]"), "keyword:[\"a\\\"]\"]", "an escaped quote in a quoted part");
+  assert.equal(kinds("[[a.b]]"), "keyword:[[a.b]]");
+  assert.equal(kinds("[[a.\"b.c\"]]"), "keyword:[[a.\"b.c\"]]");
+  assert.equal(kinds("  [a]"), "plain:  |keyword:[a]", "an indented header");
+  assert.equal(kinds("[a]\nb = 1"), "keyword:[a] // type:b|plain: = |number:1");
+  assert.equal(kinds("[a"), "keyword:[a", "a header with no ]");
+  assert.equal(kinds("[a  \nb = 1"), "keyword:[a|plain:   // type:b|plain: = |number:1", "spaces after a header with no ]");
+  assert.equal(kinds("[a # hi\nb = 1"), "keyword:[a|plain: |comment:# hi // type:b|plain: = |number:1");
+  assert.equal(kinds("[a.\"b]\nc = 1"), "keyword:[a.\"b] // type:c|plain: = |number:1", "a quote with no end ends at the line break");
+  assert.equal(kinds("["), "keyword:[");
+  assert.equal(kinds("[[a]"), "keyword:[[a]", "one ] closes it");
+  assert.equal(kinds("[]"), "keyword:[]");
+
+  // Keys.
+  assert.equal(kinds("a=1"), "type:a|plain:=|number:1", "no spaces");
+  assert.equal(kinds("  a = 1"), "plain:  |type:a|plain: = |number:1", "an indented key");
+  assert.equal(kinds("a-b_c1 = 1"), "type:a-b_c1|plain: = |number:1");
+  assert.equal(kinds("1234 = 1"), "type:1234|plain: = |number:1", "a number as a key");
+  assert.equal(kinds("3.14 = 1"), "type:3.14|plain: = |number:1", "a dotted key made of numbers");
+  assert.equal(kinds("a . b = 1"), "type:a . b|plain: = |number:1", "spaces around a dot");
+  assert.equal(kinds("\"a b\" = 1"), "type:\"a b\"|plain: = |number:1");
+  assert.equal(kinds("\"a\\\"b\" = 1"), "type:\"a\\\"b\"|plain: = |number:1", "an escaped quote in a key");
+  assert.equal(kinds("'a\\' = 1"), "type:'a\\'|plain: = |number:1", "no escapes in a literal key");
+  assert.equal(kinds("\"\" = 1"), "type:\"\"|plain: = |number:1", "an empty quoted key");
+  assert.equal(kinds("a.\"b.c\".d = 1"), "type:a.\"b.c\".d|plain: = |number:1");
+  assert.equal(kinds("true = 1"), "type:true|plain: = |number:1", "true can be a key");
+  assert.equal(kinds("é = 1"), "plain:é = 1", "a key with a letter outside A to Z is not a key");
+  assert.equal(kinds("a b = 1"), "plain:a b = 1", "a space in a bare key: the line is plain");
+  assert.equal(kinds("a"), "plain:a", "a word with no =");
+  assert.equal(kinds("a ="), "type:a|plain: =");
+  assert.equal(kinds("a = # nothing\nb = 1"), "type:a|plain: = |comment:# nothing // type:b|plain: = |number:1", "a key with no value");
+  assert.equal(kinds("= 1"), "plain:= 1", "a = with no key");
+  assert.equal(kinds("\"a = 1"), "string:\"a = 1", "a quote with no end at the start of a line");
+  assert.equal(kinds("\"a\" b"), "string:\"a\"|plain: b","a string that is not a key");
+
+  // Values.
+  assert.equal(kinds("a = true"), "type:a|plain: = |keyword:true");
+  assert.equal(kinds("a = false"), "type:a|plain: = |keyword:false");
+  assert.equal(kinds("a = True"), "type:a|plain: = True","true and false are lower case only");
+  assert.equal(kinds("a = trueish"), "type:a|plain: = trueish");
+  assert.equal(kinds("a = 0"), "type:a|plain: = |number:0");
+  assert.equal(kinds("a = -17"), "type:a|plain: = |number:-17");
+  assert.equal(kinds("a = +17"), "type:a|plain: = |number:+17");
+  assert.equal(kinds("a = 1_000"), "type:a|plain: = |number:1_000");
+  assert.equal(kinds("a = 1__000"), "type:a|plain: = 1__000", "two underscores in a row");
+  assert.equal(kinds("a = 1_"), "type:a|plain: = 1_", "an underscore at the end");
+  assert.equal(kinds("a = _1"), "type:a|plain: = _1");
+  assert.equal(kinds("a = 1.5"), "type:a|plain: = |number:1.5");
+  assert.equal(kinds("a = 1."), "type:a|plain: = 1.", "digits are needed after the dot");
+  assert.equal(kinds("a = .5"), "type:a|plain: = .5");
+  assert.equal(kinds("a = 1e10"), "type:a|plain: = |number:1e10");
+  assert.equal(kinds("a = 1E-10"), "type:a|plain: = |number:1E-10");
+  assert.equal(kinds("a = -1.5e+3"), "type:a|plain: = |number:-1.5e+3");
+  assert.equal(kinds("a = 1_0.2_5e1_0"), "type:a|plain: = |number:1_0.2_5e1_0");
+  assert.equal(kinds("a = 1.2.3"), "type:a|plain: = 1.2.3");
+  assert.equal(kinds("a = 0xFF"), "type:a|plain: = |number:0xFF");
+  assert.equal(kinds("a = 0xdead_beef"), "type:a|plain: = |number:0xdead_beef");
+  assert.equal(kinds("a = 0xG"), "type:a|plain: = 0xG");
+  assert.equal(kinds("a = 0x"), "type:a|plain: = 0x");
+  assert.equal(kinds("a = 0o17"), "type:a|plain: = |number:0o17");
+  assert.equal(kinds("a = 0o8"), "type:a|plain: = 0o8");
+  assert.equal(kinds("a = 0b101"), "type:a|plain: = |number:0b101");
+  assert.equal(kinds("a = 0b2"), "type:a|plain: = 0b2");
+  assert.equal(kinds("a = inf"), "type:a|plain: = |number:inf");
+  assert.equal(kinds("a = +inf"), "type:a|plain: = |number:+inf");
+  assert.equal(kinds("a = -inf"), "type:a|plain: = |number:-inf");
+  assert.equal(kinds("a = nan"), "type:a|plain: = |number:nan");
+  assert.equal(kinds("a = +nan"), "type:a|plain: = |number:+nan");
+  assert.equal(kinds("a = -nan"), "type:a|plain: = |number:-nan");
+  assert.equal(kinds("a = NaN"), "type:a|plain: = NaN");
+  assert.equal(kinds("a = infinity"), "type:a|plain: = infinity");
+  assert.equal(kinds("a = bare"), "type:a|plain: = bare", "a bare word is not a value, so it is plain");
+
+  // Dates and times.
+  assert.equal(kinds("a = 1979-05-27T07:32:00Z"), "type:a|plain: = |number:1979-05-27T07:32:00Z");
+  assert.equal(kinds("a = 1979-05-27t07:32:00z"), "type:a|plain: = |number:1979-05-27t07:32:00z", "a lower case t and z");
+  assert.equal(kinds("a = 1979-05-27T00:32:00-07:00"), "type:a|plain: = |number:1979-05-27T00:32:00-07:00");
+  assert.equal(kinds("a = 1979-05-27T00:32:00.999999+05:30"), "type:a|plain: = |number:1979-05-27T00:32:00.999999+05:30");
+  assert.equal(kinds("a = 1979-05-27 07:32:00.999-07:00"), "type:a|plain: = |number:1979-05-27 07:32:00.999-07:00", "a space instead of a T");
+  assert.equal(kinds("a = 1979-05-27T07:32:00"), "type:a|plain: = |number:1979-05-27T07:32:00", "a local date-time");
+  assert.equal(kinds("a = 1979-05-27 07:32:00"), "type:a|plain: = |number:1979-05-27 07:32:00");
+  assert.equal(kinds("a = 1979-05-27"), "type:a|plain: = |number:1979-05-27", "a local date");
+  assert.equal(kinds("a = 1979-05-27 # birthday"), "type:a|plain: = |number:1979-05-27|plain: |comment:# birthday", "a date, then a space, then a comment");
+  assert.equal(kinds("a = 1979-05-27 x"), "type:a|plain: = |number:1979-05-27|plain: x", "a date, then a space, then a word");
+  assert.equal(kinds("a = 07:32:00"), "type:a|plain: = |number:07:32:00", "a local time");
+  assert.equal(kinds("a = 07:32:00.999"), "type:a|plain: = |number:07:32:00.999");
+  assert.equal(kinds("a = 07:32"), "type:a|plain: = |number:07:32", "a time with no seconds");
+  assert.equal(kinds("a = 1979-05-27x"), "type:a|plain: = 1979-05-27x", "letters stuck to a date");
+  assert.equal(kinds("a = 1979-05-2"), "type:a|plain: = 1979-05-2");
+  assert.equal(kinds("a = [1979-05-27, 07:32:00]"), "type:a|plain: = [|number:1979-05-27|plain:, |number:07:32:00|plain:]");
+
+  // Basic strings.
+  assert.equal(kinds("a = \"\""), "type:a|plain: = |string:\"\"", "an empty string");
+  assert.equal(kinds("a = \"x\\\"y\""), "type:a|plain: = |string:\"x\\\"y\"", "an escaped quote");
+  assert.equal(kinds("a = \"x\\\\\" # c"), "type:a|plain: = |string:\"x\\\\\"|plain: |comment:# c", "an escaped backslash, then the closing quote");
+  assert.equal(kinds("a = \"\\u00e9 \\n \\t\""), "type:a|plain: = |string:\"\\u00e9 \\n \\t\"");
+  assert.equal(kinds("a = \"it's\""), "type:a|plain: = |string:\"it's\"", "a single quote inside");
+  assert.equal(kinds("a = 'say \"hi\"'"), "type:a|plain: = |string:'say \"hi\"'", "a double quote inside");
+  assert.equal(kinds("a = 'x\\'"), "type:a|plain: = |string:'x\\'", "a backslash ends nothing in a literal string");
+  assert.equal(kinds("a = \"x\ny = 1"), "type:a|plain: = |string:\"x // type:y|plain: = |number:1", "a string with no end stops at the line break");
+  assert.equal(kinds("a = 'x\ny = 1"), "type:a|plain: = |string:'x // type:y|plain: = |number:1");
+  assert.equal(kinds("a = \"x\\\ny = 1"), "type:a|plain: = |string:\"x\\ // type:y|plain: = |number:1", "a backslash at the end of a one-line string");
+  assert.equal(kinds("a = \"x"), "type:a|plain: = |string:\"x");
+  assert.equal(kinds("a = \"x\\"), "type:a|plain: = |string:\"x\\");
+  assert.equal(kinds("a = \"x\" y"), "type:a|plain: = |string:\"x\"|plain: y", "text after a value is plain");
+  assert.equal(kinds("a = \"é 日本語 😀\""), "type:a|plain: = |string:\"é 日本語 😀\"");
+
+  // Multi-line strings.
+  assert.equal(kinds("a = \"\"\"x\"\"\""), "type:a|plain: = |string:\"\"\"x\"\"\"", "on one line");
+  assert.equal(kinds("a = \"\"\"\"\"\""), "type:a|plain: = |string:\"\"\"\"\"\"", "an empty one");
+  assert.equal(kinds("a = \"\"\"\nx\n\"\"\"\nb = 1"), "type:a|plain: = |string:\"\"\" // string:x // string:\"\"\" // type:b|plain: = |number:1");
+  assert.equal(kinds("a = \"\"\"\nx # y\n\"\"\""), "type:a|plain: = |string:\"\"\" // string:x # y // string:\"\"\"", "a # in it");
+  assert.equal(kinds("a = \"\"\"\n[b]\nc = 1\n\"\"\""), "type:a|plain: = |string:\"\"\" // string:[b] // string:c = 1 // string:\"\"\"", "headers and keys in it are text");
+  assert.equal(kinds("a = \"\"\"x\"\"\" # y"), "type:a|plain: = |string:\"\"\"x\"\"\"|plain: |comment:# y", "a comment after it");
+  assert.equal(kinds("a = \"\"\"x\"\"\"\""), "type:a|plain: = |string:\"\"\"x\"\"\"\"", "one extra quote before the end");
+  assert.equal(kinds("a = \"\"\"x\"\"\"\"\""), "type:a|plain: = |string:\"\"\"x\"\"\"\"\"", "two extra quotes before the end");
+  assert.equal(kinds("a = \"\"\"x\"\"\"\"\"\""), "type:a|plain: = |string:\"\"\"x\"\"\"\"\"|plain:\"", "more than two extra quotes: the last one is left over");
+  assert.equal(kinds("a = \"\"\"x\"\"y\"\"\""), "type:a|plain: = |string:\"\"\"x\"\"y\"\"\"", "two quotes inside do not end it");
+  assert.equal(kinds("a = \"\"\"x\"y\"\"\""), "type:a|plain: = |string:\"\"\"x\"y\"\"\"");
+  assert.equal(kinds("a = \"\"\"x\\\"\"\"\" # y"), "type:a|plain: = |string:\"\"\"x\\\"\"\"\"|plain: |comment:# y", "an escaped quote right before the end");
+  assert.equal(kinds("a = \"\"\"x\\\"\"\"y\"\"\""), "type:a|plain: = |string:\"\"\"x\\\"\"\"y\"\"\"", "an escaped quote then two quotes: still open");
+  assert.equal(kinds("a = \"\"\"x\\\"\"\""), "type:a|plain: = |string:\"\"\"x\\\"\"\"", "an escaped quote, then only two quotes: it never closes");
+  assert.equal(kinds("a = \"\"\"line \\\n  continued\"\"\""), "type:a|plain: = |string:\"\"\"line \\ // string:  continued\"\"\"", "a backslash at the end of a line");
+  assert.equal(kinds("a = '''x'''"), "type:a|plain: = |string:'''x'''");
+  assert.equal(kinds("a = '''\nraw \\n # c\n'''"), "type:a|plain: = |string:''' // string:raw \\n # c // string:'''");
+  assert.equal(kinds("a = '''x''''"), "type:a|plain: = |string:'''x''''", "one extra quote before the end");
+  assert.equal(kinds("a = '''x'''''"), "type:a|plain: = |string:'''x'''''", "two extra quotes before the end");
+  assert.equal(kinds("a = '''x\\'''"), "type:a|plain: = |string:'''x\\'''", "a backslash is not an escape");
+  assert.equal(kinds("a = '''x\"\"\"y'''"), "type:a|plain: = |string:'''x\"\"\"y'''", "the other kind of triple quote inside");
+  assert.equal(kinds("a = \"\"\"x'''y\"\"\""), "type:a|plain: = |string:\"\"\"x'''y\"\"\"");
+  assert.equal(kinds("a = \"\"\"x\nb = 1\n[c]"), "type:a|plain: = |string:\"\"\"x // string:b = 1 // string:[c]", "a multi-line string with no end runs to the end of the file");
+  assert.equal(kinds("a = '''x\nb = 1"), "type:a|plain: = |string:'''x // string:b = 1");
+  assert.equal(kinds("a = \"\"\""), "type:a|plain: = |string:\"\"\"");
+  assert.equal(kinds("a = \"\"\"\n"), "type:a|plain: = |string:\"\"\" // ");
+  assert.equal(kinds("a = ''"), "type:a|plain: = |string:''", "an empty literal string is not the start of a multi-line one");
+  assert.equal(kinds("a = ''x"), "type:a|plain: = |string:''|plain:x");
+  assert.equal(kinds("a = [\"\"\"x\ny\"\"\", 'z']"), "type:a|plain: = [|string:\"\"\"x // string:y\"\"\"|plain:, |string:'z'|plain:]", "a multi-line string in an array");
+  assert.equal(kinds("a = { b = '''x''' }"), "type:a|plain: = { |type:b|plain: = |string:'''x'''|plain: }", "a multi-line string in an inline table");
+
+  // Arrays.
+  assert.equal(kinds("a = []"), "type:a|plain: = []");
+  assert.equal(kinds("a = [ ]"), "type:a|plain: = [ ]");
+  assert.equal(kinds("a = [1,2,3]"), "type:a|plain: = [|number:1|plain:,|number:2|plain:,|number:3|plain:]");
+  assert.equal(kinds("a = [1, 2,]"), "type:a|plain: = [|number:1|plain:, |number:2|plain:,]", "a comma at the end");
+  assert.equal(kinds("a = [\"x\", 'y', true, 1.5]"), "type:a|plain: = [|string:\"x\"|plain:, |string:'y'|plain:, |keyword:true|plain:, |number:1.5|plain:]");
+  assert.equal(kinds("a = [[1, 2], [\"x\"]]"), "type:a|plain: = [[|number:1|plain:, |number:2|plain:], [|string:\"x\"|plain:]]", "an array of arrays");
+  assert.equal(kinds("a = [\n  1,\n  2\n]\nb = 3"), "type:a|plain: = [ // plain:  |number:1|plain:, // plain:  |number:2 // plain:] // type:b|plain: = |number:3", "an array over several lines, then a key");
+  assert.equal(kinds("a = [\n\n  1\n\n]"), "type:a|plain: = [ //  // plain:  |number:1 //  // plain:]", "blank lines in an array");
+  assert.equal(kinds("a = [\n  b = 1\n]"), "type:a|plain: = [ // plain:  |type:b|plain: = |number:1 // plain:]", "a key inside an array ends the array");
+  assert.equal(kinds("a = [1,\n[b]\nc = 1"), "type:a|plain: = [|number:1|plain:, // keyword:[b] // type:c|plain: = |number:1", "a header ends an unclosed array");
+  assert.equal(kinds("a = [1,\n[[b.c]] # x\nd = 1"), "type:a|plain: = [|number:1|plain:, // keyword:[[b.c]]|plain: |comment:# x // type:d|plain: = |number:1");
+  assert.equal(kinds("a = [\n  [1, 2],\n  [3]\n]"), "type:a|plain: = [ // plain:  [|number:1|plain:, |number:2|plain:], // plain:  [|number:3|plain:] // plain:]", "inner arrays on their own lines are not headers");
+  assert.equal(kinds("a = [\n  [ \"x\" ]\n]"), "type:a|plain: = [ // plain:  [ |string:\"x\"|plain: ] // plain:]", "an inner array with a string");
+  assert.equal(kinds("a = [1, 2\nb = 3\nc = 4"), "type:a|plain: = [|number:1|plain:, |number:2 // type:b|plain: = |number:3 // type:c|plain: = |number:4", "a missing ] does not colour the rest as an array");
+  assert.equal(kinds("a = [1, 2"), "type:a|plain: = [|number:1|plain:, |number:2");
+  assert.equal(kinds("a = ]"), "type:a|plain: = ]", "a stray ]");
+  assert.equal(kinds("a = [1]]\nb = 2"), "type:a|plain: = [|number:1|plain:]] // type:b|plain: = |number:2", "an extra ]");
+
+  // Inline tables.
+  assert.equal(kinds("a = {}"), "type:a|plain: = {}");
+  assert.equal(kinds("a = { b = 1 }"), "type:a|plain: = { |type:b|plain: = |number:1|plain: }");
+  assert.equal(kinds("a = {b=1,c=\"x\"}"), "type:a|plain: = {|type:b|plain:=|number:1|plain:,|type:c|plain:=|string:\"x\"|plain:}");
+  assert.equal(kinds("a = { b.c = 1, \"d e\" = 2 }"), "type:a|plain: = { |type:b.c|plain: = |number:1|plain:, |type:\"d e\"|plain: = |number:2|plain: }", "dotted and quoted keys inside");
+  assert.equal(kinds("a = { b = { c = 1 } }"), "type:a|plain: = { |type:b|plain: = { |type:c|plain: = |number:1|plain: } }", "an inline table inside one");
+  assert.equal(kinds("a = { b = [1, { c = 2 }] }"), "type:a|plain: = { |type:b|plain: = [|number:1|plain:, { |type:c|plain: = |number:2|plain: }] }", "an inline table inside an array inside one");
+  assert.equal(kinds("a = [{ b = 1 }, { b = 2 }]"), "type:a|plain: = [{ |type:b|plain: = |number:1|plain: }, { |type:b|plain: = |number:2|plain: }]", "an array of inline tables");
+  assert.equal(kinds("a = [\n  { b = 1 },\n  { b = 2 },\n]"), "type:a|plain: = [ // plain:  { |type:b|plain: = |number:1|plain: }, // plain:  { |type:b|plain: = |number:2|plain: }, // plain:]", "inline tables in an array over several lines");
+  assert.equal(kinds("a = { b = true, c = 2024-01-02 }"), "type:a|plain: = { |type:b|plain: = |keyword:true|plain:, |type:c|plain: = |number:2024-01-02|plain: }");
+  assert.equal(kinds("a = { b = \"x, y }\" }"), "type:a|plain: = { |type:b|plain: = |string:\"x, y }\"|plain: }", "a comma and } inside a string");
+  assert.equal(kinds("a = { b = 1"), "type:a|plain: = { |type:b|plain: = |number:1");
+  assert.equal(kinds("a = { b = 1\nc = 2\n[d]"), "type:a|plain: = { |type:b|plain: = |number:1 // type:c|plain: = |number:2 // keyword:[d]", "a { with no } ends at the line break");
+  assert.equal(kinds("a = {\n  b = 1,\n  c = 2\n}"), "type:a|plain: = { // plain:  |type:b|plain: = |number:1|plain:, // plain:  |type:c|plain: = |number:2 // plain:}", "an inline table over several lines: the next lines are read as keys");
+  assert.equal(kinds("a = { b = 1 }}"), "type:a|plain: = { |type:b|plain: = |number:1|plain: }}", "an extra }");
+  assert.equal(kinds("a = { b }"), "type:a|plain: = { b }", "a key with no =");
+  assert.equal(kinds("a = { = 1 }"), "type:a|plain: = { = 1 }", "a = with no key inside");
+  assert.equal(kinds("a = { b = }"), "type:a|plain: = { |type:b|plain: = }");
+  assert.equal(kinds("a = { b = 1 c = 2 }"), "type:a|plain: = { |type:b|plain: = |number:1|plain: c = |number:2|plain: }", "a missing comma: c is not read as a key");
+
+  // Windows line breaks (the exporter converts them first, but a stray \r is only plain text).
+  assert.equal(kinds("a = 1\r\nb = 2"), "type:a|plain: = |number:1|plain:\r // type:b|plain: = |number:2");
+  assert.equal(kinds("[a]\r\nb = \"x\"\r\n"), "keyword:[a]|plain:\r // type:b|plain: = |string:\"x\"|plain:\r // ");
+  assert.equal(kinds("[a  \r\nb = 1"), "keyword:[a|plain:  \r // type:b|plain: = |number:1");
+  assert.equal(kinds("a = [1,\r\n2]\r\nb = 1"), "type:a|plain: = [|number:1|plain:,\r // number:2|plain:]\r // type:b|plain: = |number:1");
+  assert.equal(kinds("a = [1,\r\n[b]\r\nc = 1"), "type:a|plain: = [|number:1|plain:,\r // keyword:[b]|plain:\r // type:c|plain: = |number:1", "a header with a \\r ends an unclosed array");
+  {
+    const crlf = fixture("basic.toml").replace(/\n/g, "\r\n");
+    const lines = tokenizeToml(crlf);
+    assert.equal(lines.map(joinLine).join("\n"), crlf, "Windows line breaks are kept");
+    assert.equal(lines.length, fixture("basic.toml").split("\n").length, "the same number of lines");
+  }
+
+  // Other languages' comments and strings are not TOML.
+  assert.equal(kinds("// hi"), "plain:// hi", "// is not a comment");
+  assert.equal(kinds("a = 1 // hi"), "type:a|plain: = |number:1|plain: // hi");
+  assert.equal(kinds("/* hi */"), "plain:/* hi */");
+  assert.equal(kinds("a = `x`"), "type:a|plain: = `x`", "backticks are not strings");
+});
+
+test("tokenizer: TOML keeps every character, even in broken code", () => {
+  for (const source of ["", "[", "[[", "]", "[a", "[a.", "[[a]", "[\"", "['", "[\"a", "a", "a =", "a = \"", "a = '", "a = \"\"\"", "a = '''", "a = \"\"\"x\"", "a = \"\"\"x\"\"", "a = '''x''", "a = \\", "a = \"\\", "a = [", "a = {", "a = [{", "a = {[", "a = [{[{", "a = }", "a = ]", "a = =", "a = 1979-", "a = 07:", "a = 0x", "a = 1e", "\"", "'", "\"a", "\"a\" =", "\"a\".", "a.", "a..b = 1", ".a = 1", "=", "==", "#", "# \"", "\r", "\r\n", "\n\n", "😀", "a = 😀", "[😀]", "😀 = 1"]) {
+    const lines = tokenizeToml(source);
+    assert.equal(lines.map(joinLine).join("\n"), source, `lost text for ${JSON.stringify(source)}`);
+  }
+  // Big files with an unclosed array, inline table, string and header on every few lines are still read in one go (no slow loops).
+  const big = "a = [1,\nb = { c = \"d\ne = 'f\n[g\n\"\"\"h\n".repeat(2000);
+  assert.equal(tokenizeToml(big).map(joinLine).join("\n"), big);
+  const manyOpen = "a = [".repeat(5000);
+  assert.equal(tokenizeToml(manyOpen).map(joinLine).join("\n"), manyOpen);
+  const manyBraces = "a = {".repeat(5000);
+  assert.equal(tokenizeToml(manyBraces).map(joinLine).join("\n"), manyBraces);
+  const manyQuotes = "a = \"\"\"".repeat(5000);
+  assert.equal(tokenizeToml(manyQuotes).map(joinLine).join("\n"), manyQuotes);
+  const manyArrayLines = "a = [\n".repeat(3000) + "1\n".repeat(3000);
+  assert.equal(tokenizeToml(manyArrayLines).map(joinLine).join("\n"), manyArrayLines);
+});
+
+test("languages: other languages do not read TOML rules and TOML does not read theirs", () => {
+  assert.equal(kindOf(tokenizeCpp("a = 1 # b"), "# b"), "plain", "# is not a comment in C++");
+  assert.equal(kindOf(tokenizeJson("a = true"), "true"), "keyword");
+  assert.equal(kindOf(tokenizeYaml("a = 1"), "a"), "plain", "YAML has no = keys");
+  assert.equal(kindOf(tokenizeToml("a: b"), "a: b"), "plain", "a : is not a key");
+  assert.equal(kindOf(tokenizeToml("a = int return"), "int"), "plain", "C words are only plain words");
+  assert.equal(kindOf(tokenizeToml("a = null"), "null"), "plain", "null is not a TOML word");
+  assert.equal(kindOf(tokenizeToml("a = 'x'"), "'x'"), "string");
+  assert.ok(isSupportedSource("a.toml") && isSupportedSource("Cargo.toml") && isSupportedSource("A.TOML"));
+  assert.ok(!isSupportedSource("a.toml.bak") && !isSupportedSource("Cargo.lock") && !isSupportedSource("poetry.lock") && !isSupportedSource("a.ini") && !isSupportedSource("a.tomls"));
+  assert.ok(!isGeneratedFile("Cargo.toml") && !isGeneratedFile("pyproject.toml") && !isGeneratedFile("Cargo.lock") && !isGeneratedFile("poetry.lock"), "no TOML file or lock file name is skipped as generated");
+});
+
+test("package.json: all five menu rules match .toml and no look-alike extensions", () => {
+  const manifest = JSON.parse(readFileSync(`${ROOT}/package.json`, "utf8")) as { contributes: { menus: Record<string, { when: string }[]> } };
+  const rules = Object.values(manifest.contributes.menus).flat().map((item) => item.when).filter((when) => when.includes("resourceExtname"));
+  assert.equal(rules.length, 5, "five menu rules use the extension list");
+  for (const when of rules) {
+    const regex = new RegExp(/resourceExtname =~ \/(.*)\/i/.exec(when)![1]!, "i");
+    for (const ext of [".toml", ".TOML", ".Toml", ".xml", ".yaml", ".cpp"]) {
+      assert.ok(regex.test(ext), `${ext} should match in: ${when}`);
+    }
+    for (const ext of [".tomls", ".tomll", ".toml.bak", ".tom", ".tml", ".toml2", "toml", ".lock", ".ini"]) {
       assert.ok(!regex.test(ext), `${ext} should not match in: ${when}`);
     }
   }
