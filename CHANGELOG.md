@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.28.0
+- Added XML export (`.xml`, `.xsd`, `.xsl`, `.xslt`).
+
 ## 1.27.0
 - Added YAML export (`.yml`, `.yaml`).
 - Folder export now also skips `pnpm-lock.yaml`.

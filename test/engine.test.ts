@@ -27,6 +27,7 @@ import { tokenizeVhdl } from "../src/export/vhdlTokenizer";
 import { tokenizeAsm } from "../src/export/asmTokenizer";
 import { tokenizeLatex } from "../src/export/latexTokenizer";
 import { tokenizeJson } from "../src/export/jsonTokenizer";
+import { tokenizeXml } from "../src/export/xmlTokenizer";
 import { tokenizeYaml } from "../src/export/yamlTokenizer";
 import type { TokenKind, TokenLine } from "../src/export/tokens";
 import { languageForFile, languageForVscodeId, LANGUAGES, LANGUAGE_NAMES, LANGUAGE_NAMES_OR } from "../src/export/languages";
@@ -63,11 +64,11 @@ const kindOfWord = (lines: TokenLine[], word: string): TokenKind | undefined => 
 };
 
 test("tokenizer: joining tokens gives back every fixture exactly", () => {
-  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py", "basic.css", "basic.html", "basic.js", "basic.ts", "basic.jsx", "basic.tsx", "basic.rs", "basic.java", "basic.cs", "basic.go", "basic.php", "basic.sql", "basic.sh", "basic.kt", "basic.swift", "basic.rb", "basic.dart", "basic.lua", "basic.r", "basic.m", "basic.ino", "basic.sv", "basic.vhd", "basic.s", "basic.tex", "basic.json", "basic.yaml"]) {
+  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py", "basic.css", "basic.html", "basic.js", "basic.ts", "basic.jsx", "basic.tsx", "basic.rs", "basic.java", "basic.cs", "basic.go", "basic.php", "basic.sql", "basic.sh", "basic.kt", "basic.swift", "basic.rb", "basic.dart", "basic.lua", "basic.r", "basic.m", "basic.ino", "basic.sv", "basic.vhd", "basic.s", "basic.tex", "basic.json", "basic.yaml", "basic.xml"]) {
     const source = fixture(name).replace(/\r\n?/g, "\n");
     for (const lines of [
       tokenizeCpp(source), tokenizeC(source), tokenizePython(source), tokenizeCss(source), tokenizeHtml(source), tokenizeJavaScript(source),
-      tokenizeTs(source), tokenizeJsx(source), tokenizeTsx(source), tokenizeRust(source), tokenizeJava(source), tokenizeCSharp(source), tokenizeGo(source), tokenizePhp(source), tokenizeSql(source), tokenizeShell(source), tokenizeKotlin(source), tokenizeSwift(source), tokenizeRuby(source), tokenizeDart(source), tokenizeLua(source), tokenizeR(source), tokenizeMatlab(source), tokenizeVerilog(source), tokenizeVhdl(source), tokenizeAsm(source), tokenizeLatex(source), tokenizeJson(source), tokenizeYaml(source),
+      tokenizeTs(source), tokenizeJsx(source), tokenizeTsx(source), tokenizeRust(source), tokenizeJava(source), tokenizeCSharp(source), tokenizeGo(source), tokenizePhp(source), tokenizeSql(source), tokenizeShell(source), tokenizeKotlin(source), tokenizeSwift(source), tokenizeRuby(source), tokenizeDart(source), tokenizeLua(source), tokenizeR(source), tokenizeMatlab(source), tokenizeVerilog(source), tokenizeVhdl(source), tokenizeAsm(source), tokenizeLatex(source), tokenizeJson(source), tokenizeYaml(source), tokenizeXml(source),
     ]) {
       assert.equal(lines.map(joinLine).join("\n"), source, `${name} changed during tokenizing`);
     }
@@ -2892,8 +2893,8 @@ test("languages: picked by extension or VS Code language id, with .h treated as 
   assert.equal(languageForVscodeId("bibtex"), undefined);
   assert.equal(languageForVscodeId(undefined), undefined);
   assert.equal(LANGUAGES.latex.label, "LaTeX");
-  assert.equal(LANGUAGE_NAMES, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL, Assembly, LaTeX, JSON and YAML");
-  assert.equal(LANGUAGE_NAMES_OR, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL, Assembly, LaTeX, JSON or YAML");
+  assert.equal(LANGUAGE_NAMES, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL, Assembly, LaTeX, JSON, YAML and XML");
+  assert.equal(LANGUAGE_NAMES_OR, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL, Assembly, LaTeX, JSON, YAML or XML");
   for (const name of ["config.json", "CONFIG.JSON", "tsconfig.json", "settings.jsonc", "Data.JSONC"]) {
     assert.equal(languageForFile(name), "json", name);
   }
@@ -2915,6 +2916,18 @@ test("languages: picked by extension or VS Code language id, with .h treated as 
   assert.equal(languageForVscodeId("yml"), undefined);
   assert.equal(languageForVscodeId("home-assistant"), undefined);
   assert.equal(LANGUAGES.yaml.label, "YAML");
+  for (const name of ["data.xml", "schema.xsd", "style.xsl", "style.xslt", "DATA.XML", "Schema.XSD", "Style.XSLT", "pom.xml"]) {
+    assert.equal(languageForFile(name), "xml", name);
+  }
+  for (const name of ["a.xml.bak", "a.xmls", "a.xmll", "a.xsdl", "a.xslx", "a.xsltt", "a.svg", "a.xhtml", "a.plist", "xml", "xsd", "xslt", "a.xs"]) {
+    assert.equal(languageForFile(name), undefined, name);
+  }
+  assert.equal(languageForVscodeId("xml"), "xml", "VS Code's id for .xml and .xsd files");
+  assert.equal(languageForVscodeId("xsl"), "xml", "VS Code's id for .xsl and .xslt files");
+  assert.equal(languageForVscodeId("xslt"), undefined);
+  assert.equal(languageForVscodeId("html"), "html", "HTML is still HTML");
+  assert.equal(languageForVscodeId("svg"), undefined);
+  assert.equal(LANGUAGES.xml.label, "XML");
 });
 
 test("tokenizer: Arduino sketches use the C++ tokenizer for comments, preprocessor lines, strings and keywords", () => {
@@ -4036,6 +4049,231 @@ test("package.json: all five menu rules match .yml and .yaml and no look-alike e
       assert.ok(regex.test(ext), `${ext} should match in: ${when}`);
     }
     for (const ext of [".yamls", ".ymll", ".yaml.bak", ".yl", ".y", ".ya", "yaml", ".yml2", ".toml"]) {
+      assert.ok(!regex.test(ext), `${ext} should not match in: ${when}`);
+    }
+  }
+});
+
+/** One line of tokens as kind:text pieces joined with |, so a test can check a whole line at once. */
+const showLine = (line: TokenLine): string => line.map((t) => `${t.kind}:${t.text}`).join("|");
+
+test("tokenizer: XML fixture colours", () => {
+  const source = fixture("basic.xml");
+  const xml = LANGUAGES[languageForFile("book.xml")!].tokenize(source);
+  assert.equal(xml.map(joinLine).join("\n"), source, "no text lost or changed");
+  // The fixture's lines, checked one by one (the numbers are line numbers, starting at 0).
+  assert.equal(showLine(xml[0]!), "preprocessor:<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+  assert.equal(showLine(xml[1]!), "comment:<!-- A made-up recipe book for a pretend bakery. -->");
+  assert.equal(showLine(xml[2]!), "preprocessor:<!DOCTYPE book [");
+  assert.equal(showLine(xml[3]!), "plain:  |preprocessor:<!ELEMENT book (recipe+)>");
+  assert.equal(showLine(xml[5]!), "plain:  |preprocessor:<!ENTITY oven \"180 degrees\">");
+  assert.equal(showLine(xml[6]!), "preprocessor:]>", "the end of the DOCTYPE");
+  assert.equal(showLine(xml[7]!), "preprocessor:<?xml-stylesheet type=\"text/xsl\" href=\"style.xsl\"?>");
+  assert.equal(showLine(xml[8]!), "plain:<|keyword:book|plain: |type:xmlns|plain:=|string:\"http://bakery.example/book\"|plain: |type:xmlns:x|plain:=|string:\"http://bakery.example/extra\"|plain:>", "a namespace attribute");
+  assert.equal(showLine(xml[9]!), "plain:  <|keyword:recipe|plain: |type:id|plain:=|string:\"bread-1\"|plain: |type:level|plain:=|string:'easy'|plain:>", "double and single quotes");
+  assert.equal(showLine(xml[10]!), "plain:    <|keyword:title|plain:>Bread |number:&amp;|plain: butter</|keyword:title|plain:>");
+  assert.equal(showLine(xml[12]!), "plain:    <|keyword:note|plain:>Use |number:&#160;|plain:a hot oven (|number:&#x20AC;|plain:5 flour), and |number:&oven;|plain: works too.</|keyword:note|plain:>");
+  assert.equal(showLine(xml[13]!), "plain:    <|keyword:note|plain:>Is 3 < 5? Yes, and 5 > 3 too.</|keyword:note|plain:>", "a < and a > in text");
+  assert.equal(showLine(xml[14]!), "plain:    |comment:<!-- A comment with a <tag> inside it, and a -- in it. -->");
+  assert.equal(showLine(xml[15]!), "plain:    <|keyword:x:tip|plain: |type:when|plain:=|string:\"a > b\"|plain: |type:self|plain:=|string:\"/>\"|plain:>Keep it simple.</|keyword:x:tip|plain:>", "a > and a /> inside values");
+  assert.equal(showLine(xml[16]!), "plain:    <|keyword:step", "a start tag over several lines");
+  assert.equal(showLine(xml[17]!), "plain:      |type:order|plain:=|string:\"1\"");
+  assert.equal(showLine(xml[18]!), "plain:      |type:text|plain:=|string:\"Mix", "a value over two lines");
+  assert.equal(showLine(xml[19]!), "string:the dough\"");
+  assert.equal(showLine(xml[20]!), "plain:    />");
+  assert.equal(showLine(xml[21]!), "plain:    <|keyword:empty|plain:/>");
+  assert.equal(showLine(xml[22]!), "plain:    <|keyword:script|plain:>|preprocessor:<![CDATA[");
+  assert.equal(showLine(xml[23]!), "string:      if (a < b && c > d) { print(\"</recipe> is not a tag here\"); }", "CDATA is not read as tags");
+  assert.equal(showLine(xml[24]!), "string:      // a comment --> and <a>link</a> stay plain text", "--> inside CDATA does nothing");
+  assert.equal(showLine(xml[25]!), "string:    |preprocessor:]]>|plain:</|keyword:script|plain:>");
+  assert.equal(showLine(xml[26]!), "plain:    <|keyword:crème|plain: |type:café|plain:=|string:\"é\"|plain:>naïve 日本語</|keyword:crème|plain:>", "non-ASCII names and text");
+  assert.equal(showLine(xml[28]!), "plain:  <|keyword:broken|plain: |type:quote|plain:=|string:\"oops>", "a quote with no end stops at the line break");
+  assert.equal(showLine(xml[29]!), "plain:  <|keyword:last|plain:>done</|keyword:last|plain:>", "and the next line is read normally");
+  assert.equal(showLine(xml[30]!), "plain:</|keyword:book|plain:>");
+});
+
+test("tokenizer: XML tricky cases", () => {
+  // Every token as kind:text, joined with |, and a " // " marks the start of a new line.
+  const kinds = (source: string): string => tokenizeXml(source).map(showLine).join(" // ");
+
+  // Tags and attributes.
+  assert.equal(kinds("<a>"), "plain:<|keyword:a|plain:>");
+  assert.equal(kinds("</a>"), "plain:</|keyword:a|plain:>");
+  assert.equal(kinds("<a/>"), "plain:<|keyword:a|plain:/>");
+  assert.equal(kinds("<a />"), "plain:<|keyword:a|plain: />");
+  assert.equal(kinds("</a >"), "plain:</|keyword:a|plain: >");
+  assert.equal(kinds("<ns:a x:b=\"1\"/>"), "plain:<|keyword:ns:a|plain: |type:x:b|plain:=|string:\"1\"|plain:/>", "namespaces");
+  assert.equal(kinds("<a b = 'c' >"), "plain:<|keyword:a|plain: |type:b|plain: = |string:'c'|plain: >", "spaces around =");
+  assert.equal(kinds("<a b>"), "plain:<|keyword:a|plain: |type:b|plain:>", "an attribute with no value");
+  assert.equal(kinds("<a b=\"1\"c=\"2\">"), "plain:<|keyword:a|plain: |type:b|plain:=|string:\"1\"|type:c|plain:=|string:\"2\"|plain:>", "no space between attributes");
+  assert.equal(kinds("<my-tag.v2 data-x=\"1\">"), "plain:<|keyword:my-tag.v2|plain: |type:data-x|plain:=|string:\"1\"|plain:>", "- . and digits in names");
+  assert.equal(kinds("<_a>"), "plain:<|keyword:_a|plain:>");
+  assert.equal(kinds("<:a>"), "plain:<|keyword::a|plain:>");
+  assert.equal(kinds("<é>"), "plain:<|keyword:é|plain:>");
+  assert.equal(kinds("<a b=c d=e/>"), "plain:<|keyword:a|plain: |type:b|plain:=|string:c|plain: |type:d|plain:=|string:e|plain:/>", "unquoted values are not valid XML but still coloured");
+  assert.equal(kinds("<a b=>"), "plain:<|keyword:a|plain: |type:b|plain:=>");
+  assert.equal(kinds("<a b="), "plain:<|keyword:a|plain: |type:b|plain:=");
+  assert.equal(kinds("<a b=\"x > y\" c='/>'>"), "plain:<|keyword:a|plain: |type:b|plain:=|string:\"x > y\"|plain: |type:c|plain:=|string:'/>'|plain:>", "> and /> inside values");
+  assert.equal(kinds("<a b=\"it's\" c='say \"hi\"'>"), "plain:<|keyword:a|plain: |type:b|plain:=|string:\"it's\"|plain: |type:c|plain:=|string:'say \"hi\"'|plain:>", "the other quote inside a value");
+  assert.equal(kinds("<a b=\"&amp;\">"), "plain:<|keyword:a|plain: |type:b|plain:=|string:\"&amp;\"|plain:>", "references inside values stay part of the string");
+  assert.equal(kinds("<a\n  b=\"1\"\n  c=\"2\">"), "plain:<|keyword:a // plain:  |type:b|plain:=|string:\"1\" // plain:  |type:c|plain:=|string:\"2\"|plain:>", "a start tag over several lines");
+  assert.equal(kinds("<a b=\"x\ny\">"), "plain:<|keyword:a|plain: |type:b|plain:=|string:\"x // string:y\"|plain:>", "a value over two lines");
+  assert.equal(kinds("<a\n\tb\n\t=\n\t\"1\"\n>"), "plain:<|keyword:a // plain:\t|type:b // plain:\t= // plain:\t|string:\"1\" // plain:>", "= and value on their own lines");
+
+  // Text that is not a tag.
+  assert.equal(kinds("a < b"), "plain:a < b");
+  assert.equal(kinds("a > b"), "plain:a > b");
+  assert.equal(kinds("<>"), "plain:<>");
+  assert.equal(kinds("< a>"), "plain:< a>");
+  assert.equal(kinds("<1>"), "plain:<1>");
+  assert.equal(kinds("<-"), "plain:<-");
+  assert.equal(kinds("</ a>"), "plain:</ a>");
+  assert.equal(kinds("</"), "plain:</");
+  assert.equal(kinds("<"), "plain:<");
+  assert.equal(kinds("x < y <b>z</b>"), "plain:x < y <|keyword:b|plain:>z</|keyword:b|plain:>", "a lone < does not break what follows");
+  assert.equal(kinds("a > b </c>"), "plain:a > b </|keyword:c|plain:>");
+  assert.equal(kinds("]]> and --> in text"), "plain:]]> and --> in text");
+
+  // Missing > and stray < inside a tag.
+  assert.equal(kinds("<a <b>"), "plain:<|keyword:a|plain: <|keyword:b|plain:>");
+  assert.equal(kinds("<a b=\"1\"\n<c/>"), "plain:<|keyword:a|plain: |type:b|plain:=|string:\"1\" // plain:<|keyword:c|plain:/>", "a tag with no > ends at the next <");
+  assert.equal(kinds("<a"), "plain:<|keyword:a");
+  assert.equal(kinds("<a b"), "plain:<|keyword:a|plain: |type:b");
+
+  // Comments.
+  assert.equal(kinds("<!-- a <b> -->x"), "comment:<!-- a <b> -->|plain:x", "a tag inside a comment");
+  assert.equal(kinds("<!---->"), "comment:<!---->");
+  assert.equal(kinds("<!-- a -- b -->"), "comment:<!-- a -- b -->");
+  assert.equal(kinds("<!-- a\nb -->"), "comment:<!-- a // comment:b -->", "a comment over two lines");
+  assert.equal(kinds("<!-- a\n<b>"), "comment:<!-- a // comment:<b>", "a comment with no end runs to the end of the file");
+  assert.equal(kinds("<!-->"), "comment:<!-->", "<!--> is not an empty comment in XML");
+  assert.equal(kinds("<!--"), "comment:<!--");
+  assert.equal(kinds("<!-- x --><a/><!-- y -->"), "comment:<!-- x -->|plain:<|keyword:a|plain:/>|comment:<!-- y -->");
+
+  // Processing instructions.
+  assert.equal(kinds("<?xml version=\"1.0\"?>"), "preprocessor:<?xml version=\"1.0\"?>");
+  assert.equal(kinds("<?a ?><b/>"), "preprocessor:<?a ?>|plain:<|keyword:b|plain:/>");
+  assert.equal(kinds("<?a >?>"), "preprocessor:<?a >?>", "a > inside does not end it");
+  assert.equal(kinds("<?a\nb?>"), "preprocessor:<?a // preprocessor:b?>", "over two lines");
+  assert.equal(kinds("<?a\n<b/>"), "preprocessor:<?a // plain:<|keyword:b|plain:/>", "with no ?> it stops at the end of the line, not the end of the file");
+  assert.equal(kinds("<?"), "preprocessor:<?");
+
+  // Declarations.
+  assert.equal(kinds("<!DOCTYPE html>"), "preprocessor:<!DOCTYPE html>");
+  assert.equal(kinds("<!doctype html>"), "preprocessor:<!doctype html>");
+  assert.equal(kinds("<!DOCTYPE a SYSTEM \"x>y.dtd\">"), "preprocessor:<!DOCTYPE a SYSTEM \"x>y.dtd\">", "a > inside quotes");
+  assert.equal(kinds("<!DOCTYPE a [\n<!ELEMENT a (#PCDATA)>\n]>\n<a/>"), "preprocessor:<!DOCTYPE a [ // preprocessor:<!ELEMENT a (#PCDATA)> // preprocessor:]> // plain:<|keyword:a|plain:/>", "a DOCTYPE with declarations inside");
+  assert.equal(kinds("<!DOCTYPE a [<!-- c --><?pi x?>]>"), "preprocessor:<!DOCTYPE a [|comment:<!-- c -->|preprocessor:<?pi x?>]>", "a comment and an instruction inside the DOCTYPE");
+  assert.equal(kinds("<!DOCTYPE a [ ]  >"), "preprocessor:<!DOCTYPE a [|plain: |preprocessor:]|plain:  |preprocessor:>", "spaces before the final >");
+  assert.equal(kinds("<!DOCTYPE a [<!ENTITY e \"a > ]\">]><b>"), "preprocessor:<!DOCTYPE a [<!ENTITY e \"a > ]\">]>|plain:<|keyword:b|plain:>", "a > and ] inside an entity value");
+  assert.equal(kinds("<!ATTLIST a b (x|y) 'x'>"), "preprocessor:<!ATTLIST a b (x|y) 'x'>");
+  assert.equal(kinds("<!ELEMENT a \"x>"), "preprocessor:<!ELEMENT a \"x>", "a quote with no end is just a character");
+  assert.equal(kinds("<!ELEMENT a\n<b/>"), "preprocessor:<!ELEMENT a // plain:<|keyword:b|plain:/>", "a declaration with no > stops at the next <");
+  assert.equal(kinds("<!"), "preprocessor:<!");
+  assert.equal(kinds("]>"), "plain:]>", "] is plain outside a DOCTYPE");
+  assert.equal(kinds("<!DOCTYPE a [ ]x <b/>"), "preprocessor:<!DOCTYPE a [|plain: ]x <|keyword:b|plain:/>", "a ] with no > after it is just text");
+
+  // CDATA.
+  assert.equal(kinds("<![CDATA[a < b --> <a>]]>x"), "preprocessor:<![CDATA[|string:a < b --> <a>|preprocessor:]]>|plain:x");
+  assert.equal(kinds("<![CDATA[]]>"), "preprocessor:<![CDATA[]]>", "empty CDATA");
+  assert.equal(kinds("<![CDATA[a\nb]]>"), "preprocessor:<![CDATA[|string:a // string:b|preprocessor:]]>", "over two lines");
+  assert.equal(kinds("<![CDATA[a\n<b>"), "preprocessor:<![CDATA[|string:a // string:<b>", "CDATA with no end runs to the end of the file");
+  assert.equal(kinds("<![CDATA["), "preprocessor:<![CDATA[");
+  assert.equal(kinds("<![CDATA[ ]] > ]]>"), "preprocessor:<![CDATA[|string: ]] > |preprocessor:]]>");
+  assert.equal(kinds("<a><![CDATA[x]]></a>"), "plain:<|keyword:a|plain:>|preprocessor:<![CDATA[|string:x|preprocessor:]]>|plain:</|keyword:a|plain:>");
+  assert.equal(kinds("<![cdata[x]]>"), "preprocessor:<![cdata[x]]>", "CDATA must be in capitals");
+
+  // References.
+  assert.equal(kinds("&amp; &#160; &#x1F; &lt;"), "number:&amp;|plain: |number:&#160;|plain: |number:&#x1F;|plain: |number:&lt;");
+  assert.equal(kinds("&my-ent.1;"), "number:&my-ent.1;");
+  assert.equal(kinds("a&b"), "plain:a&b");
+  assert.equal(kinds("&;"), "plain:&;");
+  assert.equal(kinds("&#;"), "plain:&#;");
+  assert.equal(kinds("&#x;"), "plain:&#x;");
+  assert.equal(kinds("&amp"), "plain:&amp");
+  assert.equal(kinds("&a b;"), "plain:&a b;");
+  assert.equal(kinds("&&amp;&"), "plain:&|number:&amp;|plain:&");
+  assert.equal(kinds("<!-- &amp; -->"), "comment:<!-- &amp; -->", "no references in a comment");
+  assert.equal(kinds("<![CDATA[&amp;]]>"), "preprocessor:<![CDATA[|string:&amp;|preprocessor:]]>", "no references in CDATA");
+
+  // Quotes that never close.
+  assert.equal(kinds("<a b=\"oops>\n<c/>"), "plain:<|keyword:a|plain: |type:b|plain:=|string:\"oops> // plain:<|keyword:c|plain:/>", "only the first line is a string");
+  assert.equal(kinds("<a b='oops>\n<c/>"), "plain:<|keyword:a|plain: |type:b|plain:=|string:'oops> // plain:<|keyword:c|plain:/>");
+  assert.equal(kinds("<a b=\""), "plain:<|keyword:a|plain: |type:b|plain:=|string:\"");
+  assert.equal(kinds("<a b='x\"y>\n<c d=\"1\"/>"), "plain:<|keyword:a|plain: |type:b|plain:=|string:'x\"y> // plain:<|keyword:c|plain: |type:d|plain:=|string:\"1\"|plain:/>", "a different kind of quote does not close it");
+  {
+    // A closing quote that is more than MAX_QUOTED_LINES lines away does not count.
+    const far = `<a b="x\n${"y\n".repeat(150)}">\n<c/>`;
+    const lines = tokenizeXml(far);
+    assert.equal(showLine(lines[0]!), "plain:<|keyword:a|plain: |type:b|plain:=|string:\"x");
+    assert.equal(showLine(lines[1]!), "plain:y");
+    assert.equal(showLine(lines[lines.length - 1]!), "plain:<|keyword:c|plain:/>");
+    assert.equal(lines.map(joinLine).join("\n"), far);
+    // A closing quote that is close enough does count, even many lines down.
+    const near = `<a b="x\n${"y\n".repeat(50)}">\n<c/>`;
+    const nearLines = tokenizeXml(near);
+    assert.equal(showLine(nearLines[25]!), "string:y");
+    assert.equal(showLine(nearLines[nearLines.length - 2]!), "string:\"|plain:>");
+    assert.equal(showLine(nearLines[nearLines.length - 1]!), "plain:<|keyword:c|plain:/>");
+  }
+
+  // Windows line breaks (the exporter converts them first, but a stray \r is only plain text).
+  assert.equal(kindOf(tokenizeXml("<a>\r\n<!-- c\r\nd -->\r\n</a>"), "d -->"), "comment");
+  assert.equal(kindOf(tokenizeXml("<a b=\"x\r\ny\">"), "y\""), "string", "a value over two lines");
+  assert.equal(kinds("<a b=\"oops\r\n<c/>"), "plain:<|keyword:a|plain: |type:b|plain:=|string:\"oops|plain:\r // plain:<|keyword:c|plain:/>", "an unclosed quote stops before the \\r");
+  assert.equal(kinds("<?a\r\n<b/>"), "preprocessor:<?a|plain:\r // plain:<|keyword:b|plain:/>");
+  assert.equal(kinds("<a\r\n  b=\"1\">"), "plain:<|keyword:a|plain:\r // plain:  |type:b|plain:=|string:\"1\"|plain:>");
+  {
+    const crlf = fixture("basic.xml").replace(/\n/g, "\r\n");
+    const lines = tokenizeXml(crlf);
+    assert.equal(lines.map(joinLine).join("\n"), crlf, "Windows line breaks are kept");
+    assert.equal(lines.length, fixture("basic.xml").split("\n").length, "the same number of lines");
+  }
+
+  // Other bits of text are plain.
+  assert.equal(kinds("hello world 123"), "plain:hello world 123");
+  assert.equal(kinds("<a>true null 12</a>"), "plain:<|keyword:a|plain:>true null 12</|keyword:a|plain:>");
+  assert.equal(kinds("<a>\"not a string\" 'nor this'</a>"), "plain:<|keyword:a|plain:>\"not a string\" 'nor this'</|keyword:a|plain:>", "quotes in text");
+  assert.equal(kinds("😀<a b=\"😀\">😀</a>"), "plain:😀<|keyword:a|plain: |type:b|plain:=|string:\"😀\"|plain:>😀</|keyword:a|plain:>");
+});
+
+test("tokenizer: XML keeps every character, even in broken code", () => {
+  for (const source of ["", "<", ">", "</", "<>", "<a", "<a ", "<a b", "<a b=", "<a b=\"", "<a b='", "<a b=\"c", "<a/", "<a /", "</a", "<!", "<!-", "<!--", "<!---", "<!-->", "<?", "<?x", "<?x?", "<![", "<![CDATA", "<![CDATA[", "<![CDATA[]", "<![CDATA[]]", "<!DOCTYPE", "<!DOCTYPE a [", "<!DOCTYPE a [ ]", "<!DOCTYPE a [ ] ", "<!DOCTYPE a \"", "&", "&#", "&#x", "&a", "]", "]>", "]]>", "😀", "<a b=\"😀", "<😀>", "<a\r", "<a\r\n", "<a b=\"x\r\ny", "<!--\r\n", "<?a\r\n", "<a =\"1\">", "<a ==\"1\">", "<a b=\"1\"\"2\">", "<a '>", "<a \">", "<a b='1\" c=\"2'>", "<a/ b>", "<a / >", "\0<a\0>\0"]) {
+    const lines = tokenizeXml(source);
+    assert.equal(lines.map(joinLine).join("\n"), source, `lost text for ${JSON.stringify(source)}`);
+  }
+  // A big file with an unclosed quote, comment-like text and a broken tag on every few lines is still read in one go (no slow loops).
+  const big = "<a b=\"c\n<d e='f>\n<!ELEMENT g \"h\n<![x\n<i\n<?j\n".repeat(2000);
+  assert.equal(tokenizeXml(big).map(joinLine).join("\n"), big);
+  const manyQuotes = "<a b=\"".repeat(5000);
+  assert.equal(tokenizeXml(manyQuotes).map(joinLine).join("\n"), manyQuotes);
+});
+
+test("languages: other languages do not read XML rules and XML does not read theirs", () => {
+  assert.equal(kindOf(tokenizeXml("// hello there"), "// hello there"), "plain", "// is not a comment");
+  assert.equal(kindOf(tokenizeXml("/* hello there */"), "/* hello there */"), "plain", "/* is not a comment");
+  assert.equal(kindOf(tokenizeXml("# hello there"), "# hello there"), "plain", "# is not a comment");
+  assert.equal(kindOf(tokenizeXml("\"a\" 'b'"), "\"a\""), "plain", "quotes outside a tag are text");
+  assert.equal(kindOfWord(tokenizeXml("int return true"), "return"), "plain", "C words are only plain words");
+  assert.equal(kindOf(tokenizeXml("<script>if (a < b) {}</script>"), "if (a < b) {}"), "plain", "no JavaScript colours inside <script>");
+  assert.equal(kindOf(tokenizeXml("<style>a { color: red; }</style>"), "a { color: red; }"), "plain", "no CSS colours inside <style>");
+  assert.equal(kindOf(tokenizeHtml("<a b=\"1\">"), "\"1\""), "string", "HTML still colours the same way");
+  assert.equal(kindOf(tokenizeCpp("<a b=\"1\">"), "\"1\""), "string");
+  assert.ok(isSupportedSource("a.xml") && isSupportedSource("a.xsd") && isSupportedSource("a.xsl") && isSupportedSource("a.xslt") && isSupportedSource("A.XML"));
+  assert.ok(!isSupportedSource("a.xml.bak") && !isSupportedSource("a.svg") && !isSupportedSource("a.xhtml") && !isSupportedSource("a.plist") && !isSupportedSource("a.xsdx"));
+  assert.ok(!isGeneratedFile("pom.xml") && !isGeneratedFile("web.config") && !isGeneratedFile("schema.xsd"), "no XML file is skipped as generated");
+});
+
+test("package.json: all five menu rules match .xml, .xsd, .xsl and .xslt and no look-alike extensions", () => {
+  const manifest = JSON.parse(readFileSync(`${ROOT}/package.json`, "utf8")) as { contributes: { menus: Record<string, { when: string }[]> } };
+  const rules = Object.values(manifest.contributes.menus).flat().map((item) => item.when).filter((when) => when.includes("resourceExtname"));
+  assert.equal(rules.length, 5, "five menu rules use the extension list");
+  for (const when of rules) {
+    const regex = new RegExp(/resourceExtname =~ \/(.*)\/i/.exec(when)![1]!, "i");
+    for (const ext of [".xml", ".xsd", ".xsl", ".xslt", ".XML", ".Xsd", ".XSLT", ".yaml", ".cpp", ".html"]) {
+      assert.ok(regex.test(ext), `${ext} should match in: ${when}`);
+    }
+    for (const ext of [".xmls", ".xmll", ".xsdl", ".xslx", ".xsltt", ".xs", ".svg", ".xhtml", ".plist", ".xml.bak", ".xml2", "xml", ".xslt2"]) {
       assert.ok(!regex.test(ext), `${ext} should not match in: ${when}`);
     }
   }

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- A made-up recipe book for a pretend bakery. -->
+<!DOCTYPE book [
+  <!ELEMENT book (recipe+)>
+  <!ATTLIST recipe id CDATA #REQUIRED>
+  <!ENTITY oven "180 degrees">
+]>
+<?xml-stylesheet type="text/xsl" href="style.xsl"?>
+<book xmlns="http://bakery.example/book" xmlns:x="http://bakery.example/extra">
+  <recipe id="bread-1" level='easy'>
+    <title>Bread &amp; butter</title>
+    <time unit="min">45</time>
+    <note>Use &#160;a hot oven (&#x20AC;5 flour), and &oven; works too.</note>
+    <note>Is 3 < 5? Yes, and 5 > 3 too.</note>
+    <!-- A comment with a <tag> inside it, and a -- in it. -->
+    <x:tip when="a > b" self="/>">Keep it simple.</x:tip>
+    <step
+      order="1"
+      text="Mix
+the dough"
+    />
+    <empty/>
+    <script><![CDATA[
+      if (a < b && c > d) { print("</recipe> is not a tag here"); }
+      // a comment --> and <a>link</a> stay plain text
+    ]]></script>
+    <crème café="é">naïve 日本語</crème>
+  </recipe>
+  <broken quote="oops>
+  <last>done</last>
+</book>

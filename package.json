@@ -1,8 +1,8 @@
 {
   "name": "codepdf",
   "displayName": "CodePDF",
-  "description": "View PDFs inside VS Code and export C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL, Assembly, LaTeX, JSON and YAML files as clean, printable PDFs. Everything runs locally.",
-  "version": "1.27.0",
+  "description": "View PDFs inside VS Code and export C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL, Assembly, LaTeX, JSON, YAML and XML files as clean, printable PDFs. Everything runs locally.",
+  "version": "1.28.0",
   "publisher": "toarjungarg",
   "icon": "media/icon.png",
   "private": true,
@@ -56,6 +56,8 @@
     "jsonc",
     "yaml",
     "yml",
+    "xml",
+    "xslt",
     "print",
     "export"
   ],
@@ -88,12 +90,12 @@
       "explorer/context": [
         {
           "command": "codepdf.exportFile",
-          "when": "!explorerResourceIsFolder && resourceExtname =~ /^\\.(c|cpp|cc|cxx|h|hpp|hh|hxx|py|pyw|css|html|htm|js|mjs|cjs|ts|mts|cts|jsx|tsx|rs|java|cs|go|php|sql|sh|bash|kt|kts|swift|rb|dart|lua|r|m|ino|v|vh|sv|svh|vhd|vhdl|s|asm|tex|sty|cls|json|jsonc|yml|yaml)$/i",
+          "when": "!explorerResourceIsFolder && resourceExtname =~ /^\\.(c|cpp|cc|cxx|h|hpp|hh|hxx|py|pyw|css|html|htm|js|mjs|cjs|ts|mts|cts|jsx|tsx|rs|java|cs|go|php|sql|sh|bash|kt|kts|swift|rb|dart|lua|r|m|ino|v|vh|sv|svh|vhd|vhdl|s|asm|tex|sty|cls|json|jsonc|yml|yaml|xml|xsd|xsl|xslt)$/i",
           "group": "7_codepdf@1"
         },
         {
           "command": "codepdf.exportMultiple",
-          "when": "listMultiSelection && !explorerResourceIsFolder && resourceExtname =~ /^\\.(c|cpp|cc|cxx|h|hpp|hh|hxx|py|pyw|css|html|htm|js|mjs|cjs|ts|mts|cts|jsx|tsx|rs|java|cs|go|php|sql|sh|bash|kt|kts|swift|rb|dart|lua|r|m|ino|v|vh|sv|svh|vhd|vhdl|s|asm|tex|sty|cls|json|jsonc|yml|yaml)$/i",
+          "when": "listMultiSelection && !explorerResourceIsFolder && resourceExtname =~ /^\\.(c|cpp|cc|cxx|h|hpp|hh|hxx|py|pyw|css|html|htm|js|mjs|cjs|ts|mts|cts|jsx|tsx|rs|java|cs|go|php|sql|sh|bash|kt|kts|swift|rb|dart|lua|r|m|ino|v|vh|sv|svh|vhd|vhdl|s|asm|tex|sty|cls|json|jsonc|yml|yaml|xml|xsd|xsl|xslt)$/i",
           "group": "7_codepdf@2"
         },
         {
@@ -105,19 +107,19 @@
       "editor/context": [
         {
           "command": "codepdf.exportSelection",
-          "when": "editorHasSelection && resourceExtname =~ /^\\.(c|cpp|cc|cxx|h|hpp|hh|hxx|py|pyw|css|html|htm|js|mjs|cjs|ts|mts|cts|jsx|tsx|rs|java|cs|go|php|sql|sh|bash|kt|kts|swift|rb|dart|lua|r|m|ino|v|vh|sv|svh|vhd|vhdl|s|asm|tex|sty|cls|json|jsonc|yml|yaml)$/i",
+          "when": "editorHasSelection && resourceExtname =~ /^\\.(c|cpp|cc|cxx|h|hpp|hh|hxx|py|pyw|css|html|htm|js|mjs|cjs|ts|mts|cts|jsx|tsx|rs|java|cs|go|php|sql|sh|bash|kt|kts|swift|rb|dart|lua|r|m|ino|v|vh|sv|svh|vhd|vhdl|s|asm|tex|sty|cls|json|jsonc|yml|yaml|xml|xsd|xsl|xslt)$/i",
           "group": "7_codepdf@1"
         },
         {
           "command": "codepdf.exportFile",
-          "when": "resourceExtname =~ /^\\.(c|cpp|cc|cxx|h|hpp|hh|hxx|py|pyw|css|html|htm|js|mjs|cjs|ts|mts|cts|jsx|tsx|rs|java|cs|go|php|sql|sh|bash|kt|kts|swift|rb|dart|lua|r|m|ino|v|vh|sv|svh|vhd|vhdl|s|asm|tex|sty|cls|json|jsonc|yml|yaml)$/i",
+          "when": "resourceExtname =~ /^\\.(c|cpp|cc|cxx|h|hpp|hh|hxx|py|pyw|css|html|htm|js|mjs|cjs|ts|mts|cts|jsx|tsx|rs|java|cs|go|php|sql|sh|bash|kt|kts|swift|rb|dart|lua|r|m|ino|v|vh|sv|svh|vhd|vhdl|s|asm|tex|sty|cls|json|jsonc|yml|yaml|xml|xsd|xsl|xslt)$/i",
           "group": "7_codepdf@2"
         }
       ],
       "editor/title/context": [
         {
           "command": "codepdf.exportFile",
-          "when": "resourceExtname =~ /^\\.(c|cpp|cc|cxx|h|hpp|hh|hxx|py|pyw|css|html|htm|js|mjs|cjs|ts|mts|cts|jsx|tsx|rs|java|cs|go|php|sql|sh|bash|kt|kts|swift|rb|dart|lua|r|m|ino|v|vh|sv|svh|vhd|vhdl|s|asm|tex|sty|cls|json|jsonc|yml|yaml)$/i",
+          "when": "resourceExtname =~ /^\\.(c|cpp|cc|cxx|h|hpp|hh|hxx|py|pyw|css|html|htm|js|mjs|cjs|ts|mts|cts|jsx|tsx|rs|java|cs|go|php|sql|sh|bash|kt|kts|swift|rb|dart|lua|r|m|ino|v|vh|sv|svh|vhd|vhdl|s|asm|tex|sty|cls|json|jsonc|yml|yaml|xml|xsd|xsl|xslt)$/i",
           "group": "7_codepdf@1"
         }
       ],

@@ -727,6 +727,35 @@ test("1ab. exports YAML files, alone and combined with a JSON file", async () =>
   assert.ok(combined.pdf.text.includes("{ \"a\": 1 }"));
 });
 
+test("1ac. exports XML files, alone and combined with a YAML file", async () => {
+  const source = fixture("basic.xml");
+  const { pdf } = await exportSections("basic_xml.pdf", [{ ...file("basic.xml", source), language: "xml" }]);
+  assert.ok(pdf.pages[0]!.lines[0]!.startsWith("basic.xml"), "file name in the header");
+  for (const expected of [
+    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
+    "<!-- A made-up recipe book for a pretend bakery. -->",
+    "<!DOCTYPE book [",
+    "<book xmlns=\"http://bakery.example/book\"",
+    "<title>Bread &amp; butter</title>",
+    "Is 3 < 5? Yes, and 5 > 3 too.",
+    "self=\"/>\">Keep it simple.</x:tip>",
+    "<![CDATA[",
+    "print(\"</recipe> is not a tag here\");",
+    "<broken quote=\"oops>",
+  ]) {
+    assert.ok(pdf.text.includes(expected), `missing: ${expected}`);
+  }
+
+  const yaml = "name: bread\n";
+  const combined = await exportSections("mixed_xml_yaml.pdf", [
+    { ...file("basic.xml", source), language: "xml" },
+    { ...file("data.yaml", yaml), language: "yaml" },
+  ]);
+  assert.deepEqual(combined.pdf.outline, ["basic.xml", "data.yaml"], "one bookmark per file");
+  assert.ok(combined.pdf.text.includes("<book xmlns"));
+  assert.ok(combined.pdf.text.includes("name: bread"));
+});
+
 test("2. exports comments and strings exactly", async () => {
   const { pdf } = await exportSections("comments_strings.pdf", [file("comments_strings.cpp", fixture("comments_strings.cpp"))]);
   for (const expected of [
