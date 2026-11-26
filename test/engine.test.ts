@@ -27,6 +27,7 @@ import { tokenizeVhdl } from "../src/export/vhdlTokenizer";
 import { tokenizeAsm } from "../src/export/asmTokenizer";
 import { tokenizeLatex } from "../src/export/latexTokenizer";
 import { tokenizeJson } from "../src/export/jsonTokenizer";
+import { tokenizeMarkdown } from "../src/export/markdownTokenizer";
 import { tokenizeToml } from "../src/export/tomlTokenizer";
 import { tokenizeXml } from "../src/export/xmlTokenizer";
 import { tokenizeYaml } from "../src/export/yamlTokenizer";
@@ -65,11 +66,11 @@ const kindOfWord = (lines: TokenLine[], word: string): TokenKind | undefined => 
 };
 
 test("tokenizer: joining tokens gives back every fixture exactly", () => {
-  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py", "basic.css", "basic.html", "basic.js", "basic.ts", "basic.jsx", "basic.tsx", "basic.rs", "basic.java", "basic.cs", "basic.go", "basic.php", "basic.sql", "basic.sh", "basic.kt", "basic.swift", "basic.rb", "basic.dart", "basic.lua", "basic.r", "basic.m", "basic.ino", "basic.sv", "basic.vhd", "basic.s", "basic.tex", "basic.json", "basic.yaml", "basic.xml", "basic.toml"]) {
+  for (const name of ["basic.cpp", "comments_strings.cpp", "unicode.cpp", "long_lines.cpp", "basic.c", "basic.py", "basic.css", "basic.html", "basic.js", "basic.ts", "basic.jsx", "basic.tsx", "basic.rs", "basic.java", "basic.cs", "basic.go", "basic.php", "basic.sql", "basic.sh", "basic.kt", "basic.swift", "basic.rb", "basic.dart", "basic.lua", "basic.r", "basic.m", "basic.ino", "basic.sv", "basic.vhd", "basic.s", "basic.tex", "basic.json", "basic.yaml", "basic.xml", "basic.toml", "basic.md"]) {
     const source = fixture(name).replace(/\r\n?/g, "\n");
     for (const lines of [
       tokenizeCpp(source), tokenizeC(source), tokenizePython(source), tokenizeCss(source), tokenizeHtml(source), tokenizeJavaScript(source),
-      tokenizeTs(source), tokenizeJsx(source), tokenizeTsx(source), tokenizeRust(source), tokenizeJava(source), tokenizeCSharp(source), tokenizeGo(source), tokenizePhp(source), tokenizeSql(source), tokenizeShell(source), tokenizeKotlin(source), tokenizeSwift(source), tokenizeRuby(source), tokenizeDart(source), tokenizeLua(source), tokenizeR(source), tokenizeMatlab(source), tokenizeVerilog(source), tokenizeVhdl(source), tokenizeAsm(source), tokenizeLatex(source), tokenizeJson(source), tokenizeYaml(source), tokenizeXml(source), tokenizeToml(source),
+      tokenizeTs(source), tokenizeJsx(source), tokenizeTsx(source), tokenizeRust(source), tokenizeJava(source), tokenizeCSharp(source), tokenizeGo(source), tokenizePhp(source), tokenizeSql(source), tokenizeShell(source), tokenizeKotlin(source), tokenizeSwift(source), tokenizeRuby(source), tokenizeDart(source), tokenizeLua(source), tokenizeR(source), tokenizeMatlab(source), tokenizeVerilog(source), tokenizeVhdl(source), tokenizeAsm(source), tokenizeLatex(source), tokenizeJson(source), tokenizeYaml(source), tokenizeXml(source), tokenizeToml(source), tokenizeMarkdown(source),
     ]) {
       assert.equal(lines.map(joinLine).join("\n"), source, `${name} changed during tokenizing`);
     }
@@ -2894,8 +2895,8 @@ test("languages: picked by extension or VS Code language id, with .h treated as 
   assert.equal(languageForVscodeId("bibtex"), undefined);
   assert.equal(languageForVscodeId(undefined), undefined);
   assert.equal(LANGUAGES.latex.label, "LaTeX");
-  assert.equal(LANGUAGE_NAMES, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL, Assembly, LaTeX, JSON, YAML, XML and TOML");
-  assert.equal(LANGUAGE_NAMES_OR, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL, Assembly, LaTeX, JSON, YAML, XML or TOML");
+  assert.equal(LANGUAGE_NAMES, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL, Assembly, LaTeX, JSON, YAML, XML, TOML and Markdown");
+  assert.equal(LANGUAGE_NAMES_OR, "C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL, Assembly, LaTeX, JSON, YAML, XML, TOML or Markdown");
   for (const name of ["config.json", "CONFIG.JSON", "tsconfig.json", "settings.jsonc", "Data.JSONC"]) {
     assert.equal(languageForFile(name), "json", name);
   }
@@ -2939,6 +2940,16 @@ test("languages: picked by extension or VS Code language id, with .h treated as 
   assert.equal(languageForVscodeId("ini"), undefined);
   assert.equal(languageForVscodeId("tomll"), undefined);
   assert.equal(LANGUAGES.toml.label, "TOML");
+  for (const name of ["README.md", "notes.markdown", "NOTES.MD", "Guide.Markdown", "a.b.md"]) {
+    assert.equal(languageForFile(name), "markdown", name);
+  }
+  for (const name of ["a.md.bak", "a.mdx", "a.mdown", "a.mdd", "a.rmd", "a.txt", "md", "markdown", "a.markdown2"]) {
+    assert.equal(languageForFile(name), undefined, name);
+  }
+  assert.equal(languageForVscodeId("markdown"), "markdown", "VS Code's built-in id for .md files");
+  assert.equal(languageForVscodeId("mdx"), undefined);
+  assert.equal(languageForVscodeId("plaintext"), undefined);
+  assert.equal(LANGUAGES.markdown.label, "Markdown");
 });
 
 test("tokenizer: Arduino sketches use the C++ tokenizer for comments, preprocessor lines, strings and keywords", () => {
@@ -4597,6 +4608,274 @@ test("package.json: all five menu rules match .toml and no look-alike extensions
       assert.ok(regex.test(ext), `${ext} should match in: ${when}`);
     }
     for (const ext of [".tomls", ".tomll", ".toml.bak", ".tom", ".tml", ".toml2", "toml", ".lock", ".ini"]) {
+      assert.ok(!regex.test(ext), `${ext} should not match in: ${when}`);
+    }
+  }
+});
+
+test("tokenizer: Markdown fixture colours", () => {
+  const source = fixture("basic.md");
+  const md = LANGUAGES[languageForFile("README.md")!].tokenize(source);
+  assert.equal(md.map(joinLine).join("\n"), source, "no text lost or changed");
+  // The fixture's lines, checked one by one (the numbers are line numbers, starting at 0).
+  assert.equal(showLine(md[0]!), "preprocessor:---", "front matter start");
+  assert.equal(showLine(md[1]!), "plain:title: Bread notes", "front matter body is plain");
+  assert.equal(showLine(md[3]!), "preprocessor:---", "front matter end");
+  assert.equal(showLine(md[5]!), "keyword:# Bread notes");
+  assert.equal(showLine(md[7]!), "plain:A made-up notes file for a pretend bakery. The #hashtag and snake_case_name stay plain.");
+  assert.equal(showLine(md[9]!), "keyword:## Ingredients");
+  assert.equal(showLine(md[11]!), "preprocessor:-|plain: Flour, about 2 * 3 * 4 grams", "a list marker, and a * between spaces");
+  assert.equal(showLine(md[12]!), "preprocessor:*|plain: |number:**Salt**|plain: and |number:*yeast*|plain: and |number:__water__");
+  assert.equal(showLine(md[13]!), "preprocessor:+|plain: |preprocessor:[x]|plain: Mix the dough", "a task box");
+  assert.equal(showLine(md[14]!), "preprocessor:+|plain: |preprocessor:[ ]|plain: Bake the loaf");
+  assert.equal(showLine(md[15]!), "preprocessor:1.|plain: First |string:`rise`|plain: for an hour");
+  assert.equal(showLine(md[16]!), "preprocessor:2)|plain: Second rise, see \\*not em\\*", "escaped stars are plain");
+  assert.equal(showLine(md[18]!), "preprocessor:>|plain: A quote with a [|type:link|plain:]|string:(https://bakery.example/wiki/Loaf_(bread))|plain: in it", "a url with brackets inside");
+  assert.equal(showLine(md[19]!), "preprocessor:>|plain: |preprocessor:>|plain: A nested quote");
+  assert.equal(showLine(md[21]!), "plain:Baking steps");
+  assert.equal(showLine(md[22]!), "keyword:============", "setext underline");
+  assert.equal(showLine(md[25]!), "keyword:-------------");
+  assert.equal(showLine(md[27]!), "preprocessor:---", "a thematic break");
+  assert.equal(showLine(md[29]!), "preprocessor:```cpp");
+  assert.equal(showLine(md[30]!), "string:# not a heading", "a # inside a fence is code");
+  assert.equal(showLine(md[32]!), "preprocessor:```");
+  assert.equal(showLine(md[35]!), "string:tilde fence with ``` inside", "backticks do not close a ~~~ fence");
+  assert.equal(showLine(md[36]!), "preprocessor:~~~~", "a longer closing fence");
+  assert.equal(showLine(md[38]!), "comment:<!-- a comment");
+  assert.equal(showLine(md[39]!), "comment:that runs over two lines -->");
+  assert.equal(showLine(md[41]!), "plain:Visit |string:<https://bakery.example>|plain: or ![|type:a loaf|plain:]|string:(images/loaf.png)|plain:.");
+  assert.equal(showLine(md[43]!), "type:[bakery]|plain:: |string:https://bakery.example/home|plain: |string:\"The bakery\"", "a reference definition with a title");
+  assert.equal(showLine(md[45]!), "plain:    indented code stays plain", "indented code is left plain");
+});
+
+test("tokenizer: Markdown tricky cases", () => {
+  // Every token as kind:text, joined with |, and a " // " marks the start of a new line.
+  const kinds = (source: string): string => tokenizeMarkdown(source).map(showLine).join(" // ");
+
+  // Headings.
+  assert.equal(kinds("# Title"), "keyword:# Title");
+  assert.equal(kinds("###### Six"), "keyword:###### Six");
+  assert.equal(kinds("####### Seven"), "plain:####### Seven", "seven # is not a heading");
+  assert.equal(kinds("#hashtag"), "plain:#hashtag", "no space after the # means plain text");
+  assert.equal(kinds("#"), "keyword:#", "an empty heading");
+  assert.equal(kinds("   ## Indented three"), "keyword:   ## Indented three", "up to three spaces are allowed");
+  assert.equal(kinds("    # Four spaces"), "plain:    # Four spaces", "four spaces make it code");
+  assert.equal(kinds("# Title with *stars* and `code`"), "keyword:# Title with *stars* and `code`", "the whole heading is one colour");
+
+  // Setext headings against thematic breaks.
+  assert.equal(kinds("Title\n====="), "plain:Title // keyword:=====");
+  assert.equal(kinds("Title\n-----"), "plain:Title // keyword:-----", "--- under text is a heading underline");
+  assert.equal(kinds("Title\n-"), "plain:Title // keyword:-");
+  assert.equal(kinds("Title\n\n-----"), "plain:Title //  // preprocessor:-----", "after a blank line it is a break");
+  assert.equal(kinds("-----"), "preprocessor:-----");
+  assert.equal(kinds("***"), "preprocessor:***");
+  assert.equal(kinds("___"), "preprocessor:___");
+  assert.equal(kinds("* * *"), "preprocessor:* * *", "spaced stars are a break, not a list");
+  assert.equal(kinds("- - -"), "preprocessor:- - -");
+  assert.equal(kinds("Title\n***"), "plain:Title // preprocessor:***", "only = and - make a heading underline");
+  assert.equal(kinds("====="), "plain:=====", "=== with no text above is plain");
+  assert.equal(kinds("--"), "plain:--", "two dashes are plain text");
+  assert.equal(kinds("- item\n---"), "preprocessor:-|plain: item // preprocessor:---", "a list item above makes it a break");
+  assert.equal(kinds("# Head\n---"), "keyword:# Head // preprocessor:---", "a heading above makes it a break");
+  assert.equal(kinds("> quote\n---"), "preprocessor:>|plain: quote // preprocessor:---");
+
+  // Front matter.
+  assert.equal(kinds("---\na: 1\n---\n# Hi"), "preprocessor:--- // plain:a: 1 // preprocessor:--- // keyword:# Hi");
+  assert.equal(kinds("---\na: 1\n...\ntext"), "preprocessor:--- // plain:a: 1 // preprocessor:... // plain:text", "... also ends front matter");
+  assert.equal(kinds("---\n# not closed\ntext *em*"), "preprocessor:--- // keyword:# not closed // plain:text |number:*em*", "an unclosed front matter is just a break");
+  assert.equal(kinds("text\n---\na\n---"), "plain:text // keyword:--- // plain:a // keyword:---", "front matter only works on line 1");
+  assert.equal(kinds("---"), "preprocessor:---");
+  assert.equal(kinds("---\n---"), "preprocessor:--- // preprocessor:---", "an empty front matter");
+
+  // Fenced code.
+  assert.equal(kinds("```js\n# x\n*a*\n```\n# y"), "preprocessor:```js // string:# x // string:*a* // preprocessor:``` // keyword:# y");
+  assert.equal(kinds("```\nunclosed\n# still code"), "preprocessor:``` // string:unclosed // string:# still code", "an unclosed fence runs to the end");
+  assert.equal(kinds("~~~\na\n```\nb\n~~~"), "preprocessor:~~~ // string:a // string:``` // string:b // preprocessor:~~~", "``` does not close ~~~");
+  assert.equal(kinds("````\na\n```\n````"), "preprocessor:```` // string:a // string:``` // preprocessor:````", "a shorter fence does not close a longer one");
+  assert.equal(kinds("```\na\n`````"), "preprocessor:``` // string:a // preprocessor:`````", "a longer closing fence works");
+  assert.equal(kinds("```\na\n``` x"), "preprocessor:``` // string:a // string:``` x", "text after the closing fence means it is not a closing fence");
+  assert.equal(kinds("- item\n\n  ```\n  code\n  ```\n- next"), "preprocessor:-|plain: item //  // preprocessor:  ``` // string:  code // preprocessor:  ``` // preprocessor:-|plain: next", "a fence inside a list item");
+  assert.equal(kinds("    ```\n    code"), "plain:    ``` // plain:    code", "a fence indented four spaces is code");
+  assert.equal(kinds("```a`b\ntext"), "plain:```a`b // plain:text", "a backtick fence cannot have a backtick in its info word");
+  assert.equal(kinds("~~~a`b\ntext"), "preprocessor:~~~a`b // string:text", "a tilde fence can");
+  assert.equal(kinds("``\ntext"), "plain:`` // plain:text", "two backticks are not a fence");
+
+  // Inline code.
+  assert.equal(kinds("a `x` b"), "plain:a |string:`x`|plain: b");
+  assert.equal(kinds("`*not em* [x](y)`"), "string:`*not em* [x](y)`", "marks inside a code span are not read");
+  assert.equal(kinds("`` a ` b ``"), "string:`` a ` b ``", "a longer run holds a single backtick");
+  assert.equal(kinds("`a``b`"), "string:`a``b`", "runs of a different length are skipped");
+  assert.equal(kinds("`a"), "plain:`a", "an unmatched backtick is plain");
+  assert.equal(kinds("``a`"), "plain:``a`", "a run only matches a run of the same length");
+  assert.equal(kinds("\\`a`"), "plain:\\`a`", "an escaped backtick starts nothing");
+  assert.equal(kinds("a `b\nc` d"), "plain:a `b // plain:c` d", "a code span does not run over lines");
+
+  // Emphasis.
+  assert.equal(kinds("*em* and _em_"), "number:*em*|plain: and |number:_em_");
+  assert.equal(kinds("**bold** and __bold__"), "number:**bold**|plain: and |number:__bold__");
+  assert.equal(kinds("***both***"), "number:***both***");
+  assert.equal(kinds("**bold *and em* inside**"), "number:**bold *and em* inside**");
+  assert.equal(kinds("snake_case_name and my_var_"), "plain:snake_case_name and my_var_", "_ inside a word is not emphasis");
+  assert.equal(kinds("a*b*c"), "plain:a|number:*b*|plain:c", "a star inside a word can be emphasis");
+  assert.equal(kinds("2 * 3 * 4"), "plain:2 * 3 * 4", "stars between spaces are plain");
+  assert.equal(kinds("a *b"), "plain:a *b", "never closed is plain");
+  assert.equal(kinds("a * b*"), "plain:a * b*");
+  assert.equal(kinds("**a"), "plain:**a");
+  assert.equal(kinds("**"), "plain:**");
+  assert.equal(kinds("*a **b"), "plain:*a **b");
+  assert.equal(kinds("\\*not em\\*"), "plain:\\*not em\\*", "escaped stars are plain");
+  assert.equal(kinds("*a \\* b*"), "number:*a \\* b*", "an escaped star inside emphasis does not close it");
+  assert.equal(kinds("*a `*` b*"), "number:*a `*` b*", "a star in a code span does not close it");
+  assert.equal(kinds("*a\nb*"), "plain:*a // plain:b*", "emphasis does not run over lines");
+  assert.equal(kinds("a ____ b ____"), "plain:a ____ b ____", "four marks in a row are plain");
+  assert.equal(kinds("____"), "preprocessor:____", "four underscores on their own are a break");
+  assert.equal(kinds("__init__ and _x_"), "number:__init__|plain: and |number:_x_");
+
+  // Lists and quotes.
+  assert.equal(kinds("- a"), "preprocessor:-|plain: a");
+  assert.equal(kinds("  - nested"), "plain:  |preprocessor:-|plain: nested");
+  assert.equal(kinds("    - deeply nested"), "plain:    |preprocessor:-|plain: deeply nested");
+  assert.equal(kinds("* a"), "preprocessor:*|plain: a");
+  assert.equal(kinds("+ a"), "preprocessor:+|plain: a");
+  assert.equal(kinds("1. a"), "preprocessor:1.|plain: a");
+  assert.equal(kinds("12) a"), "preprocessor:12)|plain: a");
+  assert.equal(kinds("1234567890. a"), "plain:1234567890. a", "ten digits is too long for a marker");
+  assert.equal(kinds("-a"), "plain:-a", "no space after the marker means plain");
+  assert.equal(kinds("1.5 apples"), "plain:1.5 apples");
+  assert.equal(kinds("**a** b"), "number:**a**|plain: b", "** at the start is bold, not a list");
+  assert.equal(kinds("- [x] done"), "preprocessor:-|plain: |preprocessor:[x]|plain: done");
+  assert.equal(kinds("- [X] done"), "preprocessor:-|plain: |preprocessor:[X]|plain: done");
+  assert.equal(kinds("- [ ] todo"), "preprocessor:-|plain: |preprocessor:[ ]|plain: todo");
+  assert.equal(kinds("- [y] no"), "preprocessor:-|plain: [y] no", "only [ ] and [x] are task boxes");
+  assert.equal(kinds("[x] not in a list"), "plain:[x] not in a list", "a box needs a list marker");
+  assert.equal(kinds("- [x]done"), "preprocessor:-|plain: [x]done");
+  assert.equal(kinds("1. [ ] a *b*"), "preprocessor:1.|plain: |preprocessor:[ ]|plain: a |number:*b*");
+  assert.equal(kinds(">"), "preprocessor:>");
+  assert.equal(kinds(">text"), "preprocessor:>|plain:text");
+  assert.equal(kinds("> # Head"), "preprocessor:>|plain: |keyword:# Head", "a heading inside a quote");
+  assert.equal(kinds("> > a **b**"), "preprocessor:>|plain: |preprocessor:>|plain: a |number:**b**");
+  assert.equal(kinds("a > b"), "plain:a > b", "> in the middle is plain");
+
+  // Links, images and urls.
+  assert.equal(kinds("[a](b)"), "plain:[|type:a|plain:]|string:(b)");
+  assert.equal(kinds("![alt](pic.png)"), "plain:![|type:alt|plain:]|string:(pic.png)");
+  assert.equal(kinds("[a](https://x.org/wiki/A_(b)_c) d"), "plain:[|type:a|plain:]|string:(https://x.org/wiki/A_(b)_c)|plain: d", "balanced parentheses in the url");
+  assert.equal(kinds("[a](b \"title\")"), "plain:[|type:a|plain:]|string:(b \"title\")");
+  assert.equal(kinds("[a]( b"), "plain:[a]( b", "an unclosed url is plain");
+  assert.equal(kinds("[a] (b)"), "plain:[a] (b)", "no space is allowed between ] and (");
+  assert.equal(kinds("[a]"), "plain:[a]", "a bare [a] is plain");
+  assert.equal(kinds("[a"), "plain:[a");
+  assert.equal(kinds("a]"), "plain:a]");
+  assert.equal(kinds("[a][ref]"), "plain:[|type:a|plain:]|type:[ref]", "a reference link");
+  assert.equal(kinds("[a][]"), "plain:[|type:a|plain:]|type:[]");
+  assert.equal(kinds("[**b**](u)"), "plain:[|number:**b**|plain:]|string:(u)", "emphasis inside link text");
+  assert.equal(kinds("[`c`](u)"), "plain:[|string:`c`|plain:]|string:(u)", "code inside link text");
+  assert.equal(kinds("[![b](img.svg)](https://x.org)"), "plain:[|type:![b]|string:(img.svg)|plain:]|string:(https://x.org)", "a badge: an image inside a link keeps the link text colour");
+  assert.equal(kinds("[a\\]b](u)"), "plain:[|type:a\\]b|plain:]|string:(u)", "an escaped ] stays in the text");
+  assert.equal(kinds("[a [b] c](u)"), "plain:[|type:a [b] c|plain:]|string:(u)", "brackets inside link text");
+  assert.equal(kinds("`[a](b)`"), "string:`[a](b)`", "a link inside code is code");
+  assert.equal(kinds("<https://x.org/a?b=1>"), "string:<https://x.org/a?b=1>");
+  assert.equal(kinds("<me@x.org> a"), "string:<me@x.org>|plain: a");
+  assert.equal(kinds("<div>text</div>"), "plain:<div>text</div>", "html tags are plain");
+  assert.equal(kinds("a < b > c"), "plain:a < b > c");
+  assert.equal(kinds("[a]: https://x.org"), "type:[a]|plain:: |string:https://x.org", "a reference definition");
+  assert.equal(kinds("[a]:https://x.org"), "type:[a]|plain::|string:https://x.org");
+  assert.equal(kinds("[A b]: <u v> 'T'"), "type:[A b]|plain:: |string:<u v>|plain: |string:'T'");
+  assert.equal(kinds("[^1]: a footnote"), "plain:[^1]: a footnote", "footnotes are left plain");
+  assert.equal(kinds("text\n[a]: u"), "plain:text // plain:[a]: u", "a definition cannot interrupt a paragraph");
+
+  // HTML comments.
+  assert.equal(kinds("a <!-- b --> c"), "plain:a |comment:<!-- b -->|plain: c");
+  assert.equal(kinds("<!-- a\nb\nc --> d *e*"), "comment:<!-- a // comment:b // comment:c -->|plain: d |number:*e*", "a comment over lines, then normal text again");
+  assert.equal(kinds("<!-- a\n# not a heading\n-->"), "comment:<!-- a // comment:# not a heading // comment:-->");
+  assert.equal(kinds("<!-- a\n```\n-->"), "comment:<!-- a // comment:``` // comment:-->", "a fence inside a comment is not read");
+  assert.equal(kinds("`<!--` *a*"), "string:`<!--`|plain: |number:*a*", "a comment start inside code is not a comment");
+  assert.equal(kinds("\\<!-- a -->"), "plain:\\<!-- a -->","an escaped < is plain");
+  const longGap = "<!-- a\n" + "x\n".repeat(98) + "-->";
+  assert.equal(tokenizeMarkdown(longGap)[0]!.map((t) => t.kind).join(), "comment", "a comment closed 99 lines later is still a comment");
+  assert.equal(tokenizeMarkdown(longGap)[99]!.map((t) => t.kind).join(), "comment");
+  const tooFar = "<!-- a\n" + "x\n".repeat(101) + "-->";
+  assert.equal(tokenizeMarkdown(tooFar)[0]!.map((t) => t.kind).join(), "comment", "the first line is a comment either way");
+  assert.equal(tokenizeMarkdown(tooFar)[1]!.map((t) => t.kind).join(), "plain", "no --> within 100 lines: only the first line is a comment");
+  assert.equal(kinds("<!-- never closed\n# Head"), "comment:<!-- never closed // keyword:# Head");
+  assert.equal(kinds("<!--"), "comment:<!--");
+  assert.equal(kinds("<!-->"), "comment:<!-->", "<!--> has no separate closing mark, so only its line is a comment");
+  assert.equal(kinds("<!-- x -->\n---"), "comment:<!-- x --> // preprocessor:---", "a comment line is not paragraph text");
+
+  // Tables are left plain.
+  assert.equal(kinds("| a | b |\n|---|---|\n| 1 | 2 |"), "plain:| a | b | // plain:|---|---| // plain:| 1 | 2 |");
+
+  // Blank lines, tabs and indented lines.
+  assert.equal(kinds("a\n\nb"), "plain:a //  // plain:b");
+  assert.equal(kinds("\ta *b*"), "plain:\ta *b*", "a tab indent makes code");
+  assert.equal(kinds("para\n    more *text*"), "plain:para // plain:    more *text*", "a continued line is left plain too");
+  assert.equal(kinds("   "), "plain:   ");
+  assert.equal(kinds(""), "");
+});
+
+test("tokenizer: Markdown keeps every character, even in broken code", () => {
+  for (const source of ["", "\n", "\n\n", "#", "# ", "`", "``", "```", "~~~", "[", "[]", "[](", "[a](", "[a](b", "![", "<", "<!", "<!--", "<!-->", "<a", "<a@b", "*", "**", "***", "****", "_", "__", "\\", "\\\\", "a\\", "- ", "-", "1.", "1)", ">", "> >", "[ ]", "- [", "- [ ", "- [x", "[a]:", "[a]: ", "---", "---\n", "---\n---", "...", "===", "\t", " \t ", "a\r\nb\r\n", "a\rb", "é *ü* `ö` [ä](ß)", "```\n", "```\n\n", "~~~~\n~~~", "`a\nb`", "[a\nb](c)", "<!-- a\r\nb -->"]) {
+    const lines = tokenizeMarkdown(source);
+    assert.equal(lines.map(joinLine).join("\n"), source, `lost text for ${JSON.stringify(source)}`);
+  }
+  // Big files with many unclosed marks on every line are still read in one go (no slow loops).
+  const big = "[a](\n`b\n*c\n<!-- d\n```e\n".repeat(2000);
+  assert.equal(tokenizeMarkdown(big).map(joinLine).join("\n"), big);
+  const manyBrackets = "[".repeat(20000);
+  assert.equal(tokenizeMarkdown(manyBrackets).map(joinLine).join("\n"), manyBrackets);
+  const manyStars = "*a ".repeat(20000);
+  assert.equal(tokenizeMarkdown(manyStars).map(joinLine).join("\n"), manyStars);
+  const manyTicks = "`a``b```c ".repeat(5000);
+  assert.equal(tokenizeMarkdown(manyTicks).map(joinLine).join("\n"), manyTicks);
+  const manyComments = "<!-- a\n".repeat(5000);
+  assert.equal(tokenizeMarkdown(manyComments).map(joinLine).join("\n"), manyComments);
+  const manyOpeners = "<!--".repeat(5000);
+  assert.equal(tokenizeMarkdown(manyOpeners).map(joinLine).join("\n"), manyOpeners);
+});
+
+test("languages: other languages do not read Markdown rules and Markdown does not read theirs", () => {
+  assert.equal(kindOf(tokenizeCpp("int a; # b"), "# b"), "plain", "# is not a heading in C++");
+  assert.equal(kindOf(tokenizeToml("a = 1 # b"), "# b"), "comment", "# is still a comment in TOML");
+  assert.equal(kindOf(tokenizeYaml("- a"), "- a"), "plain", "YAML does not colour list dashes");
+  assert.equal(kindOf(tokenizeMarkdown("int main() { return 0; }"), "return"), "plain", "C words are only plain words");
+  assert.equal(kindOf(tokenizeMarkdown("// not a comment"), "// not a comment"), "plain", "// is not a comment in Markdown");
+  assert.equal(kindOf(tokenizeMarkdown("# a"), "# a"), "keyword");
+  assert.ok(isSupportedSource("a.md") && isSupportedSource("README.md") && isSupportedSource("a.markdown") && isSupportedSource("A.MD"));
+  assert.ok(!isSupportedSource("a.md.bak") && !isSupportedSource("a.mdx") && !isSupportedSource("a.txt") && !isSupportedSource("a.rmd") && !isSupportedSource("a.markdown2"));
+  assert.ok(!isGeneratedFile("README.md") && !isGeneratedFile("CHANGELOG.md") && !isGeneratedFile("notes.markdown"), "no Markdown file name is skipped as generated");
+  assert.ok(!isExcludedFolder("docs") && !isExcludedFolder("notes"), "docs and notes folders are not skipped");
+});
+
+test("files: folder scan picks up Markdown files and still skips node_modules", async () => {
+  const tree: Record<string, DirEntry[]> = {
+    "": [
+      { name: "README.md", isFile: true, isDirectory: false },
+      { name: "notes.markdown", isFile: true, isDirectory: false },
+      { name: "main.cpp", isFile: true, isDirectory: false },
+      { name: "docs", isFile: false, isDirectory: true },
+      { name: "node_modules", isFile: false, isDirectory: true },
+    ],
+    docs: [
+      { name: "guide.md", isFile: true, isDirectory: false },
+      { name: "image.png", isFile: true, isDirectory: false },
+    ],
+    node_modules: [{ name: "README.md", isFile: true, isDirectory: false }],
+  };
+  const scan = await scanFolder<string>("", async (path) => tree[path] ?? [], (path, name) => (path ? `${path}/${name}` : name));
+  assert.deepEqual(scan.files.map((f) => f.relativePath).sort(), ["README.md", "docs/guide.md", "main.cpp", "notes.markdown"]);
+  assert.deepEqual(scan.skippedFolders, ["node_modules"], "node_modules is skipped, so its README.md is not read");
+});
+
+test("package.json: all five menu rules match .md and .markdown and no look-alike extensions", () => {
+  const manifest = JSON.parse(readFileSync(`${ROOT}/package.json`, "utf8")) as { contributes: { menus: Record<string, { when: string }[]> } };
+  const rules = Object.values(manifest.contributes.menus).flat().map((item) => item.when).filter((when) => when.includes("resourceExtname"));
+  assert.equal(rules.length, 5, "five menu rules use the extension list");
+  for (const when of rules) {
+    const regex = new RegExp(/resourceExtname =~ \/(.*)\/i/.exec(when)![1]!, "i");
+    for (const ext of [".md", ".markdown", ".MD", ".Markdown", ".toml", ".xml", ".cpp"]) {
+      assert.ok(regex.test(ext), `${ext} should match in: ${when}`);
+    }
+    for (const ext of [".mdx", ".mdd", ".mdown", ".markdow", ".markdown2", ".md.bak", ".rmd", ".m2", "md", "markdown", ".txt"]) {
       assert.ok(!regex.test(ext), `${ext} should not match in: ${when}`);
     }
   }

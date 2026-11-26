@@ -80,6 +80,9 @@ put("page.xsl", "<?xml version=\"1.0\"?>\n<xsl:stylesheet version=\"1.0\" xmlns:
 put("sheet.xslt", "<?xml version=\"1.0\"?>\n<xsl:transform version=\"1.0\" xmlns:xsl=\"http://www.w3.org/1999/XSL/Transform\">\n  <xsl:output method=\"html\"/>\n</xsl:transform>\n");
 put("oven-settings.toml", readFileSync(join(fixtures, "basic.toml")));
 put("Cargo.toml", "# A made-up package file\n[package]\nname = \"toaster\"\nversion = \"0.1.0\"\n");
+put("bread-notes.md", readFileSync(join(fixtures, "basic.md")));
+put("README.markdown", "# Toaster\n\nA made-up readme with `code` and a [link](https://bakery.example).\n");
+put("node_modules/dep/README.md", "# A made-up dependency readme\n");
 put("package-lock.json","{\n  \"name\": \"generated\",\n  \"lockfileVersion\": 3\n}\n");
 put("gates.v","// A made-up Verilog file\nmodule gates(input a, input b, output y);\n  assign y = a & b;\nendmodule\n");
 for (const name of ["comments_strings.cpp", "unicode.cpp", "long_lines.cpp"]) {

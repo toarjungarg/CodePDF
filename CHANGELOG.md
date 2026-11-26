@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.30.0
+- Added Markdown export (`.md`, `.markdown`).
+
 ## 1.29.0
 - Added TOML export (`.toml`).
 

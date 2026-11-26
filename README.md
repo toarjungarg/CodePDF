@@ -3,7 +3,7 @@
 A VS Code extension that does two things:
 
 1. Opens PDF files in a VS Code tab.
-2. Exports C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL, Assembly, LaTeX, JSON, YAML, XML and TOML files as clean, printable PDFs.
+2. Exports C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL, Assembly, LaTeX, JSON, YAML, XML, TOML and Markdown files as clean, printable PDFs.
 
 I built it for my own assignments. I wanted to read the assignment PDF next to my code, and then turn my `.cpp` files into PDFs I could upload, without leaving VS Code.
 
@@ -27,7 +27,7 @@ Open any `.pdf` file in VS Code and it shows up in a tab.
 
 Links inside a PDF never open by themselves. CodePDF asks first, and only opens web and email links.
 
-## Exporting C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL, Assembly, LaTeX, JSON, YAML, XML and TOML to PDF
+## Exporting C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL, Assembly, LaTeX, JSON, YAML, XML, TOML and Markdown to PDF
 
 Supported files:
 
@@ -63,19 +63,20 @@ Supported files:
 - YAML: `.yml`, `.yaml`
 - XML: `.xml`, `.xsd`, `.xsl`, `.xslt`
 - TOML: `.toml`
+- Markdown: `.md`, `.markdown`
 
-`.h` files are coloured as C++, which also works for C headers. `.m` files are treated as MATLAB. `.ino` sketches are coloured as C++. `.v` files are treated as Verilog. Assembly files are coloured by one general set of rules, since the syntax changes with each chip (x86, ARM, RISC-V, MIPS and others). LaTeX files are the source (the `.tex` text), not the typeset result, and package and class files (`.sty` and `.cls`) are coloured the same way. XML files, XML Schema files (`.xsd`) and stylesheets (`.xsl` and `.xslt`) are all read by the same rules.
+`.h` files are coloured as C++, which also works for C headers. `.m` files are treated as MATLAB. `.ino` sketches are coloured as C++. `.v` files are treated as Verilog. Assembly files are coloured by one general set of rules, since the syntax changes with each chip (x86, ARM, RISC-V, MIPS and others). LaTeX files are the source (the `.tex` text), not the typeset result, and package and class files (`.sty` and `.cls`) are coloured the same way. XML files, XML Schema files (`.xsd`) and stylesheets (`.xsl` and `.xslt`) are all read by the same rules. Markdown files are exported as the source text with colours, not as a rendered page, and `.md` and `.markdown` are read by the same rules.
 
 With HTML, CSS and JavaScript, it supports traditional web dev.
 
-I'm adding more languages. Markdown is next.
+I may add more languages later.
 
 | Command | What it does |
 |---|---|
 | CodePDF: Export as PDF | Exports one file. `main.cpp` becomes `main.pdf` in the same folder. |
 | CodePDF: Export Selection as PDF | Exports only the lines you highlighted, with their real line numbers. |
 | CodePDF: Export Multiple Files | Combines the files you pick into one PDF. Each file starts on a new page. |
-| CodePDF: Export Folder as PDF | Combines every C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL, Assembly, LaTeX, JSON, YAML, XML and TOML file in a folder into one PDF. |
+| CodePDF: Export Folder as PDF | Combines every C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL, Assembly, LaTeX, JSON, YAML, XML, TOML and Markdown file in a folder into one PDF. |
 
 You can run them from the Command Palette, or by right-clicking a file or folder in the Explorer, or by right-clicking in the editor.
 
@@ -105,7 +106,7 @@ The PDFs have syntax colours, line numbers, a header with the file name and a fo
 
 ![Exporting the demo folder, where the file list shows build and the hidden file were skipped](images/export-folder.gif)
 
-The demos show C++ files, but everything works the same way for C, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL, Assembly, LaTeX, JSON, YAML, XML and TOML.
+The demos show C++ files, but everything works the same way for C, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL, Assembly, LaTeX, JSON, YAML, XML, TOML and Markdown.
 
 Some details worth knowing:
 
@@ -168,7 +169,7 @@ Used only for building and testing, never shipped:
 | [@types/vscode](https://www.npmjs.com/package/@types/vscode) | 1.140.0 | Type descriptions for the VS Code API. |
 | [@vscode/vsce](https://www.npmjs.com/package/@vscode/vsce) | 4.1.0 | Packages the extension into a `.vsix` file. |
 
-The syntax colouring is written from scratch (`src/export/cFamilyTokenizer.ts` for C and C++, `src/export/pythonTokenizer.ts` for Python, `src/export/cssTokenizer.ts` for CSS, `src/export/htmlTokenizer.ts` for HTML, `src/export/javascriptTokenizer.ts` for JavaScript, TypeScript and React, `src/export/rustTokenizer.ts` for Rust, `src/export/javaTokenizer.ts` for Java, `src/export/csharpTokenizer.ts` for C#, `src/export/goTokenizer.ts` for Go, `src/export/phpTokenizer.ts` for PHP, `src/export/sqlTokenizer.ts` for SQL, `src/export/shellTokenizer.ts` for Shell / Bash, `src/export/kotlinTokenizer.ts` for Kotlin, `src/export/swiftTokenizer.ts` for Swift, `src/export/rubyTokenizer.ts` for Ruby, `src/export/dartTokenizer.ts` for Dart, `src/export/luaTokenizer.ts` for Lua, `src/export/rTokenizer.ts` for R, `src/export/matlabTokenizer.ts` for MATLAB, `src/export/verilogTokenizer.ts` for Verilog and SystemVerilog, `src/export/vhdlTokenizer.ts` for VHDL, `src/export/asmTokenizer.ts` for Assembly, `src/export/latexTokenizer.ts` for LaTeX, `src/export/jsonTokenizer.ts` for JSON, `src/export/yamlTokenizer.ts` for YAML, `src/export/xmlTokenizer.ts` for XML, `src/export/tomlTokenizer.ts` for TOML; Arduino sketches use the C++ one), so there is no highlighting library.
+The syntax colouring is written from scratch (`src/export/cFamilyTokenizer.ts` for C and C++, `src/export/pythonTokenizer.ts` for Python, `src/export/cssTokenizer.ts` for CSS, `src/export/htmlTokenizer.ts` for HTML, `src/export/javascriptTokenizer.ts` for JavaScript, TypeScript and React, `src/export/rustTokenizer.ts` for Rust, `src/export/javaTokenizer.ts` for Java, `src/export/csharpTokenizer.ts` for C#, `src/export/goTokenizer.ts` for Go, `src/export/phpTokenizer.ts` for PHP, `src/export/sqlTokenizer.ts` for SQL, `src/export/shellTokenizer.ts` for Shell / Bash, `src/export/kotlinTokenizer.ts` for Kotlin, `src/export/swiftTokenizer.ts` for Swift, `src/export/rubyTokenizer.ts` for Ruby, `src/export/dartTokenizer.ts` for Dart, `src/export/luaTokenizer.ts` for Lua, `src/export/rTokenizer.ts` for R, `src/export/matlabTokenizer.ts` for MATLAB, `src/export/verilogTokenizer.ts` for Verilog and SystemVerilog, `src/export/vhdlTokenizer.ts` for VHDL, `src/export/asmTokenizer.ts` for Assembly, `src/export/latexTokenizer.ts` for LaTeX, `src/export/jsonTokenizer.ts` for JSON, `src/export/yamlTokenizer.ts` for YAML, `src/export/xmlTokenizer.ts` for XML, `src/export/tomlTokenizer.ts` for TOML, `src/export/markdownTokenizer.ts` for Markdown; Arduino sketches use the C++ one), so there is no highlighting library.
 
 Install scripts are turned off for this project (`.npmrc`), and optional binary packages are not installed.
 
@@ -176,7 +177,7 @@ Known issue: `npm audit` reports a moderate issue in `minimatch` 10.2.6, which `
 
 ## Limitations
 
-- Syntax colouring is for C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL, Assembly, LaTeX, JSON, YAML, XML and TOML only, and it is pattern-based rather than a full parser, so unusual macros can be coloured slightly wrong. The text itself is always exact.
+- Syntax colouring is for C, C++, Python, CSS, HTML, JavaScript, TypeScript, React, Rust, Java, C#, Go, PHP, SQL, Shell, Kotlin, Swift, Ruby, Dart, Lua, R, MATLAB, Arduino, Verilog, SystemVerilog, VHDL, Assembly, LaTeX, JSON, YAML, XML, TOML and Markdown only, and it is pattern-based rather than a full parser, so unusual macros can be coloured slightly wrong. The text itself is always exact.
 - In Python, `match`, `case` and `type` are only coloured as keywords when the statement fits on one line.
 - In JavaScript, a `/` right after `)` is read as division, so a regex there (like `if (ok) /a/.test(s)`) isn't coloured.
 - In TypeScript, type words like `string` and `number` are always coloured as types, even when used as a variable name.
@@ -203,6 +204,7 @@ Known issue: `npm audit` reports a moderate issue in `minimatch` 10.2.6, which `
 - In YAML, only `.yml` and `.yaml` files are supported (not `.yaml.tmpl`, `.yml.bak` or other names). A word or quoted string followed by a `:` and a space (or the end of the line) is coloured as a key, so a key that spans lines or uses `? ` is coloured like a normal value. `true`, `false`, `null` and `~` (also `True`, `TRUE` and so on) are keywords, so `yes`, `no`, `on` and `off` are plain. A number is a whole value like `12`, `-1.5`, `1e3`, `0x1F`, `0o17`, `.inf` or `.nan`, so `1_000`, `0b101` and `1.2.3` are plain. Lines under a `|` or `>` are coloured as one string, a `#` in them is not a comment, and a line indented no deeper than the line with the `|` ends it. Document markers (`---`, `...`), directives (`%YAML`) and tags (`!!str`) use the preprocessor colour, and anchors (`&name`) and aliases (`*name`) the keyword colour. A quote with no closing quote within 100 lines is coloured only to the end of its line. A `[` or `{` that is never closed keeps its bracket rules until the next `---`, which can colour a `|` block after it as normal text.
 - In XML, only `.xml`, `.xsd`, `.xsl` and `.xslt` files are supported (not `.svg`, `.xhtml`, `.plist`, `.csproj` or other names). Tag names (like `book` and `xs:element`) are coloured as keywords, attribute names as types, and attribute values and the text inside `<![CDATA[ ... ]]>` as strings. `<?xml ... ?>` lines, `<!DOCTYPE ...>` and declarations like `<!ELEMENT ...>` are preprocessor lines, and so are the `<![CDATA[` and `]]>` markers. References like `&amp;`, `&#160;` and `&#x20;` are coloured as numbers in the text between tags, but not inside an attribute value. The text between tags is plain, and a `<` with no name after it (like `a < b`) is plain text. Tags are not checked, so a missing or extra end tag is not noticed. A comment or CDATA section with no end is coloured to the end of the file, and a tag that is missing its `>` ends where the next `<` starts. An attribute value is a string until its closing quote, which can be on a later line, but a quote with no closing quote within 100 lines is coloured only to the end of its line. XSLT words like `xsl:template` are coloured like any other tag name. Exporting a very large `.xml` file (like a data dump) makes a very long PDF.
 - In TOML, only `.toml` files are supported (not `Cargo.lock`, `poetry.lock` or other names), and they work even when no TOML extension is installed. Table headers like `[package]` and `[[bin]]` are coloured as keywords, and keys (including dotted and quoted ones like `a."b.c"`) as types. Strings are coloured as strings, including the multi-line `"""` and `'''` forms, where a `#` is not a comment. Numbers (like `1_000`, `0xFF`, `1e3` and `+inf`) and dates and times (like `1979-05-27T07:32:00Z`) are coloured as numbers, and `true` and `false` are keywords. A one-line string with no closing quote is coloured only to the end of its line, but a multi-line string with no closing delimiter is coloured to the end of the file. Inline tables like `{ x = 1 }` are read on one line only, so one that is spread over several lines has its inner lines read as ordinary keys. An array that is never closed ends at the next line that looks like a key or a header. Values are not checked, so something like `1__0` or a word with no quotes is left plain.
+- In Markdown, only `.md` and `.markdown` files are supported (not `.mdx`, `.rmd`, `.txt` or other names). The PDF shows the Markdown source with colours, not the rendered page, so headings stay as `# Title` text and links stay as `[text](url)`. Headings (including `===` and `---` under a line of text) are keywords. Fence lines, `---` lines, front matter markers, list markers, task boxes like `[x]` and `>` quote marks are preprocessor lines. Code (fenced blocks and `` `inline code` ``), link urls, `<autolinks>` and reference urls are strings, link text and reference labels are types, and emphasis (`*em*`, `_em_`, `**bold**`, `__bold__`) is coloured as numbers. A fenced code block that is never closed is coloured to the end of the file, like other Markdown tools do, and nothing inside a fenced block is read as Markdown. Indented code (4 or more spaces or a tab) is left plain, since it can't be told apart from a continued list item, and so a fence indented that far (for example in a nested list) is not recognised either. Front matter is the `---` block on the very first line; if it is never closed, the first line is read as a normal `---` line and the rest as normal Markdown. Inline code, links and emphasis are only read inside one line, so a link or a span split over two lines is left plain, and an unmatched backtick or `*` is plain text. An `_` inside a word (like `snake_case`) and a `*` followed by a space are not emphasis, and a backslash (like `\*`) stops the next character from starting anything. An `<!-- html comment -->` can run over several lines, but if there is no `-->` within 100 lines it is coloured only to the end of its line. Tables, bare web addresses, `~~strikethrough~~` and html tags are left plain, and a `>` quote only has its marks and headings read, not code fences inside it.
 - Since `.h` files are coloured as C++, a C header that uses a C++ word like `new` or `class` as a name shows that word coloured as a keyword.
 - Emoji are not supported in exported PDFs. They print as a placeholder symbol.
 - Characters your editor font does not have (for example Chinese, Japanese or Korean) are filled in from a system font.
